@@ -42,12 +42,25 @@ VlnPlot(HSC_joined, features = c("Cd27", "Cd34", "Esam", "Sell", "Ctnnal1"))
 VlnPlot(HSC_joined, features = c("Cd34"))
 FeaturePlot(HSC_joined, features = c("Sell"))
 
-#Subset
-HSC_joined[["percent.Ctnnal1"]] <- PercentageFeatureSet(object = HSC_joined, features = c("Ctnnal1"))
-VlnPlot(HSC_joined, features = c("percent.Ctnnal1"))
-quartiles <- quantile(FetchData(HSC_joined, vars = c("Ctnnal1")), probs = c(0.25, 0.5, 0.55, 0.75), na.rm = TRUE)
-print(quartiles)
+#Define High vs Low for a certain gene
+gene_expression <- FetchData(HSC_joined, vars = "Ctnnal1")
+HSC_joined[["ctnnal1_highvslow"]] <- ifelse(gene_expression > median(gene_expression$Ctnnal1), "High", "Low")
+median(gene_expression$Ctnnal1)
+DimPlot(HSC_joined, group.by = c("ctnnal1_highvslow"))
 
-HSC_Ctnnal1 <- subset(HSC_joined, subset = Ctnnal1 > 0)
-HSC_noCtnnal1 <- subset(HSC_joined, subset = WhichCells(HSC_joined, expression = Ctnnal1 == 0))
-cells0 <- WhichCells(HSC_joined, expression = Ctnnal1 == 0)
+gene_expression <- FetchData(HSC_joined, vars = "Cd27")
+HSC_joined[["cd27_highvslow"]] <- ifelse(gene_expression > median(gene_expression$Cd27), "High", "Low")
+median(gene_expression$Cd27)
+DimPlot(HSC_joined, group.by = c("cd27_highvslow"))
+
+gene_expression <- FetchData(HSC_joined, vars = "Cd34")
+HSC_joined[["cd34_highvslow"]] <- ifelse(gene_expression > median(gene_expression$Cd34), "High", "Low")
+median(gene_expression$Cd34)
+DimPlot(HSC_joined, group.by = c("cd34_highvslow"))
+
+#Subset
+CD34high <- subset(HSC_joined, subset = cd34_highvslow == "high")
+CD34low <- subset(HSC_joined, subset = cd34_highvslow == "Low")
+
+cd34.markers <- FindMarkers(HSC_joined, cd34_highvslow == "High", cd34_highvslow == "Low")
+
