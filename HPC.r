@@ -4,7 +4,7 @@ library(patchwork)
 library(ggplot2)
 options(future.globals.maxSize = 2000 * 1024^2)
 
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq")
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HPC")
 # Load the HPC dataset
 HPC.data <- Read10X(data.dir = "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HPC/Data")
 
@@ -19,6 +19,8 @@ HPC_merged <- NormalizeData(object = HPC_merged)
 HPC_merged <- FindVariableFeatures(object = HPC_merged)
 HPC_merged <- ScaleData(object = HPC_merged)
 HPC_merged <- RunPCA(object =HPC_merged)
+
+#Integrate Layers
 HPC_merged <- IntegrateLayers(object =HPC_merged, method = RPCAIntegration, orig.reduction = "pca", new.reduction = "integrated.rpca",
                               verbose = FALSE)
 HPC_joined <- JoinLayers(HPC_merged)
@@ -32,26 +34,28 @@ DimPlot(object =HPC_joined, reduction = "umap")
 DimPlot(HPC_joined, group.by = c("orig.ident"))
 DimPlot(HPC_joined, split.by = c("orig.ident"))
 
+#Define High vs Low for a certain gene
+gene_expression <- FetchData(HPC_joined, vars = "Ctnnal1")
+HPC_joined[["ctnnal1_highvslow"]] <- ifelse(gene_expression > median(gene_expression$Ctnnal1, na.rm = TRUE), "High", "Low")
+median(gene_expression$Ctnnal1)
+DimPlot(HPC_joined, group.by = c("ctnnal1_highvslow"))
+
+gene_expression <- FetchData(HPC_joined, vars = "Cd27")
+HPC_joined[["cd27_highvslow"]] <- ifelse(gene_expression > median(gene_expression$Cd27, na.rm = TRUE), "High", "Low")
+median(gene_expression$Cd27)
+DimPlot(HPC_joined, group.by = c("cd27_highvslow"))
+
+gene_expression <- FetchData(HPC_joined, vars = "Cd34")
+HPC_joined[["cd34_highvslow"]] <- ifelse(gene_expression > median(gene_expression$Cd34, na.rm = TRUE), "High", "Low")
+median(gene_expression$Cd34)
+DimPlot(HPC_joined, group.by = c("cd34_highvslow"))
+
+
 #identify markers in all clusters
 HPC.markers <- FindAllMarkers(HPC_joined)
 write.csv(HPC.markers, "allHPCmarkers.csv")
 DoHeatmap(HPC, features = top10$gene) + NoLegend()
 
-#Define High vs Low for a certain gene
-gene_expression <- FetchData(HSC_joined, vars = "Ctnnal1")
-HSC_joined[["ctnnal1_highvslow"]] <- ifelse(gene_expression > median(gene_expression$Ctnnal1), "High", "Low")
-median(gene_expression$Ctnnal1)
-DimPlot(HSC_joined, group.by = c("ctnnal1_highvslow"))
-
-gene_expression <- FetchData(HSC_joined, vars = "Cd27")
-HSC_joined[["cd27_highvslow"]] <- ifelse(gene_expression > median(gene_expression$Cd27), "High", "Low")
-median(gene_expression$Cd27)
-DimPlot(HSC_joined, group.by = c("cd27_highvslow"))
-
-gene_expression <- FetchData(HSC_joined, vars = "Cd34")
-HSC_joined[["cd34_highvslow"]] <- ifelse(gene_expression > median(gene_expression$Cd34), "High", "Low")
-median(gene_expression$Cd34)
-DimPlot(HSC_joined, group.by = c("cd34_highvslow"))
 
 #Subset
 CD34high <- subset(HSC_joined, subset = cd34_highvslow == "high")
