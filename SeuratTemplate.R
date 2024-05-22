@@ -36,3 +36,8 @@ DimPlot(HSC_joined, split.by = c("orig.ident"))
 HSC.markers <- FindAllMarkers(HSC_joined)
 write.csv(HSC.markers, "allHSCmarkers.csv")
 DoHeatmap(HSC, features = top10$gene) + NoLegend()
+
+#plots
+VlnPlot(HSC_joined, features = c("Cd27", "Cd34", "Esam", "Sell", "Ctnnal1"))
+VlnPlot(HSC_joined, features = c("Cd34"))
+FeaturePlot(HSC_joined, features = c("Sell"))
