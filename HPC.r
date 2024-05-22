@@ -54,11 +54,16 @@ DimPlot(HPC_joined, group.by = c("cd34_highvslow"))
 #identify markers in all clusters
 HPC.markers <- FindAllMarkers(HPC_joined)
 write.csv(HPC.markers, "allHPCmarkers.csv")
-DoHeatmap(HPC, features = top10$gene) + NoLegend()
+cluster2.
 
+#plots
+VlnPlot(HPC_joined, features = c("Cd34", "Cd38", "Ptprc", "Thy1", "Itga6", "Kit", "Ly6a", "Flt3", "Slamf1", "Cd48"))
+VlnPlot(HPC_joined, features = c("Sell"), split.by = c("cd27_highvslow"))
+RidgePlot(HPC_joined, features = c("Cd34"))
+FeaturePlot(HSC_joined, features = c("Sell"))
 
 #Subset
-CD34high <- subset(HSC_joined, subset = cd34_highvslow == "high")
-CD34low <- subset(HSC_joined, subset = cd34_highvslow == "Low")
+CD34high <- subset(HPC_joined, subset = cd34_highvslow == "high")
+CD34low <- subset(HPC_joined, subset = cd34_highvslow == "Low")
 
-cd34.markers <- FindMarkers(HSC_joined, cd34_highvslow == "High", cd34_highvslow == "Low")
+cd34.markers <- FindMarkers(HPC_joined, cd34_highvslow == "High", cd34_highvslow == "Low")
