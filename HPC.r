@@ -51,10 +51,16 @@ median(gene_expression$Cd34)
 DimPlot(HPC_joined, group.by = c("cd34_highvslow"))
 
 
+#use the FindMarkers function to calculate differential gene expression between the two layers:
+HPC_joined[["identity"]] <- HPC_joined$orig.ident
+de_results <- FindMarkers(HPC_joined$orig.ident, cells.1 = "HPC.P7", cells.2 = "HPC.Adult")
+
+
 #identify markers in all clusters
 HPC.markers <- FindAllMarkers(HPC_joined)
 write.csv(HPC.markers, "allHPCmarkers.csv")
-cluster2.
+DoHeatmap(HPC_joined, features = c("Flt3", "Slamf1", "Cd48")) + NoLegend()
+
 
 #plots
 VlnPlot(HPC_joined, features = c("Cd34", "Cd38", "Ptprc", "Thy1", "Itga6", "Kit", "Ly6a", "Flt3", "Slamf1", "Cd48"))

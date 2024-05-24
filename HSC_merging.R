@@ -4,7 +4,7 @@ library(patchwork)
 library(ggplot2)
 options(future.globals.maxSize = 2000 * 1024^2)
 
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq")
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HSC")
 # Load the HSC dataset
 HSC.data <- Read10X(data.dir = "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HSC/HSC_P7")
 
@@ -39,7 +39,8 @@ DoHeatmap(HSC, features = top10$gene) + NoLegend()
 
 #plots
 VlnPlot(HSC_joined, features = c("Cd27", "Cd34", "Esam", "Sell", "Ctnnal1"))
-VlnPlot(HSC_joined, features = c("Cd34"))
+VlnPlot(HSC_joined, features = c("Cd34", "Cd27", "Sell"))
+RidgePlot(HSC_joined, features = c("Cd34", "Cd27", "Sell"))
 FeaturePlot(HSC_joined, features = c("Sell"))
 
 #Define High vs Low for a certain gene
