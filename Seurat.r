@@ -26,9 +26,13 @@ merged.object <- merge(x = split.object$HPC.E16.5, y = list(split.object$HPC.P7,
 rm(split.object)
 
 #Differential expression by condition
-gene_expression <- FetchData(group1, vars = "Cd27")
+gene_expression <- FetchData(group1, vars = "Ctnnal1")
+write.csv(gene_expression, "ctnnal1.csv")
 group1[["Cd27_highvslow"]] <- ifelse(gene_expression > median(gene_expression$Cd27, na.rm = TRUE), "High", "Low")
 median(gene_expression$Cd27)
+#group1[["Cd34_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Cd34, 0.67), "Cd34High", 
+#                                     ifelse(gene_expression < quantile(gene_expression$Cd34, 0.33), "Cd34Low", "Cd34Mid"))
+
 Idents(group1) <- "Cd27_highvslow"
 de.markers <- FindMarkers(group1, ident.1 = "High", ident.2 = "Low")
 write.csv(de.markers, "Cd27_highvslow_markers_E16.5.csv")
@@ -56,6 +60,8 @@ DimPlot(group1, split.by = c("ctnnal1_highvslow"))
 gene_expression <- FetchData(joined.object, vars = "Ctnnal1")
 joined.object[["ctnnal1_highvslow"]] <- ifelse(gene_expression > median(gene_expression$Ctnnal1, na.rm = TRUE), "High", "Low")
 median(gene_expression$Ctnnal1)
+group4[["Cd27_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Cd27, 0.67), "Cd27High", 
+                                     ifelse(gene_expression < quantile(gene_expression$Cd27, 0.33), "Cd27Low", "Cd27Mid"))
 DimPlot(joined.object, group.by = c("ctnnal1_highvslow"))
 
 gene_expression <- FetchData(joined.object, vars = "Cd27")
