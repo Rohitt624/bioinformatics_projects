@@ -26,12 +26,12 @@ merged.object <- merge(x = split.object$HPC.E16.5, y = list(split.object$HPC.P7,
 rm(split.object)
 
 #Differential expression by condition
-gene_expression <- FetchData(group1, vars = "Ctnnal1")
-group1[["ctnnal1_highvslow"]] <- ifelse(gene_expression > median(gene_expression$Ctnnal1, na.rm = TRUE), "High", "Low")
-median(gene_expression$Ctnnal1)
-Idents(group1) <- "ctnnal1_highvslow"
+gene_expression <- FetchData(group1, vars = "Cd27")
+group1[["Cd27_highvslow"]] <- ifelse(gene_expression > median(gene_expression$Cd27, na.rm = TRUE), "High", "Low")
+median(gene_expression$Cd27)
+Idents(group1) <- "Cd27_highvslow"
 de.markers <- FindMarkers(group1, ident.1 = "High", ident.2 = "Low")
-write.csv(de.markers, "ctnnal1_highvslow_markers_Adult.csv")
+write.csv(de.markers, "Cd27_highvslow_markers_E16.5.csv")
 
 #Processing
 group1 <- FindVariableFeatures(object = group1)
@@ -39,10 +39,10 @@ group1 <- ScaleData(object = group1)
 group1 <- RunPCA(object =group1)
 
 #Integrate Layers (if necessary)
-#merged.object <- IntegrateLayers(object =merged.object, method = RPCAIntegration, orig.reduction = "pca", new.reduction = "integrated.rpca",
- #                                verbose = FALSE)
-#joined.object <- JoinLayers(merged.object)
-#rm(merged.object)
+merged.object <- IntegrateLayers(object =merged.object, method = RPCAIntegration, orig.reduction = "pca", new.reduction = "integrated.rpca",
+                                 verbose = FALSE)
+joined.object <- JoinLayers(merged.object)
+rm(merged.object)
 
 #Cluster
 group1 <- FindNeighbors(object =group1, dims = 1:30)
