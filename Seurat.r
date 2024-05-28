@@ -85,3 +85,6 @@ VlnPlot(joined.object, features = c("Cd34", "Cd38", "Ptprc", "Thy1", "Itga6", "K
 VlnPlot(joined.object, features = c("Sell"), split.by = c("cd27_highvslow"))
 RidgePlot(joined.object, features = c("Cd34"))
 FeaturePlot(HSC_joined, features = c("Sell"))
+DimPlot(object =group1, reduction = "umap")
+DimPlot(group1, group.by = c("ctnnal1_highvslow"))
+DimPlot(group1, split.by = c("ctnnal1_highvslow"))
