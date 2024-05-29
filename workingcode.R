@@ -51,3 +51,6 @@ de.markers <- FindMarkers(group4, ident.1 = group4$Cd27_highvslow == "Low", iden
 write.csv(de.markers, "Cd34_highvslow_markers_Adult.csv")
 
 write.csv(gene_expression, "gene_expression.csv")
+
+#testing
+
