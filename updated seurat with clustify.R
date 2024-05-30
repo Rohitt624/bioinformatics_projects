@@ -25,7 +25,7 @@ DimPlot(object =seurat.object, reduction = "umap")
 #Run clustify to annotate clusters
 
 #Load reference data
-ref <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MPC Bulk Seq Data/MPC_Counts_Corrected.csv")
+ref <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MPC Bulk Seq Data/MPC_Counts_Ref.csv")
 ref <- ref[, -1]
 ref2 <- ref[, -1]
 table(duplicated(ref2$Gene.name))
@@ -42,24 +42,25 @@ res2 <- clustify(
 DimPlot(res2, group.by = c("type"))
 
 #Subset one population
-group1 <- subset(res2, subset = type == "PG_3")
-group1 <- NormalizeData(object = group1)
+group2 <- subset(res2, subset = type %in% c("CMP_2", "CMP_3"))
+group2 <- NormalizeData(object = group2)
 #Processing
-group1 <- FindVariableFeatures(object = group1)
-group1 <- ScaleData(object = group1)
-group1 <- RunPCA(object =group1)
+group2 <- FindVariableFeatures(object = group2)
+group2 <- ScaleData(object = group2)
+group2 <- RunPCA(object =group2)
 #Cluster
-group1 <- FindNeighbors(object =group1, dims = 1:30)
-group1 <- FindClusters(object =group1)
-group1 <- RunUMAP(object =group1, dims = 1:30)
-DimPlot(object =group1, reduction = "umap")
+group2 <- FindNeighbors(object =group2, dims = 1:30)
+group2 <- FindClusters(object =group2)
+group2 <- RunUMAP(object =group2, dims = 1:30)
+DimPlot(object =group2, reduction = "umap")
 #Calculate
-res2 <- clustify(
-  input = group1,
+res3 <- clustify(
+  input = group2,
   ref_mat = ref2,
   cluster_col = "seurat_clusters",
   obj_out = TRUE
 )
-DimPlot(group1, group.by = c("type"))
+DimPlot(res3, group.by = c("type"))
 
-
+table(res2$type)
+table(res3$type)
