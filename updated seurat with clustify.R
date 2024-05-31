@@ -41,6 +41,9 @@ res2 <- clustify(
 #plot results
 DimPlot(res2, group.by = c("type"))
 
+VlnPlot(res2, features = c("Ly6a", "Kit"))
+
+
 #Subset one population
 group2 <- subset(res2, subset = type %in% c("CMP_2", "CMP_3"))
 group2 <- NormalizeData(object = group2)
