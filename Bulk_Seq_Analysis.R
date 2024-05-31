@@ -2,11 +2,16 @@
 ################################################################
 #   Differential expression analysis with DESeq2
 library(DESeq2)
+library(tximport)
+library(tidyverse)
 
 # load counts table from GEO
 urld <- "https://www.ncbi.nlm.nih.gov/geo/download/?format=file&type=rnaseq_counts"
 path <- paste(urld, "acc=GSE114922", "file=GSE114922_raw_counts_GRCh38.p13_NCBI.tsv.gz", sep="&");
 tbl <- as.matrix(data.table::fread(path, header=T, colClasses="integer"), rownames="GeneID")
+
+#load counts table
+tbl <- 
 
 # load gene annotations 
 apath <- paste(urld, "type=rnaseq_counts", "file=Human.GRCh38.p13.annot.tsv.gz", sep="&")
