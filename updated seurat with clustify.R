@@ -1,4 +1,3 @@
-library(scCATCH)
 library(clustifyr)
 library(ggplot2)
 library(cowplot)
@@ -83,14 +82,3 @@ cluster.ids <- c("HSC/MPP", "CMP", "granulocytic", "E-MEP", "GMP", "erythroid", 
 names(cluster.ids) <- levels(seurat.object)
 seurat.object <- RenameIdents(seurat.object, cluster.ids)
 DimPlot(object =seurat.object, reduction = "umap")
-
-demo_geneinfo()
-clusters <- as.character(Idents(seurat.object))
-cellmatch <- cellmatch
-obj <- createscCATCH(rnaseq.data, clusters)
-obj <- findmarkergene(obj, species = "Mouse", cluster = clusters, tissue = "Bone marrow", marker = cellmatch, pvalue = TRUE, verbose = TRUE)
-obj <- findcelltype(obj, verbose = TRUE)
-findcelltype(obj)
-cluster.idents <- obj@celltype
-names(cluster.idents) <- levels(seurat.object)
-seurat.object <- RenameIdents(seurat.object, cluster.idents)
