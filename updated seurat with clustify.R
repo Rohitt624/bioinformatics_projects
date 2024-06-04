@@ -1,3 +1,4 @@
+library(scCATCH)
 library(clustifyr)
 library(ggplot2)
 library(cowplot)
@@ -5,7 +6,7 @@ library(dplyr)
 library(Seurat)
 library(patchwork)
 options(future.globals.maxSize = 2000 * 1024^2)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MPC Bulk Seq Data")
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
 
 #Load and pre-process scRNAseq data
 rnaseq.data <- Read10X(data.dir="C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
@@ -21,6 +22,9 @@ seurat.object <- FindNeighbors(object =seurat.object, dims = 1:30)
 seurat.object <- FindClusters(object =seurat.object)
 seurat.object <- RunUMAP(object =seurat.object, dims = 1:30)
 DimPlot(object =seurat.object, reduction = "umap")
+
+FeaturePlot(seurat.object, features = c("Gypa"))
+VlnPlot(seurat.object, features = c("Flt3"))
 
 #Run clustify to annotate clusters
 
@@ -67,3 +71,26 @@ DimPlot(res3, group.by = c("type"))
 
 table(res2$type)
 table(res3$type)
+
+clusters.markers <- FindAllMarkers(seurat.object)
+write.csv(clusters.markers, "allmarkers.csv")
+
+#Applying annotation
+Idents(seurat.object) <- "seurat_clusters" #make sure the clusters are the identity metadata column
+idents <- Idents(seurat.object)
+#Rename clusters
+cluster.ids <- c("HSC/MPP", "CMP", "granulocytic", "E-MEP", "GMP", "erythroid", "MK-MEP", "MK-MEP", "GMP", "Mast Cells", "10", "MPP")
+names(cluster.ids) <- levels(seurat.object)
+seurat.object <- RenameIdents(seurat.object, cluster.ids)
+DimPlot(object =seurat.object, reduction = "umap")
+
+demo_geneinfo()
+clusters <- as.character(Idents(seurat.object))
+cellmatch <- cellmatch
+obj <- createscCATCH(rnaseq.data, clusters)
+obj <- findmarkergene(obj, species = "Mouse", cluster = clusters, tissue = "Bone marrow", marker = cellmatch, pvalue = TRUE, verbose = TRUE)
+obj <- findcelltype(obj, verbose = TRUE)
+findcelltype(obj)
+cluster.idents <- obj@celltype
+names(cluster.idents) <- levels(seurat.object)
+seurat.object <- RenameIdents(seurat.object, cluster.idents)
