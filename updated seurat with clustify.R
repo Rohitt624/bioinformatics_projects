@@ -22,8 +22,8 @@ seurat.object <- FindClusters(object =seurat.object)
 seurat.object <- RunUMAP(object =seurat.object, dims = 1:30)
 DimPlot(object =seurat.object, reduction = "umap")
 
-FeaturePlot(seurat.object, features = c("Gypa"))
-VlnPlot(seurat.object, features = c("Flt3"))
+FeaturePlot(seurat.object, features = c("Cd34", "Fcgr3"))
+VlnPlot(seurat.object, features = c("Cd34", "Cd27", "Sell", "Flt3")) 
 
 #Run clustify to annotate clusters
 
@@ -78,7 +78,7 @@ write.csv(clusters.markers, "allmarkers.csv")
 Idents(seurat.object) <- "seurat_clusters" #make sure the clusters are the identity metadata column
 idents <- Idents(seurat.object)
 #Rename clusters
-cluster.ids <- c("HSC/MPP", "CMP", "granulocytic", "E-MEP", "GMP", "erythroid", "MK-MEP", "MK-MEP", "GMP", "Mast Cells", "10", "MPP")
+cluster.ids <- c("HSC/MPP", "CMP", "GMP", "E-MEP", "GMP", "E-MEP", "MK-MEP", "MK-MEP", "GMP", "GMP", "E-MEP", "MPP")
 names(cluster.ids) <- levels(seurat.object)
 seurat.object <- RenameIdents(seurat.object, cluster.ids)
 DimPlot(object =seurat.object, reduction = "umap")
