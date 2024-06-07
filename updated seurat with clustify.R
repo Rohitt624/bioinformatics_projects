@@ -23,62 +23,98 @@ seurat.object <- RunUMAP(object =seurat.object, dims = 1:30)
 DimPlot(object =seurat.object, reduction = "umap")
 
 FeaturePlot(seurat.object, features = c("Cd34", "Fcgr3"))
-VlnPlot(seurat.object, features = c("Cd34", "Cd27", "Sell", "Flt3")) 
-
-#Run clustify to annotate clusters
-
-#Load reference data
-ref <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MPC Bulk Seq Data/MPC_Counts_Ref.csv")
-ref <- ref[, -1]
-ref2 <- ref[, -1]
-table(duplicated(ref2$Gene.name))
-rownames(ref2) <- make.names(ref$Gene.name, unique = TRUE)
-#Calculate
-res2 <- clustify(
-  input = seurat.object,
-  ref_mat = ref2,
-  cluster_col = "seurat_clusters",
-  obj_out = TRUE
-)
-
-#plot results
-DimPlot(res2, group.by = c("type"))
-
-VlnPlot(res2, features = c("Ly6a", "Kit"))
-
+VlnPlot(seurat.object, features = c("Cd27", "Cd34", "Sell")) 
+RidgePlot(seurat.object, features = c("Itga2b", "Eng")) 
 
 #Subset one population
-group2 <- subset(res2, subset = type %in% c("CMP_2", "CMP_3"))
-group2 <- NormalizeData(object = group2)
+group1 <- subset(seurat.object, subset = idents %in% c("CMP"))
+group1 <- NormalizeData(object = group1)
 #Processing
-group2 <- FindVariableFeatures(object = group2)
-group2 <- ScaleData(object = group2)
-group2 <- RunPCA(object =group2)
+group1 <- FindVariableFeatures(object = group1)
+group1 <- ScaleData(object = group1)
+group1 <- RunPCA(object =group1)
 #Cluster
-group2 <- FindNeighbors(object =group2, dims = 1:30)
-group2 <- FindClusters(object =group2)
-group2 <- RunUMAP(object =group2, dims = 1:30)
-DimPlot(object =group2, reduction = "umap")
-#Calculate
-res3 <- clustify(
-  input = group2,
+group1 <- FindNeighbors(object =group1, dims = 1:30)
+group1 <- FindClusters(object =group1)
+group1 <- RunUMAP(object =group1, dims = 1:30)
+DimPlot(object =group1, reduction = "umap")
+DimPlot(object =group1, reduction = "umap", group.by = "idents")
+FeaturePlot(group1, features = c("Cd34", "Fcgr3"))
+VlnPlot(group1, features = c("Cd27", "Cd34", "Sell")) 
+RidgePlot(group1, features = c("Cd27", "Cd34", "Sell")) 
+
+gene_expression <- FetchData(group1, vars = "Cd27")
+group1[["Cd27_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Cd27, 0.7), "Cd27High", 
+                                     ifelse(gene_expression < quantile(gene_expression$Cd27, 0.3), "Cd27Low", "Cd27Mid"))
+DimPlot(object =group1, reduction = "umap", split.by = "Cd27_highvslow")
+gene_expression <- FetchData(group1, vars = "Cd34")
+group1[["Cd34_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Cd34, 0.7), "Cd34High", 
+                                     ifelse(gene_expression < quantile(gene_expression$Cd34, 0.3), "Cd34Low", "Cd34Mid"))
+DimPlot(object =group1, reduction = "umap", split.by = "Cd34_highvslow")
+gene_expression <- FetchData(group1, vars = "Sell")
+group1[["Cd62L_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Sell, 0.7), "Cd62LHigh", 
+                                     ifelse(gene_expression < quantile(gene_expression$Sell, 0.3), "Cd62LLow", "Cd62LMid"))
+DimPlot(object =group1, reduction = "umap", split.by = "Cd62L_highvslow")
+
+Idents(group1) <- "Cd34_highvslow"
+s2.1 <- subset(group1, idents = "Cd34Low")
+Idents(s2.1) <- "Cd62L_highvslow"
+s2 <- subset(s2.1, idents = "Cd62LLow")
+rm(s2)
+Idents(group1) <- "Cd27_highvslow"
+s3.1 <- subset(group1, idents = "Cd27Low")
+Idents(s3.1) <- "Cd62L_highvslow"
+s3 <- subset(s3.1, idents = "Cd62LLow")
+rm(s3)
+
+Idents(group1) <- "Cd62L_highvslow"
+s2 <- subset(group1, idents = "Cd62LLow")
+s2$PM <- ifelse(s2$Cd27_highvslow == 'Cd27Low' & s2$Cd34_highvslow == 'Cd34Low', 'BothLow', 
+                ifelse(s2$Cd27_highvslow == "Cd27Low" & s2$Cd34_highvslow != "Cd34Low", "Cd27only",
+                ifelse(s2$Cd27_highvslow != "Cd27Low" & s2$Cd34_highvslow == "Cd34Low", "Cd34only", 
+                "Misc")))
+DimPlot(s2, group.by = 'PM')
+table(s2$PM)
+
+ref <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MPC Bulk Seq Data/MPC_Counts_Ref.csv")
+ref <- ref[, -1] #only necessary if bulk seq data has ensembl id before gene names
+ref2 <- ref[, -1]
+table(duplicated(ref2$Gene.name)) #check for duplicate gene names
+rownames(ref2) <- make.names(ref$Gene.name, unique = TRUE) #forces gene names to become unique
+#Calculate (it will automatically add a metadata column with the label)
+res <- clustify(
+  input = s2,
   ref_mat = ref2,
   cluster_col = "seurat_clusters",
   obj_out = TRUE
 )
-DimPlot(res3, group.by = c("type"))
 
-table(res2$type)
-table(res3$type)
-
-clusters.markers <- FindAllMarkers(seurat.object)
+clusters.markers <- FindAllMarkers(s2)
 write.csv(clusters.markers, "allmarkers.csv")
+
+DimPlot(res, group.by = c("type"))
+
+Idents(s2) <- "PM"
+s2.markers <- FindAllMarkers(s2)
+write.csv(s2.markers, "alls2markers.csv")
+top_genes <- FindAllMarkers(s2, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25) %>%
+  group_by("PM") %>%
+  top_n(n = 10, wt = avg_logFC)
+
+# Generate the heatmap
+DoHeatmap(s2, features = top_genes$gene, slot = )
+DimPlot(group1, group.by = c("Cd34_highvslow"))
 
 #Applying annotation
 Idents(seurat.object) <- "seurat_clusters" #make sure the clusters are the identity metadata column
 idents <- Idents(seurat.object)
 #Rename clusters
-cluster.ids <- c("HSC/MPP", "CMP", "GMP", "E-MEP", "GMP", "E-MEP", "MK-MEP", "MK-MEP", "GMP", "GMP", "E-MEP", "MPP")
+cluster.ids <- c("HSC/MPP/LMPP", "CMP", "GP", "E-MEP", "GMP", "E-MEP", "MEP", "MK-MEP", "GMP", "MOP", "E-MEP", "MPP")
 names(cluster.ids) <- levels(seurat.object)
 seurat.object <- RenameIdents(seurat.object, cluster.ids)
 DimPlot(object =seurat.object, reduction = "umap")
+
+
+idents <- Idents(seurat.object)
+seurat.object[["idents"]] <- idents
+
