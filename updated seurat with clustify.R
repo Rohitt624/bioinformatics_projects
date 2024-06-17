@@ -117,4 +117,3 @@ DimPlot(object =seurat.object, reduction = "umap")
 
 idents <- Idents(seurat.object)
 seurat.object[["idents"]] <- idents
-
