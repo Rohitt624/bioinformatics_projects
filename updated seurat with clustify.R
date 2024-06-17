@@ -4,11 +4,13 @@ library(cowplot)
 library(dplyr)
 library(Seurat)
 library(patchwork)
+library(AUCell)
+library(GSEABase)
 options(future.globals.maxSize = 2000 * 1024^2)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
 
 #Load and pre-process scRNAseq data
-rnaseq.data <- Read10X(data.dir="C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
+rnaseq.data <- Read10X(data.dir="C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
 seurat.object <- CreateSeuratObject(counts = rnaseq.data, project = "MPC", min.cells = 3, min.features = 200)
 rm(rnaseq.data)
 seurat.object <- NormalizeData(object = seurat.object)
@@ -76,6 +78,7 @@ s2$PM <- ifelse(s2$Cd27_highvslow == 'Cd27Low' & s2$Cd34_highvslow == 'Cd34Low',
 DimPlot(s2, group.by = 'PM')
 table(s2$PM)
 
+#clustifyr 
 ref <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MPC Bulk Seq Data/MPC_Counts_Ref.csv")
 ref <- ref[, -1] #only necessary if bulk seq data has ensembl id before gene names
 ref2 <- ref[, -1]
@@ -104,6 +107,32 @@ top_genes <- FindAllMarkers(s2, only.pos = TRUE, min.pct = 0.25, logfc.threshold
 # Generate the heatmap
 DoHeatmap(s2, features = top_genes$gene, slot = )
 DimPlot(group1, group.by = c("Cd34_highvslow"))
+
+#AUCell
+rnaseq.data <- Read10X(data.dir="C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
+exprMatrix <- rnaseq.data
+exprMatrix <- exprMatrix[unique(rownames(exprMatrix)),]
+dim(exprMatrix)
+exprMatrix[1:5,1:4]
+gHSC <- c("Procr", "Pdzk1ip1", "Ltb", "Mllt3", "Ifitm1", "Gimap1", "Gimap6", "Limd2", "Trim47", "Neil2", "Vwf",
+          "Pde1b", "Neo1", "Sqrdl", "Sult1a1", "Cd82", "Ramp2", "Ubl3", "Ly6a", "Cdkn1c", "Fgfr3", "Cldn10", "Ptpn14", 
+          "Mettl7a1", "Smtnl1", "Ctsf", "Gstm1", "Sox18", "Fads3")
+gCMP <- c("Mpo", "Lars2", "Gm23935", "Rpl18a", "Gpx1", "Gm42418", "Gm26917", "Eef1a1", "Rps2", "Rpsa", "Rplp0", "Ppia", 
+          "Ftl1", "Gapdh", "Eif5a", "Prtn3", "Rpl13", "Rps18", "Rps3", "Elane", "Ly6e", "Rps14", "Rps19", "H2-D1", 
+          "Rack1")
+HSCSets <- GeneSet(gHSC, setName="HSC")
+hsc.auc <- AUCell_run(exprMatrix, HSCSets)
+cells_assignment <- AUCell_exploreThresholds(hsc.auc, plotHist=TRUE, assign=TRUE)
+
+cellsAssigned <- lapply(cells_assignment, function(x) x$assignment)
+assignmentTable <- reshape2::melt(cellsAssigned, value.name="cell")
+colnames(assignmentTable)[2] <- "geneSet"
+head(assignmentTable)
+
+seurat.object[["HSC"]] <- cellsAssigned
+FeaturePlot(seurat.object, features = "HSC")
+
+
 
 #Applying annotation
 Idents(seurat.object) <- "seurat_clusters" #make sure the clusters are the identity metadata column
