@@ -7,11 +7,11 @@ library(patchwork)
 library(AUCell)
 library(GSEABase)
 options(future.globals.maxSize = 2000 * 1024^2)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
 
 #Load and pre-process scRNAseq data
-rnaseq.data <- Read10X(data.dir="C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
-seurat.object <- CreateSeuratObject(counts = rnaseq.data, project = "MPC", min.cells = 3, min.features = 200)
+rnaseq.data <- Read10X(data.dir="C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
+seurat.object <- CreateSeuratObject(counts = rnaseq.data, project = "MPC")
 rm(rnaseq.data)
 seurat.object <- NormalizeData(object = seurat.object)
 #Processing
@@ -109,8 +109,9 @@ DoHeatmap(s2, features = top_genes$gene, slot = )
 DimPlot(group1, group.by = c("Cd34_highvslow"))
 
 #AUCell
-rnaseq.data <- Read10X(data.dir="C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
+rnaseq.data <- Read10X(data.dir="C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
 exprMatrix <- rnaseq.data
+rm(rnaseq.data)
 exprMatrix <- exprMatrix[unique(rownames(exprMatrix)),]
 dim(exprMatrix)
 exprMatrix[1:5,1:4]
@@ -122,14 +123,25 @@ gCMP <- c("Mpo", "Lars2", "Gm23935", "Rpl18a", "Gpx1", "Gm42418", "Gm26917", "Ee
           "Rack1")
 HSCSets <- GeneSet(gHSC, setName="HSC")
 hsc.auc <- AUCell_run(exprMatrix, HSCSets)
-cells_assignment <- AUCell_exploreThresholds(hsc.auc, plotHist=TRUE, assign=TRUE)
+set.seed(333)
+par(mfrow=c(3,3))
+cells_assignment <- AUCell_exploreThresholds(hsc.auc, plotHist=TRUE, assign=TRUE) #see threshold as graph
+cells_assignment$HSC$aucThr$thresholds #see threshold as table
+HSCAssigned <- cells_assignment$HSC$assignment
+length(HSCAssigned)
+
+#to manually set a new threshold
+#geneSetName <- rownames(hsc.auc)[grep("HSC", rownames(hsc.auc))]
+#AUCell_plotHist(hsc.auc[geneSetName,], aucThr=0.25)
+#abline(v=0.25)
+
 
 cellsAssigned <- lapply(cells_assignment, function(x) x$assignment)
 assignmentTable <- reshape2::melt(cellsAssigned, value.name="cell")
 colnames(assignmentTable)[2] <- "geneSet"
 head(assignmentTable)
 
-seurat.object[["HSC"]] <- cellsAssigned
+seurat.object[["HSC"]] <- HSCAssigned
 FeaturePlot(seurat.object, features = "HSC")
 
 
