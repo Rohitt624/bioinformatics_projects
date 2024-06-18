@@ -25,7 +25,7 @@ dds <- DESeq(dds)
 resmep <- results(dds) 
 
 #write results as csv
-write.csv(res, "completeresults.csv")
+#write.csv(res, "completeresults.csv")
 
 #display as heatmap
 library(pheatmap)
@@ -37,7 +37,7 @@ df <- as.data.frame(colData(dds)[,c("condition")])
 colnames(assay(ntd)[select,]) <- str_sub(colnames(assay(ntd)[select,]), 1, -3)
 rownames(df) <- colnames(assay(ntd)[select,])
 # For displaying the plot
-pheatmap(assay(ntd)[select,], cluster_rows=FALSE, show_rownames=FALSE,
+pheatmap(assay(ntd)[select,], cluster_rows=FALSE, show_rownames=TRUE,
          cluster_cols=FALSE, annotation_col=df)
 
 # For saving the plot
