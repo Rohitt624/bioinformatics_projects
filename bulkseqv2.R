@@ -12,7 +12,7 @@ cts <- cts2[, -1]
 table(duplicated(cts$Gene.name)) #check for duplicate gene names
 rownames(cts) <- make.names(cts2$Gene.name, unique = TRUE) #forces gene names to become unique
 rm(cts2)
-coldata <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MPC Bulk Seq Data/coldata.csv")
+coldata <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MPC Bulk Seq Data/coldatacmp.csv")
 dds <- DESeqDataSetFromMatrix(countData = cts, colData = coldata, design = ~ condition)
 
 #Pre-filter
@@ -22,7 +22,7 @@ dds <- dds[keep,]
 
 #Differential Expression
 dds <- DESeq(dds)
-resmep <- results(dds) 
+rescmp <- results(dds) 
 
 #write results as csv
 #write.csv(res, "completeresults.csv")
