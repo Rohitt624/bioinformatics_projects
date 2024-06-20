@@ -30,7 +30,7 @@ DimPlot(object =seurat.object, reduction = "umap")
 umap <- DimPlot(object =seurat.object, reduction = "umap")
 
 #Visualization ----------------------------------------------
-FeaturePlot(seurat.object, features = c("Vwf"))
+FeaturePlot(seurat.object, features = c("H2afy", "Procr", "mt-Nd1", "Pdzph1", "Rhd", "Csf1r", "Clec4a2", "Gp1bb", "Gzmb", "Gm15915", "Cd34", "Fcgr3"))
 VlnPlot(seurat.object, features = c("Cd27", "Cd34", "Sell")) 
 RidgePlot(seurat.object, features = c("Itga2b", "Eng")) 
 
@@ -86,7 +86,7 @@ DimPlot(s2, group.by = 'PM')
 table(s2$PM)
 
 #clustifyr -------------------------
-ref <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MPC Bulk Seq Data/MPC_Counts_Ref.csv")
+ref <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MPC Bulk Seq Data/MPC_Counts_Corrected.csv")
 ref <- ref[, -1] #only necessary if bulk seq data has ensembl id before gene names
 ref2 <- ref[, -1]
 table(duplicated(ref2$Gene.name)) #check for duplicate gene names
