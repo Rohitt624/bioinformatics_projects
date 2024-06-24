@@ -24,7 +24,7 @@ rownames(seurat_object[["RNA"]])
 # List the current default assay
 DefaultAssay(seurat_object)
 #Change default assay
-DefaultAssay(seurat_object) <- "RNA" #change it to either "RNA" or "ADT"
+DefaultAssay(seurat_object) <- "ADT" #change it to either "RNA" or "ADT"
 DefaultAssay(seurat_object)
 
 #Process RNA data
@@ -36,6 +36,14 @@ seurat_object <- FindClusters(object =seurat_object)
 seurat_object <- RunUMAP(object =seurat_object, dims = 1:30)
 DimPlot(seurat_object)
 
+#This section creates FeaturePlots of all ADT markers
+# Get all the ADT markers
+adt_markers <- rownames(seurat_object[["ADT"]])
+# Loop through each marker and plot
+for(marker in adt_markers){
+  # Feature plot for each marker
+  FeaturePlot(seurat_object, features = marker, pt.size = 0.1)
+}
 
 # Now, we will visualize CD34 levels for RNA and protein By setting the default assay, we can
 # visualize one or the other
