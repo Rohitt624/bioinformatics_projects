@@ -10,7 +10,7 @@ data <- Read10X(data.dir = "C:/Users/rthalla/OneDrive - Loyola University Chicag
 rownames(x = data[["Antibody Capture"]]) <- gsub(pattern = "_[control_]*TotalSeqA", replacement = "",
                                                          x = rownames(x = data[["Antibody Capture"]]))
 # Initialize the Seurat object with the raw (non-normalized data).
-seurat_object <- CreateSeuratObject(counts = data[["Gene Expression"]], min.cells = 3, min.features = 200)
+seurat_object <- CreateSeuratObject(counts = data[["Gene Expression"]])
 seurat_object <- NormalizeData(seurat_object)
 seurat_object[["ADT"]] <- CreateAssay5Object(counts = data[["Antibody Capture"]][, colnames(x = seurat_object)])
 Assays(seurat_object) #check assays in object
