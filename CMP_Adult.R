@@ -28,6 +28,27 @@ seurat.object <- FindClusters(object =seurat.object)
 seurat.object <- RunUMAP(object =seurat.object, dims = 1:30)
 DimPlot(object =seurat.object, reduction = "umap")
 umap <- DimPlot(object =seurat.object, reduction = "umap")
+markers <- FindAllMarkers(seurat.object)
+
+
+
+#Add some metadata column ----------------------------------
+gene_expression <- FetchData(seurat.object, vars = "Cd27")
+seurat.object[["Cd27_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Cd27, 0.8), "Cd27High", 
+                                     ifelse(gene_expression > 0, "Cd27Mid", "Cd27Low"))
+DimPlot(object =seurat.object, reduction = "umap", group.by = "Cd27_highvslow")
+gene_expression <- FetchData(seurat.object, vars = "Cd34")
+seurat.object[["Cd34_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Cd34, 0.8), "Cd34High", 
+                                     ifelse(gene_expression >0, "Cd34Mid", "Cd34Low"))
+DimPlot(object =seurat.object, reduction = "umap", group.by = "Cd34_highvslow")
+gene_expression <- FetchData(seurat.object, vars = "Sell")
+seurat.object[["Cd62L_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Sell, 0.8), "Cd62LHigh", 
+                                      ifelse(gene_expression > 0, "Cd62LMid", "Cd62LMidLow"))
+DimPlot(object =seurat.object, reduction = "umap", group.by = "Cd62L_highvslow")
+
+
+
+
 
 #Visualization ----------------------------------------------
 FeaturePlot(seurat.object, features = c("H2afy", "Procr", "mt-Nd1", "Pdzph1", "Rhd", "Csf1r", "Clec4a2", "Gp1bb", "Gzmb", "Gm15915", "Cd34", "Fcgr3"))
@@ -36,7 +57,7 @@ RidgePlot(seurat.object, features = c("Itga2b", "Eng"))
 
 #Further processing -------------------------------------------
 #Subset one population
-group1 <- subset(seurat.object, subset = idents %in% c("CMP"))
+group1 <- subset(seurat.object, idents = "CMP")
 group1 <- NormalizeData(object = group1)
 #Processing
 group1 <- FindVariableFeatures(object = group1)
@@ -48,22 +69,24 @@ group1 <- FindClusters(object =group1)
 group1 <- RunUMAP(object =group1, dims = 1:30)
 DimPlot(object =group1, reduction = "umap")
 DimPlot(object =group1, reduction = "umap", group.by = "idents")
-FeaturePlot(group1, features = c("Cd34", "Fcgr3"))
+FeaturePlot(group1, features = c("Cd34", "Sell"))
 VlnPlot(group1, features = c("Cd27", "Cd34", "Sell")) 
 RidgePlot(group1, features = c("Cd27", "Cd34", "Sell")) 
 
 gene_expression <- FetchData(group1, vars = "Cd27")
 group1[["Cd27_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Cd27, 0.7), "Cd27High", 
                                      ifelse(gene_expression < quantile(gene_expression$Cd27, 0.3), "Cd27Low", "Cd27Mid"))
-DimPlot(object =group1, reduction = "umap", split.by = "Cd27_highvslow")
+DimPlot(object =group1, reduction = "umap", group.by = "Cd27_highvslow")
 gene_expression <- FetchData(group1, vars = "Cd34")
 group1[["Cd34_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Cd34, 0.7), "Cd34High", 
                                      ifelse(gene_expression < quantile(gene_expression$Cd34, 0.3), "Cd34Low", "Cd34Mid"))
-DimPlot(object =group1, reduction = "umap", split.by = "Cd34_highvslow")
+DimPlot(object =group1, reduction = "umap", group.by = "Cd34_highvslow")
 gene_expression <- FetchData(group1, vars = "Sell")
 group1[["Cd62L_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Sell, 0.7), "Cd62LHigh", 
                                      ifelse(gene_expression < quantile(gene_expression$Sell, 0.3), "Cd62LLow", "Cd62LMid"))
-DimPlot(object =group1, reduction = "umap", split.by = "Cd62L_highvslow")
+DimPlot(object =group1, reduction = "umap", group.by = "Cd62L_highvslow")
+
+
 
 Idents(group1) <- "Cd34_highvslow"
 s2.1 <- subset(group1, idents = "Cd34Low")
@@ -167,12 +190,26 @@ plotReducedDim(sce_complete, dimred = "UMAP", colour_by = "MkP")
 
 #Applying annotations
 Idents(seurat.object) <- "seurat_clusters" #make sure the clusters are the identity metadata column
-idents <- Idents(seurat.object)
+seurat.object[["idents"]] <- Idents(seurat.object)
 #Rename clusters
-cluster.ids <- c("HSC", "unlabeled" , "PM/PG", "CMP", "unlabeled", "MEP", "unlabeled", "MkP", "PG/GMP", "PM", "MEP", "unlabeled")
+cluster.ids <- c("HSC", "unlabeled" , "PM/PG", "MEP", "unlabeled", "CMP", "unlabeled", "MkP", "PG/GMP", "PM", "MEP", "unlabeled")
 names(cluster.ids) <- levels(seurat.object)
 seurat.object <- RenameIdents(seurat.object, cluster.ids)
 DimPlot(object =seurat.object, reduction = "umap")
+
+group1 <- subset(seurat.object, idents = c("CMP", "PM", "MEP"))
+DimPlot(object =group1, reduction = "umap")
+FeaturePlot(group1, features = c("Cd27", "Cd34"))
+VlnPlot(group1, features = c("Cd27", "Cd34", "Sell"))
+
+# Get the top 10 genes from each cluster
+top10_genes <- FindAllMarkers(group1, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+top10_genes <- top10_genes %>% group_by(cluster) %>% top_n(n = 10, wt = avg_log2FC)
+# Create a vector of the gene names
+genes_use <- top10_genes$gene
+# Generate the heatmap
+DoHeatmap(group1, features = genes_use)
+
 
 
 #Applying manual annotation ----------------
@@ -183,6 +220,8 @@ cluster.ids <- c("HSC/MPP/LMPP", "CMP", "GP", "CFU-E", "GMP", "CFU-E", "MEP", "M
 names(cluster.ids) <- levels(seurat.object)
 seurat.object <- RenameIdents(seurat.object, cluster.ids)
 DimPlot(object =seurat.object, reduction = "umap")
+
+
 
 
 idents <- Idents(seurat.object)
