@@ -4,9 +4,10 @@ library(scuttle)
 library(scran)
 library(scater)
 library(Seurat)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
+setwd(".../output/") #replace this with the file path to whatever folder you're using
 
 #AUCell -----------------------------------
+#the HSC and MkP sets are from papers that I found, but the others are the most differentially expressed genes from the MPC bulk seq data
 gHSC <- c("Procr", "Pdzk1ip1", "Ltb", "Mllt3", "Ifitm1", "Gimap1", "Gimap6", "Limd2", "Trim47", "Neil2", "Vwf",
           "Pde1b", "Neo1", "Sqrdl", "Sult1a1", "Cd82", "Ramp2", "Ubl3", "Ly6a", "Cdkn1c", "Fgfr3", "Cldn10", "Ptpn14", 
           "Mettl7a1", "Smtnl1", "Ctsf", "Gstm1", "Sox18", "Fads3")
@@ -34,8 +35,9 @@ MkPSets <- GeneSet(gMkP, setName="MkP")
 geneSets <- GeneSetCollection(c(HSCSets, CMPSets, GMPSets, PGSets, PMSets, MEPSets, MkPSets))
 
 # Convert Seurat object to SingleCellExperiment
-sce_complete <- as.SingleCellExperiment(seurat.object)
+sce_complete <- as.SingleCellExperiment(seurat_object) #preferrably use a seurat object that you have already clustered if you want to use this for annotation
 
+#from here to "Run UMAP on PCA" is copy pasted from the code used in this paper: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11147777/
 # Calculate cell rankings
 cell_rankings <- assay(sce_complete, "counts") %>% AUCell_buildRankings()
 
@@ -67,10 +69,10 @@ plotReducedDim(sce_complete, dimred = "UMAP", colour_by = "MEP")
 plotReducedDim(sce_complete, dimred = "UMAP", colour_by = "MkP")
 
 #Applying annotations
-Idents(seurat.object) <- "seurat_clusters" #make sure the clusters are the identity metadata column
-idents <- Idents(seurat.object)
-#Rename clusters
+Idents(seurat_object) <- "seurat_clusters" #make sure the clusters are the identity metadata column
+idents <- Idents(seurat_object) #moves these cluster identities into their own variable
+#Rename clusters (decided based on which parts were most enriched in the DimPlots from above)
 cluster.ids <- c("HSC", "unlabeled" , "PM/PG", "CMP", "unlabeled", "MEP", "unlabeled", "MkP", "PG/GMP", "PM", "MEP", "unlabeled")
-names(cluster.ids) <- levels(seurat.object)
-seurat.object <- RenameIdents(seurat.object, cluster.ids)
-DimPlot(object =seurat.object, reduction = "umap")
+names(cluster.ids) <- levels(seurat_object)
+seurat_object <- RenameIdents(seurat_object, cluster.ids)
+DimPlot(object =seurat_object, reduction = "umap")
