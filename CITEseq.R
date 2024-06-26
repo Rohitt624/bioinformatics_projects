@@ -2,7 +2,7 @@ library(Seurat)
 library(ggplot2)
 library(patchwork)
 library(dplyr)
-options(future.globals.maxSize = 2000 * 1024^2)
+options(future.globals.maxSize = 4000 * 1024^2)
 setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSM5344483_Sca1neg_CITEseq/")
 
 # Load the dataset
@@ -10,7 +10,7 @@ data <- Read10X(data.dir = "C:/Users/rthalla/OneDrive - Loyola University Chicag
 rownames(x = data[["Antibody Capture"]]) <- gsub(pattern = "_[control_]*TotalSeqA", replacement = "",
                                                          x = rownames(x = data[["Antibody Capture"]]))
 # Initialize the Seurat object with the raw (non-normalized data).
-seurat_object <- CreateSeuratObject(counts = data[["Gene Expression"]])
+seurat_object <- CreateSeuratObject(counts = data[["Gene Expression"]], min.cells = 3, min.features = 200)
 seurat_object <- NormalizeData(seurat_object)
 seurat_object[["ADT"]] <- CreateAssay5Object(counts = data[["Antibody Capture"]][, colnames(x = seurat_object)])
 Assays(seurat_object) #check assays in object
