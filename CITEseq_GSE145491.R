@@ -2,21 +2,52 @@ library(Seurat)
 library(ggplot2)
 library(patchwork)
 library(dplyr)
+library(biomaRt)
 options(future.globals.maxSize = 4000 * 1024^2)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/")
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/")
 
-# Load the dataset and create Seurat Object with two assays
-data <- as.sparse(read.table(file = "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491_UMIsMatrix.txt.gz",
+# Load the dataset and create Seurat Object with two assays ---------------------------------
+data <- as.sparse(read.table(file = "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/GSE145491_UMIsMatrix.txt.gz",
                                sep = "", header = TRUE, row.names = 1))
 adtfeat <- c("CD9", "CD41", "CD48", "CD55", "CD105", "CD115", "CD135", "CD150", "CXCR4", "ESAM", "CD4")
 adtmat <- data[adtfeat, ]
 allfeat <- rownames(data)
 rnafeat <- setdiff(allfeat, adtfeat)
 rnamat <- data[rnafeat, ]
+rm(data, adtfeat, allfeat)
 
+# Replace RNA Ensembl IDs with gene IDs (This section maxes out my RAM so I can't test it. Just skip)-----------------------
+ensembl <- useEnsembl(biomart = "genes")
+listDatasets(ensembl)
+mart <- useDataset("mmusculus_gene_ensembl", useMart("ensembl"))
+gene_ids <- getBM(
+  filters = "ensembl_gene_id",
+  attributes = c("ensembl_gene_id", "mgi_symbol"),
+  values = rnafeat,
+  mart = mart
+)
+
+id_list <- split(gene_ids[["mgi_symbol"]], gene_ids[["ensembl_gene_id"]])
+rnaname <- character(nrow(rnamat))
+for (i in seq_len(nrow(rnamat))) {
+  ensembl_id <- rownames(rnamat)[i]
+  if (ensembl_id %in% names(id_list)) {
+    rnaname[i] <- id_list[[ensembl_id]]
+  } else{
+    rnaname[i] <- ensembl_id
+  }
+}
+rnaname[rnaname == ""] <- NA
+
+rownames(rnamat) <- rnaname
+rm(ensembl, gene_ids, id_list, mart, ensembl_id, i, rnaname)
+rownames(rnamat) <- make.names(rnamat, unique = TRUE)
+
+
+#Create Seurat Object -------------------------------------------------------------------
 seurat_object <- CreateSeuratObject(counts = rnamat)
 seurat_object[["ADT"]] <- CreateAssay5Object(counts = adtmat)
-rm(adtfeat, adtmat, rnafeat, rnamat, allfeat, data)
+rm(adtmat, rnamat, rnafeat)
 Assays(seurat_object)
 seurat_object <- NormalizeData(object = seurat_object, assay = "RNA")
 seurat_object <- NormalizeData(object = seurat_object, assay = "ADT", method = "CLR")
@@ -50,7 +81,7 @@ DimPlot(seurat_object)
 DefaultAssay(seurat_object) <- "ADT"
 p1 <- FeaturePlot(seurat_object, "CD41", cols = c("lightgrey", "darkgreen")) + ggtitle("CD41 protein")
 DefaultAssay(seurat_object) <- "RNA"
-p2 <- FeaturePlot(seurat_object, "ENSMUSG00000034664") + ggtitle("Cd41 RNA")
+p2 <- FeaturePlot(seurat_object, "Cd41") + ggtitle("Cd41 RNA")
 # place plots side-by-side
 p1 | p2
 
