@@ -16,7 +16,7 @@ rnafeat <- setdiff(allfeat, adtfeat)
 rnamat <- data[rnafeat, ]
 rm(data, adtfeat, allfeat)
 
-# Replace RNA Ensembl IDs with gene IDs (This section maxes out my RAM so I can't test it. Just skip)-----------------------
+# Replace RNA Ensembl IDs with gene IDs (This section maxes out my RAM so I can't test it. Just skip)----------------
 ensembl <- useEnsembl(biomart = "genes")
 listDatasets(ensembl)
 mart <- useDataset("mmusculus_gene_ensembl", useMart("ensembl"))
