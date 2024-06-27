@@ -2,17 +2,18 @@ library(DESeq2)
 library(tximport)
 library(tidyverse)
 library(rnaseqGene)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MPC Bulk Seq Data/")
+library(pheatmap)
+setwd(".../output/")
 
 #DESeq2  analysis ------------------------
 #Load data into DESeq dataset
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MPC Bulk Seq Data/MPC_Counts_Corrected.csv")
+cts2 <- read.csv("...MPC_Counts_Corrected.csv") #file path to Counts csv document
 cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
 cts <- cts2[, -1]
 table(duplicated(cts$Gene.name)) #check for duplicate gene names
 rownames(cts) <- make.names(cts2$Gene.name, unique = TRUE) #forces gene names to become unique
 rm(cts2)
-coldata <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MPC Bulk Seq Data/coldatacmp.csv")
+coldata <- read.csv(".../coldata.csv") #make coldata file with sample names in one column and then condition in second column
 dds <- DESeqDataSetFromMatrix(countData = cts, colData = coldata, design = ~ condition)
 
 #Pre-filter
@@ -25,10 +26,9 @@ dds <- DESeq(dds)
 rescmp <- results(dds) 
 
 #write results as csv
-#write.csv(res, "completeresults.csv")
+write.csv(res, "completeresults.csv")
 
 #display as heatmap
-library(pheatmap)
 ntd <- normTransform(dds)
 select <- order(rowMeans(counts(dds,normalized=TRUE)),
                 decreasing=TRUE)[1:20]
