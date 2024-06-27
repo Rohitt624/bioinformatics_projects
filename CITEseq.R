@@ -2,11 +2,11 @@ library(Seurat)
 library(ggplot2)
 library(patchwork)
 library(dplyr)
-options(future.globals.maxSize = 2000 * 1024^2)
+options(future.globals.maxSize = 4000 * 1024^2)
 setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSM5344483_Sca1neg_CITEseq/")
 
 # Load the dataset
-data <- Read10X(data.dir = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSM5344483_Sca1neg_CITEseq/Sca1neg_CITEseq")
+data <- Read10X(data.dir = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSM5344483_Sca1neg_CITEseq/Sca1neg_CITEseq/datafiles/")
 rownames(x = data[["Antibody Capture"]]) <- gsub(pattern = "_[control_]*TotalSeqA", replacement = "",
                                                          x = rownames(x = data[["Antibody Capture"]]))
 # Initialize the Seurat object with the raw (non-normalized data).
@@ -16,6 +16,8 @@ seurat_object[["ADT"]] <- CreateAssay5Object(counts = data[["Antibody Capture"]]
 Assays(seurat_object) #check assays in object
 seurat_object <- NormalizeData(seurat_object, assay = "ADT", normalization.method = "CLR")
 rm(data)
+
+FeatureScatter(seurat_object, feature1 = "adt_CD27", feature2 = "adt_CD34")
 
 # Extract a list of features measured in the ADT assay
 rownames(seurat_object[["ADT"]])
@@ -36,6 +38,16 @@ seurat_object <- FindClusters(object =seurat_object)
 seurat_object <- RunUMAP(object =seurat_object, dims = 1:30)
 DimPlot(seurat_object)
 
+#This section creates FeaturePlots of all ADT markers
+DefaultAssay(seurat_object) <- "ADT"
+# Get all the ADT markers
+adt_markers <- rownames(seurat_object[["ADT"]])
+# Loop through each marker and plot
+for(marker in adt_markers){
+  # Feature plot for each marker
+  FeaturePlot(seurat_object, features = marker, pt.size = 0.1)
+}
+table(adt_markers)
 
 # Now, we will visualize CD34 levels for RNA and protein By setting the default assay, we can
 # visualize one or the other
