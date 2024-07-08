@@ -9,12 +9,13 @@ library(GSEABase)
 library(scuttle)
 library(scran)
 library(scater)
+library(pheatmap)
 
 options(future.globals.maxSize = 2000 * 1024^2)
 setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
 
 #Load and pre-process scRNAseq data --------------------
-rnaseq.data <- Read10X(data.dir="C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT")
+rnaseq.data <- Read10X(data.dir="C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSM4645164_Adult_WT/Data Files")
 seurat.object <- CreateSeuratObject(counts = rnaseq.data, project = "MPC", min.cells = 3, min.features = 200)
 rm(rnaseq.data)
 seurat.object <- NormalizeData(object = seurat.object)
@@ -27,15 +28,67 @@ seurat.object <- FindNeighbors(object =seurat.object, dims = 1:30)
 seurat.object <- FindClusters(object =seurat.object)
 seurat.object <- RunUMAP(object =seurat.object, dims = 1:30)
 DimPlot(object =seurat.object, reduction = "umap")
+
+FeaturePlot(seurat.object, features = "Fcgr2b")
+
+seurat.object <- ScaleData(seurat.object, features = c("Cd27", "Cd34", "Sell", "Fcgr3", "Kit", "Csf1r", 
+                                                       "Flt3", "Ly6a", "Eng", "Slamf1", "Slamf2", "Mpo", "Elane", 
+                                                       "Gata1", "Gata2", "Vwf", "Epor"))
+
+DoHeatmap(seurat.object, features = c("Cd27", "Cd34", "Sell", "Fcgr3", "Kit", "Csf1r", 
+                                      "Flt3", "Ly6a", "Eng", "Slamf1", "Slamf2", "Mpo", "Elane", 
+                                      "Gata1", "Gata2", "Vwf", "Epor"))
+
+pheatmap(t(FetchData(seurat.object, vars = c("Cd27", "Cd34", "Sell", "Fcgr3", "Kit", "Csf1r", 
+                                           "Flt3", "Ly6a", "Eng", "Slamf1", "Slamf2", "Mpo", "Elane", 
+                                           "Gata1", "Gata2", "Vwf", "Epor"))), 
+         color = colorRampPalette(c("blue", "white", "red"))(100), show_colnames = FALSE)
+
+
+# Assuming that you have a Seurat object 'seurat_obj'
+# and you have identified variable features in it
+
+# Extract the scale.data for variable features
+data <- seurat.object@assays$RNA@layers$scale.data
+var_genes <- VariableFeatures(seurat.object)
+data <- data[var_genes, ]
+
+# Create a vector of colors for each group (cell type)
+# This assumes that the cell types are stored in seurat_obj$cell_type
+cell_types <- unique(seurat.object$seurat_clusters)
+colors <- rainbow(length(cell_types))
+names(colors) <- cell_types
+annotation_colors <- list(cell_type = colors)
+
+# Create a data frame for the annotation
+annotation_df <- data.frame(cell_type = seurat.object$seurat_clusters)
+rownames(annotation_df) <- names(seurat_obj$seurat_clusters)
+
+# Use pheatmap to create the heatmap
+pheatmap::pheatmap(mat = t(data),
+                   annotation_col = annotation_df,
+                   annotation_colors = annotation_colors,
+                   scale = "row",
+                   clustering_distance_rows = "euclidean",
+                   clustering_distance_cols = "euclidean",
+                   clustering_method = "complete")
+
+
+
+
+
 umap <- DimPlot(object =seurat.object, reduction = "umap")
 markers <- FindAllMarkers(seurat.object)
+write.csv(markers, "GSM4645164markers.csv")
+
+VlnPlot(seurat.object, features = c("Ly6a"))
 
 
 
 #Add some metadata column ----------------------------------
-gene_expression <- FetchData(seurat.object, vars = "Cd27")
-seurat.object[["Cd27_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Cd27, 0.8), "Cd27High", 
-                                     ifelse(gene_expression > 0, "Cd27Mid", "Cd27Low"))
+gene_expression <- FetchData(seurat.object, vars = "Ly6a")
+seurat.object[["Ly6a_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Ly6a, 0.8), "Ly6aHigh", 
+                                     "Ly6aLow")
 DimPlot(object =seurat.object, reduction = "umap", group.by = "Cd27_highvslow")
 gene_expression <- FetchData(seurat.object, vars = "Cd34")
 seurat.object[["Cd34_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Cd34, 0.8), "Cd34High", 
@@ -85,6 +138,9 @@ gene_expression <- FetchData(group1, vars = "Sell")
 group1[["Cd62L_highvslow"]] <- ifelse(gene_expression > quantile(gene_expression$Sell, 0.7), "Cd62LHigh", 
                                      ifelse(gene_expression < quantile(gene_expression$Sell, 0.3), "Cd62LLow", "Cd62LMid"))
 DimPlot(object =group1, reduction = "umap", group.by = "Cd62L_highvslow")
+
+Idents(seurat.object) <- "Ly6a_highvslow"
+s1 <- subset(seurat.object, "Ly6aLow")
 
 
 

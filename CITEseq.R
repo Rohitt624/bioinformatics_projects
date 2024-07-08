@@ -2,11 +2,11 @@ library(Seurat)
 library(ggplot2)
 library(patchwork)
 library(dplyr)
-options(future.globals.maxSize = 4000 * 1024^2)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE268141_RAW/")
+options(future.globals.maxSize = 2000 * 1024^2)
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSM5344483_Sca1neg_CITEseq/Sca1neg_CITEseq")
 
 # Load the dataset
-data <- Read10X(data.dir = "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE268141_RAW/")
+data <- Read10X(data.dir = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSM5344483_Sca1neg_CITEseq/Sca1neg_CITEseq")
 rownames(x = data[["Antibody Capture"]]) <- gsub(pattern = "_[control_]*TotalSeqA", replacement = "",
                                                          x = rownames(x = data[["Antibody Capture"]]))
 # Initialize the Seurat object with the raw (non-normalized data).
@@ -18,7 +18,6 @@ seurat_object <- NormalizeData(object = seurat_object, assay = "ADT", method = "
 rm(data)
 
 FeatureScatter(seurat_object, feature1 = "adt_CD11b", feature2 = "adt_CD127")
-
 # Extract a list of features measured in the ADT assay
 rownames(seurat_object[["ADT"]])
 rownames(seurat_object[["RNA"]])
@@ -37,6 +36,19 @@ seurat_object <- FindNeighbors(object =seurat_object, dims = 1:30)
 seurat_object <- FindClusters(object =seurat_object)
 seurat_object <- RunUMAP(object =seurat_object, dims = 1:30)
 DimPlot(seurat_object)
+
+FeaturePlot(seurat_object, features = "Cd27")
+FeaturePlot(seurat_object, features = "Cd34")
+FeaturePlot(seurat_object, features = "Sell")
+FeaturePlot(seurat_object, features = "Fcgr3")
+
+
+seurat_object <- ScaleData(seurat_object, features = c("Cd27", "Cd34", "Sell", "Fcgr3", "Kit", "Csf1r", 
+                                                       "Flt3", "Ly6a", "Eng", "Slamf1", "Slamf2", "Mpo", "Elane", 
+                                                       "Gata1", "Gata2", "Vwf", "Epor"))
+DoHeatmap(seurat_object, features = c("Cd27", "Cd34", "Sell", "Fcgr3", "Kit", "Csf1r", 
+                                      "Flt3", "Ly6a", "Eng", "Slamf1", "Slamf2", "Mpo", "Elane", 
+                                      "Gata1", "Gata2", "Vwf", "Epor"))
 
 
 # Now, we will visualize CD34 levels for RNA and protein By setting the default assay, we can
@@ -64,4 +76,7 @@ FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_CD105")
 #Can "gate" cells using HoverLocator and FeatureLocator
 # view relationship between protein and RNA
 FeatureScatter(seurat_object, feature1 = "adt_CD34", feature2 = "rna_CD34")
+
+allrnamarkers <- FindAllMarkers(seurat_object, assay = "RNA")
+write.csv(allrnamarkers, "allrnamarkers.csv")
 
