@@ -32,7 +32,7 @@ write.csv(mark, "markers.csv")
 Idents(seu) <- "seurat_clusters" #make sure the clusters are the identity metadata column
 idents <- Idents(seu)
 #Rename clusters
-cluster.ids <- c("HSC/MPP/LMPP", "CMP", "GP", "CFU-E", "GMP", "CFU-E", "MEP", "MkP", "GMP", "Mast Cell Progenitor")
+cluster.ids <- c("LMPP", "MPP3", "2", "3", "4", "5", "6", "CMP", "GMP", "9")
 names(cluster.ids) <- levels(seu)
 seu <- RenameIdents(seu, cluster.ids)
 DimPlot(object =seu, reduction = "umap")
