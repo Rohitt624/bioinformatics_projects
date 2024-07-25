@@ -1,5 +1,6 @@
 import scanpy as sc
 import cellproject as cp
+import scanpy.external as sce
 
 adata_ref = sc.datasets.pbmc3k_processed()
 adata = sc.datasets.pbmc68k_reduced()
