@@ -3,17 +3,17 @@ library(tximport)
 library(tidyverse)
 library(rnaseqGene)
 library(pheatmap)
-setwd(".../output/")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/MDS/GSE63569/")
 
 #DESeq2  analysis ------------------------
 #Load data into DESeq dataset
-cts2 <- read.csv("...MPC_Counts_Corrected.csv") #file path to Counts csv document
+cts2 <- read.csv("GSE63569_raw_counts_GRCh38.p13_NCBI.csv") #file path to Counts csv document
 cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
 cts <- cts2[, -1]
 table(duplicated(cts$Gene.name)) #check for duplicate gene names
 rownames(cts) <- make.names(cts2$Gene.name, unique = TRUE) #forces gene names to become unique
 rm(cts2)
-coldata <- read.csv(".../coldata.csv") #make coldata file with sample names in one column and then condition in second column
+coldata <- read.csv("coldata.csv") #make coldata file with sample names in one column and then condition in second column
 dds <- DESeqDataSetFromMatrix(countData = cts, colData = coldata, design = ~ condition)
 
 #Pre-filter
@@ -26,7 +26,7 @@ dds <- DESeq(dds)
 rescmp <- results(dds) 
 
 #write results as csv
-write.csv(res, "completeresults.csv")
+write.csv(rescmp, "completeresults.csv")
 
 #display as heatmap
 ntd <- normTransform(dds)
@@ -41,5 +41,5 @@ pheatmap(assay(ntd)[select,], cluster_rows=FALSE, show_rownames=TRUE,
          cluster_cols=FALSE, annotation_col=df)
 
 # For saving the plot
-pheatmap(assay(ntd)[select,], cluster_rows=FALSE, show_rownames=FALSE,
+pheatmap(assay(ntd)[select,], cluster_rows=FALSE, show_rownames=TRUE,
          cluster_cols=FALSE, annotation_col=df, filename="heatmap.pdf")

@@ -268,6 +268,7 @@ DoHeatmap(group1, features = genes_use)
 
 
 
+
 #Applying manual annotation ----------------
 Idents(seurat.object) <- "seurat_clusters" #make sure the clusters are the identity metadata column
 idents <- Idents(seurat.object)
