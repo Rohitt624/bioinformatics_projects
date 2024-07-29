@@ -25,6 +25,13 @@ dds <- dds[keep,]
 dds <- DESeq(dds)
 rescmp <- results(dds) 
 
+# Comparison 1 of 3:  DKO-Tet2KO
+res <- DESeq2::results(dds, 
+                       contrast = c("groups", "DKO", "Tet2KO"),
+                       independentFiltering = TRUE,
+                       alpha = alpha
+)
+
 #write results as csv
 write.csv(rescmp, "completeresults.csv")
 
