@@ -24,48 +24,45 @@ rescmp <- results(dds)
 write.csv(rescmp, "completeresults.csv")
 
 # Comparison 1 of 3:  DKO-WT
-res <- DESeq2::results(dds, 
+res1 <- DESeq2::results(dds, 
                        contrast = c("condition", "DKO", "WT"),
                        independentFiltering = TRUE,
-                       alpha = 0.05
 )
 
-# Filter for p-value < 0.05
-res_filtered <- res[which(res$pvalue < 0.05), ]
+# Filter for p-value 
+res_filtered1 <- res1[which(res1$padj < 0.1), ]
 
-write.csv(res_filtered, "dko_wt_filter.csv")
+write.csv(res_filtered1, "dko_wt_filter.csv")
 
-write.csv(res, "dko_wt.csv")
+write.csv(res1, "dko_wt.csv")
 
 
 
 # Comparison 2 of 3:  Tet2KO-WT
-res <- DESeq2::results(dds, 
+res2 <- DESeq2::results(dds, 
                        contrast = c("condition", "Tet2KO", "WT"),
                        independentFiltering = TRUE,
-                       alpha = 0.05
 )
 
-# Filter for p-value < 0.05
-res_filtered <- res[which(res$pvalue < 0.05), ]
+# Filter for p-value 
+res_filtered2 <- res2[which(res2$padj < 0.1), ]
 
-write.csv(res_filtered, "tet2_wt_filter.csv")
+write.csv(res_filtered2, "tet2_wt_filter.csv")
 
-write.csv(res, "tet2_wt.csv")
+write.csv(res2, "tet2_wt.csv")
 
 # Comparison 3 of 3:  DKO-Tet2KO
-res <- DESeq2::results(dds, 
+res3 <- DESeq2::results(dds, 
                        contrast = c("condition", "DKO", "Tet2KO"),
                        independentFiltering = TRUE,
-                       alpha = 0.05
 )
 
-# Filter for p-value < 0.05
-res_filtered <- res[which(res$pvalue < 0.05), ]
+# Filter for p-value
+res_filtered3 <- res3[which(res3$padj < 0.1), ]
 
-write.csv(res_filtered, "dko_tet2ko_filter.csv")
+write.csv(res_filtered3, "dko_tet2ko_filter.csv")
 
-write.csv(res, "dko_tet2ko.csv")
+write.csv(res3, "dko_tet2ko.csv")
 
 
 
