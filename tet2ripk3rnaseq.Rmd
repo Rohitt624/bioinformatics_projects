@@ -1,73 +1,98 @@
+---
+title: "Tet2 Ripk3 RNA Sequencing Work"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+# Initial Setup:
+
+Load required packages and set working directory.
+
+```{r}
 library(DESeq2)
 library(tximport)
 library(tidyverse)
 library(rnaseqGene)
 library(pheatmap)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/")
+```
 
-#DESeq2  analysis ------------------------
-#Load data into DESeq dataset
-cts2 <- read.csv("raw_counts modified corrected triplicates.csv") #file path to Counts csv document
+# DESeq2 analysis
+Load data into DESeq dataset
+
+```{r}
+cts2 <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/raw_counts modified corrected triplicates.csv") #file path to Counts csv document
 cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
 cts <- cts2[, -1]
 table(duplicated(cts$Gene.name)) #check for duplicate gene names
 rownames(cts) <- make.names(cts2$Gene.name, unique = TRUE) #forces gene names to become unique
 rm(cts2)
-cd <- read.csv("coldata.csv") #make coldata file with sample names in one column and then condition in second column
+cd <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/coldata.csv") #make coldata file with sample names in one column and then condition in second column
 dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~ condition)
+```
 
+Differential Expression
 
-#Differential Expression
+```{r}
 dds <- DESeq(dds)
 rescmp <- results(dds) 
-#write results as csv
-write.csv(rescmp, "completeresults.csv")
-#------------------------------------------------------------------------------------------
+```
 
-# Comparison 1 of 3:  DKO-WT
+write results as csv
+
+```{r}
+write.csv(rescmp, "completeresults.csv")
+```
+
+### Comparison 1 of 3: DKO-WT
+
+```{r}
 res1 <- DESeq2::results(dds, 
                        contrast = c("condition", "DKO", "WT"),
                        independentFiltering = TRUE,
 )
-
-# Filter for p-value 
-res_filtered1 <- res1[which(res1$padj < 0.1), ]
-
-write.csv(res_filtered1, "dko_wt_filter.csv")
-
 write.csv(res1, "dko_wt.csv")
+```
 
+### Comparison 2 of 3: Tet2KO-WT
 
-
-# Comparison 2 of 3:  Tet2KO-WT
+```{r}
 res2 <- DESeq2::results(dds, 
                        contrast = c("condition", "Tet2KO", "WT"),
                        independentFiltering = TRUE,
 )
-
-# Filter for p-value 
-res_filtered2 <- res2[which(res2$padj < 0.1), ]
-
-write.csv(res_filtered2, "tet2_wt_filter.csv")
-
 write.csv(res2, "tet2_wt.csv")
+```
 
-# Comparison 3 of 3:  DKO-Tet2KO
+### Comparison 3 of 3: DKO-Tet2KO
+
+```{r}
 res3 <- DESeq2::results(dds, 
                        contrast = c("condition", "DKO", "Tet2KO"),
                        independentFiltering = TRUE,
 )
+write.csv(res3, "dko_tet2ko.csv")
+```
 
-# Filter for p-value
+#### Filter for p-value
+
+```{r}
+res_filtered1 <- res1[which(res1$padj < 0.1), ]
+
+write.csv(res_filtered1, "dko_wt_filter.csv")
+
+res_filtered2 <- res2[which(res2$padj < 0.1), ]
+
+write.csv(res_filtered2, "tet2_wt_filter.csv")
+
 res_filtered3 <- res3[which(res3$padj < 0.1), ]
 
 write.csv(res_filtered3, "dko_tet2ko_filter.csv")
+```
 
-write.csv(res3, "dko_tet2ko.csv")
-#-------------------------------------------------------------------------------------
+display top 20 as heatmap
 
-
-#display top 20 as heatmap
+```{r}
 ntd <- normTransform(dds)
 select <- order(rowMeans(counts(dds,normalized=TRUE)),
                 decreasing=TRUE)[1:20]
@@ -78,14 +103,11 @@ rownames(df) <- colnames(assay(ntd)[select,])
 # For displaying the plot
 pheatmap(assay(ntd)[select,], cluster_rows=FALSE, show_rownames=TRUE,
          cluster_cols=FALSE, annotation_col=df)
+```
 
-# For saving the plot
-pheatmap(assay(ntd)[select,], cluster_rows=FALSE, show_rownames=TRUE,
-         cluster_cols=FALSE, annotation_col=df, filename="heatmap.pdf")
-#------------------------------------------------------------------------------------------
+## Display selected Genes as Heatmap
 
-#Display selected Genes
-# Assuming 'dds' is your DESeqDataSet object and 'res' is your results object from DESeq2
+```{r}
 # Extract normalized counts
 norm_counts <- counts(dds, normalized=TRUE)
 
@@ -110,11 +132,6 @@ col_data <- colData(dds)[desired_order, ]
 # Define color palette
 color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
 
-# Define annotation colors for the conditions
-annotation_colors <- list(
-  group = c(WT = "blue", Tet2KO = "orange", DKO = "purple")
-)
-
 # Create a heatmap
 pheatmap(subset_norm_counts, 
          scale = "row", 
@@ -125,4 +142,4 @@ pheatmap(subset_norm_counts,
          show_rownames = TRUE, 
          show_colnames = TRUE,
          main = "Heatmap of AITL Genes")
-
+```
