@@ -2,7 +2,7 @@
 title: "Tet2 Ripk3 RNA Sequencing Work"
 output: html_document
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 
 # Initial Setup:
