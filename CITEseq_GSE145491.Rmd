@@ -1,12 +1,14 @@
 ---
 title: "GSE145491 CITE-Seq Analysis"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 # Set Up
 
-Loading in required packages
-```{r}
+### Loading in required packages
+```{r, results='hide'}
 library(Seurat)
 library(ggplot2)
 library(patchwork)
@@ -29,7 +31,7 @@ rm(data, adtfeat, allfeat)
 ```
 
 Replace RNA Ensembl IDs with gene IDs (this part is still buggy, leaves some blank cells, and uses 40 gb of RAM. So skip it)
-```{r}
+```{r, eval=FALSE}
 ensembl <- useEnsembl(biomart = "genes")
 listDatasets(ensembl)
 mart <- useDataset("mmusculus_gene_ensembl", useMart("ensembl"))
@@ -69,7 +71,7 @@ seurat_object <- NormalizeData(object = seurat_object, assay = "ADT", method = "
 ```
 
 Verify the features under each assay
-```{r}
+```{r, results='hide'}
 rownames(seurat_object[["ADT"]])
 rownames(seurat_object[["RNA"]])
 ```
@@ -97,7 +99,7 @@ Key(seurat_object[["ADT"]])
 
 
 ### Process the RNA data
-```{r}
+```{r, results='hide'}
 seurat_object <- FindVariableFeatures(object = seurat_object)
 seurat_object <- ScaleData(object = seurat_object)
 seurat_object <- RunPCA(object =seurat_object)
@@ -138,7 +140,7 @@ VlnPlot(seurat_object, "adt_ESAM")
 
 ### You can also FindMarkers for each assay
 This block is currently written to identify markers in identifier 6.
-```{r}
+```{r, eval=FALSE}
 adt_markers <- FindMarkers(seurat_object, ident.1 = 6, assay = "ADT")
 rna_markers <- FindMarkers(seurat_object, ident.1 = 6, assay = "RNA")
 
@@ -148,10 +150,11 @@ write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Z
 
 ### Create ADT scatter plots while showing cluster
 
-Can "gate" cells using HoverLocator and FeatureLocator
+Can "gate" cells using FeatureLocator
 ```{r}
 adtscatter <- FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_CD105")
-
+seurat_object <- CellSelector(adtscatter, object = seurat_object, ident = "CD105+ CD150+")
+selected <- subset(seurat_object, idents = "CD105+ CD150+")
 ```
 
 ### View relationship between protein and RNA
