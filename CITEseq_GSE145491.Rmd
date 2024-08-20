@@ -8,7 +8,7 @@ output:
 # Set Up
 
 ### Loading in required packages
-```{r, results='hide'}
+```{r libraries, results='hide'}
 library(Seurat)
 library(ggplot2)
 library(patchwork)
@@ -19,7 +19,7 @@ options(future.globals.maxSize = 4000 * 1024^2)
 
 Load the dataset and create Seurat Object with two assays
 
-```{r}
+```{r load-data}
 data <- as.sparse(read.table(file = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/GSE145491_UMIsMatrix.txt.gz",
                                sep = "", header = TRUE, row.names = 1))
 adtfeat <- c("CD9", "CD41", "CD48", "CD55", "CD105", "CD115", "CD135", "CD150", "CXCR4", "ESAM", "CD4")
@@ -30,38 +30,9 @@ rnamat <- data[rnafeat, ]
 rm(data, adtfeat, allfeat)
 ```
 
-Replace RNA Ensembl IDs with gene IDs (this part is still buggy, leaves some blank cells, and uses 40 gb of RAM. So skip it)
-```{r, eval=FALSE}
-ensembl <- useEnsembl(biomart = "genes")
-listDatasets(ensembl)
-mart <- useDataset("mmusculus_gene_ensembl", useMart("ensembl"))
-gene_ids <- getBM(
-  filters = "ensembl_gene_id",
-  attributes = c("ensembl_gene_id", "mgi_symbol"),
-  values = rnafeat,
-  mart = mart
-)
-
-id_list <- split(gene_ids[["mgi_symbol"]], gene_ids[["ensembl_gene_id"]])
-rnaname <- character(nrow(rnamat))
-for (i in seq_len(nrow(rnamat))) {
-  ensembl_id <- rownames(rnamat)[i]
-  if (ensembl_id %in% names(id_list)) {
-    rnaname[i] <- id_list[[ensembl_id]]
-  } else{
-    rnaname[i] <- ensembl_id
-  }
-}
-rnaname[rnaname == ""] <- NA
-
-rownames(rnamat) <- rnaname
-rm(ensembl, gene_ids, id_list, mart, ensembl_id, i, rnaname)
-rownames(rnamat) <- make.names(rnamat, unique = TRUE)
-
-```
 
 ## Create Seurat Object
-```{r}
+```{r create-seurat-object}
 seurat_object <- CreateSeuratObject(counts = rnamat)
 seurat_object[["ADT"]] <- CreateAssay5Object(counts = adtmat)
 rm(adtmat, rnamat, rnafeat)
@@ -71,19 +42,19 @@ seurat_object <- NormalizeData(object = seurat_object, assay = "ADT", method = "
 ```
 
 Verify the features under each assay
-```{r, results='hide'}
+```{r rownames, results='hide'}
 rownames(seurat_object[["ADT"]])
 rownames(seurat_object[["RNA"]])
 ```
 
 Test ADT data by choosing any two ADT features
-```{r}
+```{r featurescatter}
 FeatureScatter(seurat_object, feature1 = "adt_CD41", feature2 = "adt_CD105")
 ```
 
 
 Check that the default assay is what you want it to be. Subsequent lines of code will use the features in the default assay unless you specify the assay within the arguments.
-```{r}
+```{r default-assay}
 # List the current default assay
 DefaultAssay(seurat_object)
 #Change default assay
@@ -92,14 +63,14 @@ DefaultAssay(seurat_object)
 ```
 
 The Key for each assay allows you to put that before your feature of interest to circumvent switching the default assay (this is especially helpful if you want to use something from each assay in the same line of code).
-```{r}
+```{r assay-key}
 Key(seurat_object[["RNA"]])
 Key(seurat_object[["ADT"]])
 ```
 
 
 ### Process the RNA data
-```{r, results='hide'}
+```{r cluster-seurat-object, results='hide'}
 seurat_object <- FindVariableFeatures(object = seurat_object)
 seurat_object <- ScaleData(object = seurat_object)
 seurat_object <- RunPCA(object =seurat_object)
@@ -109,7 +80,7 @@ seurat_object <- RunUMAP(object =seurat_object, dims = 1:30)
 ```
 
 Display the UMAP
-```{r}
+```{r dimplot}
 DimPlot(seurat_object)
 ```
 
@@ -117,7 +88,7 @@ DimPlot(seurat_object)
 
 ## Visualization
 ### Visualize both RNA and protein side by side
-```{r}
+```{r featureplot}
 DefaultAssay(seurat_object) <- "ADT"
 p1 <- FeaturePlot(seurat_object, "CD41", cols = c("lightgrey", "darkgreen")) + ggtitle("CD41 protein")
 DefaultAssay(seurat_object) <- "RNA"
@@ -127,37 +98,81 @@ p1 | p2
 ```
 
 An alternative way to write that code using the Key
-```{r}
+```{r featureplot-v2}
 p1 <- FeaturePlot(seurat_object, "adt_CD41", cols = c("lightgrey", "darkgreen")) + ggtitle("CD41 protein")
 p2 <- FeaturePlot(seurat_object, "rna_ENSMUSG00000034664") + ggtitle("CD41 RNA")
 p1|p2
 ```
 
-### Similarly, to identify surface markers, you can make plots of ADT values the same way you can for RNA values.
-```{r}
-VlnPlot(seurat_object, "adt_ESAM")
-```
-
-### You can also FindMarkers for each assay
-This block is currently written to identify markers in identifier 6.
-```{r, eval=FALSE}
-adt_markers <- FindMarkers(seurat_object, ident.1 = 6, assay = "ADT")
-rna_markers <- FindMarkers(seurat_object, ident.1 = 6, assay = "RNA")
-
-write.csv(adt_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/adtmarkers.csv")
-write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnamarkers.csv")
-```
 
 ### Create ADT scatter plots while showing cluster
 
 Can "gate" cells using FeatureLocator
-```{r}
+```{r gating}
 adtscatter <- FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_CD105")
 seurat_object <- CellSelector(adtscatter, object = seurat_object, ident = "CD105+ CD150+")
-selected <- subset(seurat_object, idents = "CD105+ CD150+")
+```
+To further gate, subset this gated population into a separate seurat object, gate the population of interest, then create a vector to add a new metadata column for these cells in the original object
+```{r subset-gating, eval=FALSE}
+cd150cd105 <- subset(seurat_object, idents = "CD105+ CD150+")
+subsetadt <- FeatureScatter(cd150cd105, feature1 = "", feature2 = "")
+cd150cd105 <- CellSelector(subsetadt, object = cd150cd105, ident = "")
+newgate <- WhichCells(object = cd150cd105, idents = "")
+newvector <- colnames(seurat_object) %in% newgate
+seurat_object$newgate <- newvector
+Idents(seurat_object) <- "newgate"
+```
+
+
+### Similarly, to identify surface markers, you can make plots of ADT values the same way you can for RNA values.
+```{r vlnplot}
+VlnPlot(seurat_object, "adt_ESAM")
 ```
 
 ### View relationship between protein and RNA
-```{r}
+```{r protein-v-rna}
 FeatureScatter(seurat_object, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000001946")
 ```
+
+### You can also FindMarkers for each assay
+This block is currently written to identify markers in identifier 6.
+```{r findmarkers, eval=FALSE}
+adt_markers <- FindMarkers(seurat_object, ident.1 = "CD105+ CD150+", assay = "ADT")
+rna_markers <- FindMarkers(seurat_object, ident.1 = "CD105+ CD150+", assay = "RNA")
+
+write.csv(adt_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/adtmarkersgatetest.csv")
+write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnamarkersgatetest.csv")
+```
+
+
+Replace RNA Ensembl IDs with gene IDs (this part is still buggy, leaves some blank cells, and uses 40 gb of RAM. So skip it). It works just fine if you do it for the files generated by FindMarkers
+```{r ensembl, eval=FALSE}
+rna <- as.sparse(read.csv(file = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnamarkersgatetest.csv", header = TRUE, row.names = 1))
+rnanames <- rownames(rna)
+ensembl <- useEnsembl(biomart = "genes")
+listDatasets(ensembl)
+mart <- useDataset("mmusculus_gene_ensembl", useMart("ensembl"))
+gene_ids <- getBM(
+  filters = "ensembl_gene_id",
+  attributes = c("ensembl_gene_id", "mgi_symbol"),
+  values = rnanames,
+  mart = mart
+)
+
+id_list <- split(gene_ids[["mgi_symbol"]], gene_ids[["ensembl_gene_id"]])
+rnaname <- character(nrow(rna))
+for (i in seq_len(nrow(rna))) {
+  ensembl_id <- rownames(rna)[i]
+  if (ensembl_id %in% names(id_list)) {
+    rnaname[i] <- id_list[[ensembl_id]]
+  } else{
+    rnaname[i] <- ensembl_id
+  }
+}
+rnaname[rnaname == ""] <- NA
+
+rownames(rna) <- rnaname
+rm(ensembl, gene_ids, id_list, mart, ensembl_id, i, rnaname)
+write.csv(rna, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnamarkergatetest_genename.csv")
+```
+
