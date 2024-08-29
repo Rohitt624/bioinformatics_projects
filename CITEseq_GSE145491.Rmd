@@ -49,7 +49,7 @@ rownames(seurat_object[["RNA"]])
 
 Test ADT data by choosing any two ADT features
 ```{r featurescatter}
-FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE)
+FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE, group.by = "gating")
 ```
 
 
@@ -81,7 +81,7 @@ seurat_object <- RunUMAP(object =seurat_object, dims = 1:30)
 
 Display the UMAP
 ```{r dimplot}
-DimPlot(seurat_object)
+DimPlot(seurat_object, group.by = "gating")
 ```
 
 # Analysis Tools
@@ -108,19 +108,40 @@ p1|p2
 ### Create ADT scatter plots while showing cluster
 
 Can "gate" cells using FeatureLocator
-```{r gating}
-adtscatter <- FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE)
-seurat_object <- CellSelector(adtscatter, object = seurat_object, ident = "CD150- ESAM-")
+```{r gating, eval=FALSE}
+adtscatter <- FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_CD135", log = TRUE)
+seurat_object <- CellSelector(adtscatter, object = seurat_object, ident = "MPP4")
 ```
+Save gating
+```{r save gating, eval=FALSE}
+Idents(seurat_object) <- "seurat_clusters"
+active_idents <- Idents(seurat_object)
+gates <- c("MPP4", "CD135-")
+seurat_object$gates <- ifelse(active_idents %in% gates, as.character(active_idents), NA)
+```
+
+
 To further gate, subset this gated population into a separate seurat object, gate the population of interest, then create a vector to add a new metadata column for these cells in the original object
-```{r subset-gating, eval=FALSE}
-cd150cd105 <- subset(seurat_object, idents = "CD105+ CD150+")
-subsetadt <- FeatureScatter(cd150cd105, feature1 = "", feature2 = "")
-cd150cd105 <- CellSelector(subsetadt, object = cd150cd105, ident = "")
-newgate <- WhichCells(object = cd150cd105, idents = "")
-newvector <- colnames(seurat_object) %in% newgate
-seurat_object$newgate <- newvector
-Idents(seurat_object) <- "newgate"
+```{r subset, eval=FALSE}
+Idents(seurat_object) <- "gating"
+mpp3 <- subset(seurat_object, idents = "CD135- MPP3")
+```
+
+```{r more gating, eval=FALSE}
+subsetmpp3 <- FeatureScatter(mpp3, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE)
+mpp3 <- CellSelector(subsetmpp3, object = mpp3, ident = "ESAM-")
+
+```
+Save gating
+```{r save gating, eval=FALSE}
+active_idents <- Idents(mpp2)
+gates <- c("ESAM+", "ESAM-")
+mpp2$gate <- ifelse(active_idents %in% gates, as.character(active_idents), NA)
+```
+
+```{r, eval=FALSE}
+seurat_object$gating[Cells(mpp2)] <- paste("CD135- MPP2", mpp2$gate)
+DimPlot(seurat_object, group.by = "gating")
 ```
 
 
@@ -137,17 +158,37 @@ FeatureScatter(seurat_object, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG0000
 ### You can also FindMarkers for each assay
 This block is currently written to identify markers in identifier 6.
 ```{r findmarkers, eval=FALSE}
-adt_markers <- FindMarkers(seurat_object, ident.1 = "CD150+ ESAM+", ident.2 = "CD150- ESAM-", assay = "ADT")
-rna_markers <- FindMarkers(seurat_object, ident.1 = "CD150+ ESAM+", ident.2 = "CD150- ESAM-", assay = "RNA")
+adt_markers <- FindMarkers(seurat_object, ident.1 = "CD135- HSC ESAM+", ident.2 = "MPP4", assay = "ADT")
+rna_markers <- FindMarkers(seurat_object, ident.1 = "CD135- HSC ESAM+", ident.2 = "MPP4", assay = "RNA")
 
-write.csv(adt_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/adtcd150esam.csv")
-write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnacd150esam.csv")
+write.csv(adt_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/adthscesam.csv")
+write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnahscesam.csv")
+
+adt_markers <- FindMarkers(seurat_object, ident.1 = "CD135- MPP1 ESAM+", ident.2 = "MPP4", assay = "ADT")
+rna_markers <- FindMarkers(seurat_object, ident.1 = "CD135- MPP1 ESAM+", ident.2 = "MPP4", assay = "RNA")
+
+write.csv(adt_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/adtmpp1esam.csv")
+write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp1esam.csv")
+
+adt_markers <- FindMarkers(seurat_object, ident.1 = "CD135- MPP2 ESAM+", ident.2 = "MPP4", assay = "ADT")
+rna_markers <- FindMarkers(seurat_object, ident.1 = "CD135- MPP2 ESAM+", ident.2 = "MPP4", assay = "RNA")
+
+write.csv(adt_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/adtmpp2esam.csv")
+write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp2esam.csv")
+
+adt_markers <- FindMarkers(seurat_object, ident.1 = "CD135- MPP3 ESAM+", ident.2 = "MPP4", assay = "ADT")
+rna_markers <- FindMarkers(seurat_object, ident.1 = "CD135- MPP3 ESAM+", ident.2 = "MPP4", assay = "RNA")
+
+write.csv(adt_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/adtmpp3esam.csv")
+write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3esam.csv")
 ```
 
 
 Replace RNA Ensembl IDs with gene IDs (this part is still buggy, leaves some blank cells, and uses 40 gb of RAM. So skip it). It works just fine if you do it for the files generated by FindMarkers
-```{r ensembl, eval=FALSE}
-rna <- as.sparse(read.csv(file = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnacd150esam.csv", header = TRUE, row.names = 1))
+
+```{r Ensembl ID Replacement, eval=FALSE}
+EnsIDReplace <- function(input, output){
+rna <- as.sparse(read.csv(file = input, header = TRUE, row.names = 1))
 rnanames <- rownames(rna)
 ensembl <- useEnsembl(biomart = "genes")
 listDatasets(ensembl)
@@ -173,6 +214,80 @@ rnaname[rnaname == ""] <- NA
 
 rownames(rna) <- rnaname
 rm(ensembl, gene_ids, id_list, mart, ensembl_id, i, rnaname)
-write.csv(rna, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnacd150esam_genename.csv")
+write.csv(rna, output)
+}
+
+EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnahscesam.csv", "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnahscesam_genename.csv")
+
+EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp1esam.csv", "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp1esam_genename.csv")
+
+EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp2esam.csv", "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp2esam_genename.csv")
+
+EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3esam.csv", "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3esam_genename.csv")
+```
+For further analysis it can be easier to define the genes you want to use ahead of time
+```{r}
+MkPspecific <- c("Maml2", "Mtss1l","Slc39a13", "Rell2", "Nrgn", "S100a1", "Lrch4", "Rnasek", "Doc2a", "Gucy1b3")
+Meglin <- c("Selp", "Itga2b", "Itgb3", "Cd9")
+Megcomb <- c("Maml2", "Mtss1l","Slc39a13", "Rell2", "Nrgn", "S100a1", "Lrch4", "Rnasek", "Doc2a", "Gucy1b3", "Selp", "Itga2b", "Itgb3", "Cd9")
+```
+
+```{r}
+ensembl <- useEnsembl(biomart = "genes")
+listDatasets(ensembl)
+mart <- useDataset("mmusculus_gene_ensembl", useMart("ensembl"))
+gene_ids <- getBM(
+  filters = "mgi_symbol",
+  attributes = c("mgi_symbol", "ensembl_gene_id"),
+  values = Megcomb,
+  mart = mart
+)
+
+id_list <- split(gene_ids[["ensembl_gene_id"]], gene_ids[["mgi_symbol"]])
+MegcombEns <- gene_ids[["ensembl_gene_id"]]
+
+rm(ensembl, gene_ids, id_list, mart)
+```
+
+
+Generate heatmap
+```{r}
+DoHeatmap(seurat_object)
+```
+
+```{r}
+# Extract normalized counts
+
+# List of specific genes
+genes_of_interest <- c("Rgs1", "Sh2d1a", "Crip1", "S100a13", "Gabbr1", "Dtnb", "Rsad2", "Cxcl9", 
+                       "Kenj10", "Gstm5", "C1qb", "Slc40a1", "Slc43a1", "C1qc", "Veam1", "Marchf1", 
+                       "Pla2g2d", "C1qa", "Slc25a37", "Ckap4", "Rgl1", "Mafb", "Pou2af1", "Ighm", 
+                       "Il18", "Slco2b1", "Marcks", "Itga9", "Tns3", "Abcc3", "Wdfy3", "Arhgap23")
+
+# Subset normalized counts to include only the genes of interest
+subset_norm_counts <- norm_counts[rownames(norm_counts) %in% genes_of_interest, ]
+
+# Define the desired column order
+desired_order <- c("WT_1", "WT_2", "WT_3", "Tet2KO_1", "Tet2KO_2", "Tet2KO_3", "DKO_1", "DKO_2", "DKO_3")
+
+# Reorder the columns
+subset_norm_counts <- subset_norm_counts[, desired_order]
+
+# Extract column data (sample information) and reorder it
+col_data <- colData(dds)[desired_order, ]
+
+# Define color palette
+color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
+
+# Create a heatmap
+pheatmap(subset_norm_counts, 
+         scale = "row", 
+         clustering_distance_rows = "euclidean", 
+         cluster_cols = FALSE, 
+         clustering_method = "complete", 
+         color = color_palette,
+         show_rownames = TRUE, 
+         show_colnames = TRUE,
+         main = "Heatmap of AITL Genes")
 ```
 
