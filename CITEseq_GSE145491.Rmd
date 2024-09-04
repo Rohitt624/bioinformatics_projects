@@ -14,6 +14,7 @@ library(ggplot2)
 library(patchwork)
 library(dplyr)
 library(biomaRt)
+library(pheatmap)
 options(future.globals.maxSize = 4000 * 1024^2)
 ```
 
@@ -147,12 +148,12 @@ DimPlot(seurat_object, group.by = "gating")
 
 ### Similarly, to identify surface markers, you can make plots of ADT values the same way you can for RNA values.
 ```{r vlnplot}
-VlnPlot(seurat_object, "adt_ESAM")
+VlnPlot(seurat_object, features = MegcombEns)
 ```
 
 ### View relationship between protein and RNA
 ```{r protein-v-rna}
-FeatureScatter(seurat_object, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000001946")
+FeatureScatter(seurat_object, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000052301")
 ```
 
 ### You can also FindMarkers for each assay
@@ -227,9 +228,9 @@ EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/R
 ```
 For further analysis it can be easier to define the genes you want to use ahead of time
 ```{r}
-MkPspecific <- c("Maml2", "Mtss1l","Slc39a13", "Rell2", "Nrgn", "S100a1", "Lrch4", "Rnasek", "Doc2a", "Gucy1b3")
+MkPspecific <- c("Maml2", "Mtss1l","Slc39a13", "Rell2", "Nrgn", "S100a1", "Lrch4", "Rnasek", "Gucy1b3")
 Meglin <- c("Selp", "Itga2b", "Itgb3", "Cd9")
-Megcomb <- c("Maml2", "Mtss1l","Slc39a13", "Rell2", "Nrgn", "S100a1", "Lrch4", "Rnasek", "Doc2a", "Gucy1b3", "Selp", "Itga2b", "Itgb3", "Cd9")
+Megcomb <- c("Maml2", "Mtss1l","Slc39a13", "Rell2", "Nrgn", "S100a1", "Lrch4", "Rnasek", "Gucy1b3", "Selp", "Itga2b", "Itgb3", "Cd9")
 ```
 
 ```{r}
@@ -252,35 +253,38 @@ rm(ensembl, gene_ids, id_list, mart)
 
 Generate heatmap
 ```{r}
-DoHeatmap(seurat_object)
+DefaultAssay(seurat_object) <- "RNA"
+DoHeatmap(seurat_object, features = MegcombEns)
 ```
 
 ```{r}
-# Extract normalized counts
+expression_data <- FetchData(seurat_object, vars = MegcombEns)
+expression_data$gating <- seurat_object@meta.data$gating
 
-# List of specific genes
-genes_of_interest <- c("Rgs1", "Sh2d1a", "Crip1", "S100a13", "Gabbr1", "Dtnb", "Rsad2", "Cxcl9", 
-                       "Kenj10", "Gstm5", "C1qb", "Slc40a1", "Slc43a1", "C1qc", "Veam1", "Marchf1", 
-                       "Pla2g2d", "C1qa", "Slc25a37", "Ckap4", "Rgl1", "Mafb", "Pou2af1", "Ighm", 
-                       "Il18", "Slco2b1", "Marcks", "Itga9", "Tns3", "Abcc3", "Wdfy3", "Arhgap23")
+# Filter data to include only the desired groups
+desired_groups <- c("CD135- HSC ESAM+", "CD135- MPP1 ESAM+", "CD135- MPP2 ESAM+", "CD135- MPP3 ESAM+")
+filtered_data <- expression_data[expression_data$gating %in% desired_groups, ]
 
-# Subset normalized counts to include only the genes of interest
-subset_norm_counts <- norm_counts[rownames(norm_counts) %in% genes_of_interest, ]
-
-# Define the desired column order
-desired_order <- c("WT_1", "WT_2", "WT_3", "Tet2KO_1", "Tet2KO_2", "Tet2KO_3", "DKO_1", "DKO_2", "DKO_3")
-
-# Reorder the columns
-subset_norm_counts <- subset_norm_counts[, desired_order]
-
-# Extract column data (sample information) and reorder it
-col_data <- colData(dds)[desired_order, ]
+# Prepare heatmap data
+heatmap_data <- as.matrix(filtered_data[, MegcombEns])
+rownames(heatmap_data) <- rownames(filtered_data)
+heatmap_data <- heatmap_data[order(filtered_data$gating), ]
 
 # Define color palette
 color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
 
 # Create a heatmap
-pheatmap(subset_norm_counts, 
+pheatmap(heatmap_data, 
+         cluster_rows = FALSE, 
+         cluster_cols = TRUE, 
+         color = color_palette,
+         show_rownames = FALSE,
+         annotation_row = filtered_data["gating"],
+         main = "Heatmap of Meg/MkP Genes")
+```
+
+# Create a heatmap
+pheatmap(seurat_object, 
          scale = "row", 
          clustering_distance_rows = "euclidean", 
          cluster_cols = FALSE, 
@@ -289,5 +293,3 @@ pheatmap(subset_norm_counts,
          show_rownames = TRUE, 
          show_colnames = TRUE,
          main = "Heatmap of AITL Genes")
-```
-
