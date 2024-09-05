@@ -153,7 +153,7 @@ VlnPlot(seurat_object, features = MegcombEns)
 
 ### View relationship between protein and RNA
 ```{r protein-v-rna}
-FeatureScatter(seurat_object, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000052301")
+FeatureScatter(seurat_object, feature1 = "adt_ESAM", feature2 = "rna_")
 ```
 
 ### You can also FindMarkers for each assay
@@ -182,6 +182,22 @@ rna_markers <- FindMarkers(seurat_object, ident.1 = "CD135- MPP3 ESAM+", ident.2
 
 write.csv(adt_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/adtmpp3esam.csv")
 write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3esam.csv")
+
+adt_markers <- FindMarkers(seurat_object, ident.1 = "CD135- MPP3 ESAM+", ident.2 = "CD135- MPP3 ESAM-", assay = "ADT")
+rna_markers <- FindMarkers(seurat_object, ident.1 = "CD135- MPP3 ESAM+", ident.2 = "CD135- MPP3 ESAM-", assay = "RNA")
+
+write.csv(adt_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/adtmpp3.csv")
+write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3.csv")
+```
+
+```{r}
+adt_markers <- FindMarkers(seurat_object, ident.1 = "CD135- MPP3 ESAM+", ident.2 = "CD135- MPP3 ESAM-", assay = "ADT")
+rna_markers <- FindMarkers(seurat_object, ident.1 = "CD135- MPP3 ESAM+", ident.2 = "CD135- MPP3 ESAM-", assay = "RNA")
+
+write.csv(adt_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/adtmpp3.csv")
+write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3.csv")
+
+EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3.csv", "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3_genename.csv")
 ```
 
 
@@ -225,12 +241,16 @@ EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/R
 EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp2esam.csv", "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp2esam_genename.csv")
 
 EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3esam.csv", "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3esam_genename.csv")
+
+EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3.csv", "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3_genename.csv")
 ```
 For further analysis it can be easier to define the genes you want to use ahead of time
 ```{r}
 MkPspecific <- c("Maml2", "Mtss1l","Slc39a13", "Rell2", "Nrgn", "S100a1", "Lrch4", "Rnasek", "Gucy1b3")
 Meglin <- c("Selp", "Itga2b", "Itgb3", "Cd9")
 Megcomb <- c("Maml2", "Mtss1l","Slc39a13", "Rell2", "Nrgn", "S100a1", "Lrch4", "Rnasek", "Gucy1b3", "Selp", "Itga2b", "Itgb3", "Cd9")
+meg <- c("Apoe", "Vwf")
+coag <- c("Timp3", "Pf4", "Vwf", "Gda", "Gp1ba", "Itgb3", "F2rl2", "Pdgfb", "P2ry1", "Pros1", "Cd9", "Gp9", "Mmp14", "Clu", "Fn1", "Maff", "S100a1", "Bmp1", "Thbd")
 ```
 
 ```{r}
@@ -240,12 +260,12 @@ mart <- useDataset("mmusculus_gene_ensembl", useMart("ensembl"))
 gene_ids <- getBM(
   filters = "mgi_symbol",
   attributes = c("mgi_symbol", "ensembl_gene_id"),
-  values = Megcomb,
+  values = coag,
   mart = mart
 )
 
 id_list <- split(gene_ids[["ensembl_gene_id"]], gene_ids[["mgi_symbol"]])
-MegcombEns <- gene_ids[["ensembl_gene_id"]]
+CoagEns <- gene_ids[["ensembl_gene_id"]]
 
 rm(ensembl, gene_ids, id_list, mart)
 ```
@@ -256,19 +276,46 @@ Generate heatmap
 DefaultAssay(seurat_object) <- "RNA"
 DoHeatmap(seurat_object, features = MegcombEns)
 ```
+ "CD135- HSC ESAM-", "CD135- MPP1 ESAM-","CD135- MPP2 ESAM-", "CD135- MPP3 ESAM-",
 
 ```{r}
-expression_data <- FetchData(seurat_object, vars = MegcombEns)
+expression_data <- FetchData(seurat_object, vars = CoagEns)
 expression_data$gating <- seurat_object@meta.data$gating
 
 # Filter data to include only the desired groups
-desired_groups <- c("CD135- HSC ESAM+", "CD135- MPP1 ESAM+", "CD135- MPP2 ESAM+", "CD135- MPP3 ESAM+")
+desired_groups <- c("CD135- HSC ESAM+", "CD135- MPP1 ESAM+", "CD135- MPP2 ESAM+",  "CD135- MPP3 ESAM+", "MPP4")
 filtered_data <- expression_data[expression_data$gating %in% desired_groups, ]
 
 # Prepare heatmap data
-heatmap_data <- as.matrix(filtered_data[, MegcombEns])
+heatmap_data <- as.matrix(filtered_data[, CoagEns])
 rownames(heatmap_data) <- rownames(filtered_data)
 heatmap_data <- heatmap_data[order(filtered_data$gating), ]
+
+rnanames <- colnames(heatmap_data)
+ensembl <- useEnsembl(biomart = "genes")
+listDatasets(ensembl)
+mart <- useDataset("mmusculus_gene_ensembl", useMart("ensembl"))
+gene_ids <- getBM(
+  filters = "ensembl_gene_id",
+  attributes = c("ensembl_gene_id", "mgi_symbol"),
+  values = rnanames,
+  mart = mart
+)
+
+id_list <- split(gene_ids[["mgi_symbol"]], gene_ids[["ensembl_gene_id"]])
+rnaname <- character(ncol(heatmap_data))
+for (i in seq_len(ncol(heatmap_data))) {
+  ensembl_id <- colnames(heatmap_data)[i]
+  if (ensembl_id %in% names(id_list)) {
+    rnaname[i] <- id_list[[ensembl_id]]
+  } else{
+    rnaname[i] <- ensembl_id
+  }
+}
+rnaname[rnaname == ""] <- NA
+
+colnames(heatmap_data) <- rnaname
+rm(ensembl, gene_ids, id_list, mart, ensembl_id, i, rnaname)
 
 # Define color palette
 color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
