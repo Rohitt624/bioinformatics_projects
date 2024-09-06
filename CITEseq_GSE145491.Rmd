@@ -50,7 +50,7 @@ rownames(seurat_object[["RNA"]])
 
 Test ADT data by choosing any two ADT features
 ```{r featurescatter}
-FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE, group.by = "gating")
+FeatureScatter(mpp3, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE, group.by = "gate")
 ```
 
 
@@ -129,8 +129,8 @@ mpp3 <- subset(seurat_object, idents = "CD135- MPP3")
 ```
 
 ```{r more gating, eval=FALSE}
-subsetmpp3 <- FeatureScatter(mpp3, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE)
-mpp3 <- CellSelector(subsetmpp3, object = mpp3, ident = "ESAM-")
+subsethsc <- FeatureScatter(hsc, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE)
+hsc <- CellSelector(subsetmpp3, object = hsc, ident = "ESAM-")
 
 ```
 Save gating
@@ -153,7 +153,7 @@ VlnPlot(seurat_object, features = MegcombEns)
 
 ### View relationship between protein and RNA
 ```{r protein-v-rna}
-FeatureScatter(seurat_object, feature1 = "adt_ESAM", feature2 = "rna_")
+FeatureScatter(seurat_object, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000001946")
 ```
 
 ### You can also FindMarkers for each assay
