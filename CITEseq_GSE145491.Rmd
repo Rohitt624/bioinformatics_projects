@@ -50,7 +50,7 @@ rownames(seurat_object[["RNA"]])
 
 Test ADT data by choosing any two ADT features
 ```{r featurescatter}
-FeatureScatter(mpp3, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE, group.by = "gate")
+FeatureScatter(mpp3v2, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE, group.by = "gate")
 ```
 
 
@@ -125,22 +125,35 @@ seurat_object$gates <- ifelse(active_idents %in% gates, as.character(active_iden
 To further gate, subset this gated population into a separate seurat object, gate the population of interest, then create a vector to add a new metadata column for these cells in the original object
 ```{r subset, eval=FALSE}
 Idents(seurat_object) <- "gating"
-mpp3 <- subset(seurat_object, idents = "CD135- MPP3")
+mpp3v2 <- subset(seurat_object, idents = "CD135- MPP3")
 ```
 
 ```{r more gating, eval=FALSE}
-subsetmpp3 <- FeatureScatter(mpp3, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE)
-mpp3 <- CellSelector(subsetmpp3, object = mpp3, ident = "ESAM+")
+subsetmpp3 <- FeatureScatter(mpp3v2, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE)
+mpp3v2 <- CellSelector(subsetmpp3, object = mpp3v2, ident = "ESAM+")
 ```
 Save gating
 ```{r save gating, eval=FALSE}
-active_idents <- Idents(mpp3)
+active_idents <- Idents(mpp3v2)
 gates <- c("ESAM+", "ESAM-")
-mpp3$gate <- ifelse(active_idents %in% gates, as.character(active_idents), NA)
+mpp3v2$gate <- ifelse(active_idents %in% gates, as.character(active_idents), NA)
 ```
 
+```{r revert gating, eval=FALSE}
+modify_identifiers <- function(identifier) {
+  if (identifier %in% c("CD135- MPP3 ESAM+", "CD135- MPP3 ESAM-", "CD135- MPP3 NA")) {
+    return("CD135- MPP3")
+  } else {
+    return(identifier)
+  }
+}
+
+seurat_object$gating <- sapply(seurat_object$gating, modify_identifiers)
+```
+
+
 ```{r, eval=FALSE}
-seurat_object$gating[Cells(mpp2)] <- paste("CD135- MPP2", mpp2$gate)
+seurat_object$gating[Cells(mpp3v2)] <- paste("CD135- MPP3", mpp3v2$gate)
 DimPlot(seurat_object, group.by = "gating")
 ```
 
@@ -185,8 +198,8 @@ write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Z
 adt_markers <- FindMarkers(seurat_object, ident.1 = "CD135- MPP3 ESAM+", ident.2 = "CD135- MPP3 ESAM-", assay = "ADT")
 rna_markers <- FindMarkers(seurat_object, ident.1 = "CD135- MPP3 ESAM+", ident.2 = "CD135- MPP3 ESAM-", assay = "RNA")
 
-write.csv(adt_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/adtmpp3.csv")
-write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3.csv")
+write.csv(adt_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/adtmpp3v3.csv")
+write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3v3.csv")
 ```
 
 ```{r}
@@ -241,7 +254,7 @@ EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/R
 
 EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3esam.csv", "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3esam_genename.csv")
 
-EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3.csv", "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3_genename.csv")
+EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3v3.csv", "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3v3_genename.csv")
 ```
 For further analysis it can be easier to define the genes you want to use ahead of time
 ```{r}
