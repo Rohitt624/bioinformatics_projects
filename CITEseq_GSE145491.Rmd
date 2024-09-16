@@ -160,7 +160,7 @@ DimPlot(seurat_object, group.by = "gating")
 
 ### Similarly, to identify surface markers, you can make plots of ADT values the same way you can for RNA values.
 ```{r vlnplot}
-VlnPlot(seurat_object, features = MegcombEns)
+VlnPlot(seurat_object, features = CoagEns, group.by = "gating"githu)
 ```
 
 ### View relationship between protein and RNA
@@ -284,13 +284,13 @@ rm(ensembl, gene_ids, id_list, mart)
 
 
 Generate heatmap
-```{r}
+```{r seurat heatmap}
 DefaultAssay(seurat_object) <- "RNA"
-DoHeatmap(seurat_object, features = MegcombEns)
+DoHeatmap(seurat_object, features = CoagEns, group.by = "gating")
 ```
  "CD135- HSC ESAM-", "CD135- MPP1 ESAM-","CD135- MPP2 ESAM-", "CD135- MPP3 ESAM-",
 
-```{r}
+```{r pheatmap}
 expression_data <- FetchData(seurat_object, vars = CoagEns)
 expression_data$gating <- seurat_object@meta.data$gating
 
