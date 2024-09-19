@@ -1,0 +1,156 @@
+---
+title: "MPC RNA Sequencing Work"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Initial Setup:
+
+Load required packages and set working directory.
+
+```{r packages}
+library(DESeq2)
+library(tximport)
+library(tidyverse)
+library(rnaseqGene)
+library(pheatmap)
+library(ggalt)
+```
+
+# DESeq2 analysis
+Load data into DESeq dataset
+
+```{r load data}
+cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ryan MPC/MPC BUlk RNA Seq/MPC_Counts_Corrected.csv") #file path to Counts csv document
+cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
+cts <- cts2[, -1]
+table(duplicated(cts$Gene.name)) #check for duplicate gene names
+rownames(cts) <- make.names(cts2$Gene.name, unique = TRUE) #forces gene names to become unique
+rm(cts2)
+cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ryan MPC/MPC Bulk RNA Seq/coldata.csv") #make coldata file with sample names in one column and then condition in second column
+dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~ condition)
+```
+
+Differential Expression
+
+```{r DESeq}
+dds <- DESeq(dds)
+rescmp <- results(dds) 
+vst <- vst(dds, blind=FALSE)
+```
+
+write results as csv
+
+```{r save results}
+write.csv(rescmp, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ryan MPC/MPC BUlk RNA Seq/completeresults.csv")
+```
+
+### Comparison 1 of 3: DKO-WT
+
+```{r}
+res1 <- DESeq2::results(dds, 
+                       contrast = c("condition", "DKO", "WT"),
+                       independentFiltering = TRUE,
+)
+write.csv(res1, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ryan MPC/MPC BUlk RNA Seq/dko_wt.csv")
+```
+
+### Comparison 2 of 3: Tet2KO-WT
+
+```{r}
+res2 <- DESeq2::results(dds, 
+                       contrast = c("condition", "Tet2KO", "WT"),
+                       independentFiltering = TRUE,
+)
+write.csv(res2, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ryan MPC/MPC BUlk RNA Seq/tet2_wt.csv")
+```
+
+### Comparison 3 of 3: DKO-Tet2KO
+
+```{r}
+res3 <- DESeq2::results(dds, 
+                       contrast = c("condition", "DKO", "Tet2KO"),
+                       independentFiltering = TRUE,
+)
+write.csv(res3, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ryan MPC/MPC BUlk RNA Seq/dko_tet2ko.csv")
+```
+
+#### Filter for p-value
+
+```{r filter for p-value}
+res_filtered1 <- res1[which(res1$padj < 0.1), ]
+
+write.csv(res_filtered1, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ryan MPC/MPC BUlk RNA Seq/dko_wt_filter.csv")
+
+res_filtered2 <- res2[which(res2$padj < 0.1), ]
+
+write.csv(res_filtered2, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ryan MPC/MPC BUlk RNA Seq/tet2_wt_filter.csv")
+
+res_filtered3 <- res3[which(res3$padj < 0.1), ]
+
+write.csv(res_filtered3, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ryan MPC/MPC BUlk RNA Seq/dko_tet2ko_filter.csv")
+```
+
+display top 20 as heatmap
+
+```{r top 20 heatmap}
+ntd <- normTransform(dds)
+select <- order(rowMeans(counts(dds,normalized=TRUE)),
+                decreasing=TRUE)[1:20]
+df <- as.data.frame(colData(dds)[,c("condition")])
+
+colnames(assay(ntd)[select,]) <- str_sub(colnames(assay(ntd)[select,]), 1, -3)
+rownames(df) <- colnames(assay(ntd)[select,])
+# For displaying the plot
+pheatmap(assay(ntd)[select,], cluster_rows=FALSE, show_rownames=TRUE,
+         cluster_cols=FALSE, annotation_col=df)
+```
+
+## Display selected Genes as Heatmap
+
+```{r selected genes heatmap}
+# List of specific genes
+genes_of_interest <- c("Rgs1", "Sh2d1a", "Crip1", "S100a13", "Gabbr1", "Dtnb", "Rsad2", "Cxcl9", 
+                       "Kenj10", "Gstm5", "C1qb", "Slc40a1", "Slc43a1", "C1qc", "Veam1", "Marchf1", 
+                       "Pla2g2d", "C1qa", "Slc25a37", "Ckap4", "Rgl1", "Mafb", "Pou2af1", "Ighm", 
+                       "Il18", "Slco2b1", "Marcks", "Itga9", "Tns3", "Abcc3", "Wdfy3", "Arhgap23", "Bcl6", "Cxcr5")
+
+# Subset normalized counts to include only the genes of interest
+subset_vst <- norm_counts[rownames(vst) %in% genes_of_interest, ]
+
+# Define the desired column order
+desired_order <- c("WT_1", "WT_2", "WT_3", "Tet2KO_1", "Tet2KO_2", "Tet2KO_3", "DKO_1", "DKO_2", "DKO_3")
+
+# Reorder the columns
+subset_vst <- subset_vst[, desired_order]
+
+# Extract column data (sample information) and reorder it
+col_data <- colData(dds)[desired_order, ]
+
+# Define color palette
+color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
+
+# Create a heatmap
+pheatmap(subset_vst, 
+         scale = "row", 
+         clustering_distance_rows = "euclidean", 
+         cluster_cols = FALSE, 
+         clustering_method = "complete", 
+         color = color_palette,
+         show_rownames = TRUE, 
+         show_colnames = TRUE,
+         main = "Heatmap of AITL Genes")
+```
+
+```{r pca plot}
+pca <- plotPCA(vst)
+pca + expand_limits(y=c(-15, 13), x=c(-15,27)) + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), # White background
+    axis.text = element_blank(), # Remove axis numbers
+    axis.ticks = element_blank(), # Remove axis ticks
+  ) + 
+  scale_color_manual(values = c("CMP" = "red", "GMP" = "blue", "MEP" = "black", "PG" = "green", "PM" = "purple"))
+```
+
