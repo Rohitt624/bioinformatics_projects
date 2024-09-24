@@ -16,6 +16,7 @@ library(tidyverse)
 library(rnaseqGene)
 library(pheatmap)
 library(ggalt)
+library(ggplot2)
 ```
 
 # DESeq2 analysis
@@ -156,45 +157,6 @@ subset_rlog <- subset_rlog[row_order, ]
 
 ## Display selected Genes as Heatmap
 
-```{r selected genes heatmap}
-# List of specific genes
-genes_of_interest <- c("Rgs1", "Sh2d1a", "Crip1", "S100a13", "Gabbr1", "Dtnb", "Rsad2", "Cxcl9", 
-                       "Kenj10", "Gstm5", "C1qb", "Slc40a1", "Slc43a1", "C1qc", "Veam1", "Marchf1", 
-                       "Pla2g2d", "C1qa", "Slc25a37", "Ckap4", "Rgl1", "Mafb", "Pou2af1", "Ighm", 
-                       "Il18", "Slco2b1", "Marcks", "Itga9", "Tns3", "Abcc3", "Wdfy3", "Arhgap23")
-
-# Subset normalized counts to include only the genes of interest
-subset_vst <- assay(vst)[rownames(vst) %in% genes_of_interest, ]
-row_order <- order(rowMeans(subset_vst), decreasing = TRUE)
-subset_vst <- subset_vst[row_order, ]
-subset_vst <- as.matrix(subset_vst)
-
-# Define the desired column order
-desired_order <- c("WT_1", "WT_2", "WT_3", "Tet2KO_1", "Tet2KO_2", "Tet2KO_3", "DKO_1", "DKO_2", "DKO_3")
-
-# Reorder the columns
-subset_vst <- subset_vst[, desired_order]
-
-# Extract column data (sample information) and reorder it
-col_data <- colData(dds)[desired_order, ]
-
-# Define color palette
-color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
-
-# Create a heatmap
-heatmap <- pheatmap(subset_vst, 
-         scale = "row", 
-         clustering_distance_rows = "euclidean", 
-         cluster_cols = FALSE, 
-         clustering_method = "complete", 
-         color = color_palette,
-         show_rownames = TRUE, 
-         show_colnames = TRUE,
-         main = "Heatmap of AITL Genes",
-         treeheight_row = 0)
-
-```
-
 ```{r}
 # List of specific genes
 genes_of_interest <- c("Rgs1", "Sh2d1a", "Crip1", "S100a13", "Gabbr1", "Dtnb", "Rsad2", "Cxcl9", 
@@ -243,5 +205,35 @@ pca + geom_point(size=5) +
     axis.ticks = element_blank(), # Remove axis ticks
   ) + 
   scale_color_manual(values = c("WT" = "black", "Tet2KO" = "blue", "DKO" = "red"))
+```
+
+##Display GSEA Results
+
+```{r}
+mh <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dkoenriched_mh.csv")
+mh <- 
+mhplot <- ggplot(mh, aes(x=FDR.q.val, y=reorder(NAME, NES), fill = NES))
+mhplot + geom_point(size=3, shape=21) + 
+  geom_vline(xintercept = 0.1, linetype = "dashed", color = "red") + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    plot.title = element_text(hjust = 0.5)
+    ) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
+  labs(x="FDR q-value", y="Hallmark Pathways", title="Normalized Enrichment Score")
+```
+
+```{r}
+all <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dkotet2all.csv")
+all <- all[which(all$NES > 1 | all$NES < -1),]
+gseaplot <- ggplot(all, aes(x=FDR.q.val, y=reorder(NAME, NES), fill = NES))
+gseaplot + geom_point(size=3, shape=21) + 
+  geom_vline(xintercept = 0.1, linetype = "dashed", color = "red") + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    plot.title = element_text(hjust = 0.5)
+    ) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
+  labs(x="FDR q-value", y="Hallmark Pathways", title="Normalized Enrichment Score")
 ```
 
