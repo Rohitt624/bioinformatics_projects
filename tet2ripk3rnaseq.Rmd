@@ -97,12 +97,62 @@ display top 20 as heatmap
 
 ```{r top 20 heatmap}
 select <- order(rowMeans(abs(assay(rlog))),
-                decreasing=TRUE)[1:20]
+                decreasing=TRUE)[1:50]
 df <- as.data.frame(colData(rlog)[,c("condition")])
 color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
 pheatmap(assay(rlog)[select,], cluster_rows=FALSE, show_rownames=TRUE,
          cluster_cols=FALSE, color=color_palette, main="Top 20 Heatmap")
 ```
+
+Attempt at top 20 from each condition heatmap
+```{r}
+
+# Assuming you have a DESeqDataSet object called 'dds'
+# Perform differential expression analysis for each condition
+
+# Rank genes based on adjusted p-value
+top_genes_condition1 <- head(order(res_filtered1$log2FoldChange), 20)
+top_genes_condition2 <- head(order(res_filtered2$log2FoldChange), 20)
+top_genes_condition3 <- head(order(res_filtered3$log2FoldChange), 20)
+
+# Extract top 20 genes for each condition
+top_genes_condition1 <- rownames(res_filtered1)[top_genes_condition1]
+top_genes_condition2 <- rownames(res_filtered2)[top_genes_condition2]
+top_genes_condition3 <- rownames(res_filtered3)[top_genes_condition3]
+
+# Combine results
+top_genes <- unique(c(top_genes_condition1, top_genes_condition2, top_genes_condition3))
+
+# Subset normalized counts to include only the genes of interest
+subset_rlog <- assay(rlog)[rownames(rlog) %in% top_genes, ]
+subset_rlog <- as.matrix(subset_rlog)
+
+# Define the desired column order
+desired_order <- c("WT_1", "WT_2", "WT_3", "Tet2KO_1", "Tet2KO_2", "Tet2KO_3", "DKO_1", "DKO_2", "DKO_3")
+
+# Reorder the columns
+subset_rlog <- subset_rlog[, desired_order]
+
+# Extract column data (sample information) and reorder it
+col_data <- colData(dds)[desired_order, ]
+
+# Define color palette
+color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
+
+# Create a heatmap
+heatmap <- pheatmap(subset_rlog, 
+         scale = "row", 
+         clustering_distance_rows = "euclidean", 
+         cluster_cols = FALSE, 
+         clustering_method = "complete", 
+         color = color_palette,
+         show_rownames = TRUE, 
+         show_colnames = TRUE,
+         main = "Heatmap of AITL Genes",
+         treeheight_row = 0)
+```
+row_order <- order(rowMeans(subset_rlog), decreasing = TRUE)
+subset_rlog <- subset_rlog[row_order, ]
 
 ## Display selected Genes as Heatmap
 
