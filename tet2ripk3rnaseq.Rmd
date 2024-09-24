@@ -96,12 +96,12 @@ write.csv(res_filtered3, "C:/Users/rthalla/OneDrive - Loyola University Chicago/
 display top 20 as heatmap
 
 ```{r top 20 heatmap}
-select <- order(rowMeans(counts(dds,normalized=TRUE)),
+select <- order(rowMeans(abs(assay(rlog))),
                 decreasing=TRUE)[1:20]
-df <- as.data.frame(colData(dds)[,c("condition")])
+df <- as.data.frame(colData(rlog)[,c("condition")])
 color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
-pheatmap(assay(vst)[select,], cluster_rows=FALSE, show_rownames=TRUE,
-         cluster_cols=FALSE, color=color_palette, annotation_col=df, main="Top 20 Heatmap")
+pheatmap(assay(rlog)[select,], cluster_rows=FALSE, show_rownames=TRUE,
+         cluster_cols=FALSE, color=color_palette, main="Top 20 Heatmap")
 ```
 
 ## Display selected Genes as Heatmap
