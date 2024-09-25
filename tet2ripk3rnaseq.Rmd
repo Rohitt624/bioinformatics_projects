@@ -224,16 +224,15 @@ mhplot + geom_point(size=3, shape=21) +
 ```
 
 ```{r}
-all <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dkotet2all.csv")
-all <- all[which(all$NES > 1 | all$NES < -1),]
-gseaplot <- ggplot(all, aes(x=FDR.q.val, y=reorder(NAME, NES), fill = NES))
-gseaplot + geom_point(size=3, shape=21) + 
-  geom_vline(xintercept = 0.1, linetype = "dashed", color = "red") + 
+sel <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dkotet2selected.csv")
+gseaplot <- ggplot(sel, aes(x=-log(FDR.q.val), y=reorder(NAME, NES), fill = NES))
+gseaplot + geom_point(size=5, shape=21) + 
+  geom_vline(xintercept = 2, linetype = "dashed", color = "red") + 
   theme(
     panel.background = element_rect(fill = "white", color = "black"), 
     plot.title = element_text(hjust = 0.5)
     ) + 
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
-  labs(x="FDR q-value", y="Hallmark Pathways", title="Normalized Enrichment Score")
+  labs(x="-log(FDR q-value)", y="Selected Pathways", title="Normalized Enrichment Score")
 ```
 
