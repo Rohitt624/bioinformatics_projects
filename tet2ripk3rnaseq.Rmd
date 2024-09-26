@@ -94,7 +94,7 @@ res_filtered3 <- res3[which(res3$padj < 0.1 & !is.na(res1$padj)), ]
 write.csv(res_filtered3, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dko_tet2ko_filter.csv")
 ```
 
-display top 20 as heatmap
+## Generate Heatmap
 
 ```{r top 20 heatmap}
 select <- order(rowMeans(abs(assay(rlog))),
@@ -106,7 +106,7 @@ pheatmap(assay(rlog)[select,], cluster_rows=FALSE, show_rownames=TRUE,
 ```
 
 Attempt at top 20 from each condition heatmap
-```{r}
+```{r Top 20 from each condition heatmap (WIP)}
 
 # Assuming you have a DESeqDataSet object called 'dds'
 # Perform differential expression analysis for each condition
@@ -155,9 +155,8 @@ heatmap <- pheatmap(subset_rlog,
 row_order <- order(rowMeans(subset_rlog), decreasing = TRUE)
 subset_rlog <- subset_rlog[row_order, ]
 
-## Display selected Genes as Heatmap
 
-```{r}
+```{r Heatmap of Specific Genes}
 # List of specific genes
 genes_of_interest <- c("Rgs1", "Sh2d1a", "Crip1", "S100a13", "Gabbr1", "Dtnb", "Rsad2", "Cxcl9", 
                        "Kenj10", "Gstm5", "C1qb", "Slc40a1", "Slc43a1", "C1qc", "Veam1", "Marchf1", 
@@ -195,6 +194,7 @@ heatmap <- pheatmap(subset_rlog,
          treeheight_row = 0)
 ```
 
+##Generate PCA Plot
 
 ```{r pca plot}
 pca <- plotPCA(rlog)
@@ -212,9 +212,9 @@ pca + geom_point(size=5) +
 ```{r hallmark pathways}
 ht <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dkoenriched_mh.csv")
 ht <- ht[which(ht["FDR.q.val"]<0.2 & abs(ht["NES"])>1),]
-htplot <- ggplot(ht, aes(x=-log(FDR.q.val), y=reorder(NAME, -log(FDR.q.val)), fill = NES))
+htplot <- ggplot(ht, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 htplot + geom_point(size=5, shape=21) + 
-  geom_vline(xintercept = 2, linetype = "dashed", color = "red") + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
   theme(
     panel.background = element_rect(fill = "white", color = "black"), 
     plot.title = element_text(hjust = 0.5)
@@ -236,33 +236,46 @@ rm(dr1, dr2)
 hr <- hr[which(hr["FDR q-val"]<0.2 & abs(hr["NES"])>1),]
 hr <- rename(hr, FDR.q.val="FDR q-val")
 
-hwplot <- ggplot(hw, aes(x=-log(FDR.q.val), y=reorder(NAME, -log(FDR.q.val)), fill = NES))
+hwplot <- ggplot(hw, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 hwplot + geom_point(size=5, shape=21) + 
-  geom_vline(xintercept = 2, linetype = "dashed", color = "red") + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
   theme(
     panel.background = element_rect(fill = "white", color = "black"), 
     plot.title = element_text(hjust = 0.5)
     ) + 
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
-  labs(x="-log(FDR q-value)", y="Reactome Pathways", title="DKO vs WT")
+  labs(x="-log(FDR q-value)", y="Hallmark Pathways", title="DKO vs WT")
 
-hrplot <- ggplot(hr, aes(x=-log(FDR.q.val), y=reorder(NAME, -log(FDR.q.val)), fill = NES))
+hrplot <- ggplot(hr, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 hrplot + geom_point(size=5, shape=21) + 
-  geom_vline(xintercept = 2, linetype = "dashed", color = "red") + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
   theme(
     panel.background = element_rect(fill = "white", color = "black"), 
     plot.title = element_text(hjust = 0.5)
     ) + 
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
-  labs(x="-log(FDR q-value)", y="Reactome Pathways", title="DKO vs rest")
+  labs(x="-log(FDR q-value)", y="Hallmark Pathways", title="DKO vs rest")
 
 ```
 
+```{r}
+hwplot <- ggplot(hw, aes(x=-log10(FDR.q.val), y=reorder(NAME, (-log10(FDR.q.val)+NES)), fill = NES))
+hwplot + geom_point(size=5, shape=21) + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    plot.title = element_text(hjust = 0.5)
+    ) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
+  labs(x="-log(FDR q-value)", y="Hallmark Pathways", title="DKO vs WT")
+```
+
+
 ```{r Selected Pathways}
 sel <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dkotet2selected.csv")
-gseaplot <- ggplot(sel, aes(x=-log(FDR.q.val), y=reorder(NAME, -log(FDR.q.val)), fill = NES))
+gseaplot <- ggplot(sel, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 gseaplot + geom_point(size=5, shape=21) + 
-  geom_vline(xintercept = 2, linetype = "dashed", color = "red") + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
   theme(
     panel.background = element_rect(fill = "white", color = "black"), 
     plot.title = element_text(hjust = 0.5)
@@ -276,18 +289,160 @@ gseaplot + geom_point(size=5, shape=21) +
 rdt <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/reactomedkotet2.csv")
 rdt <- rdt[which(rdt["FDR.q.val"]<0.2 & abs(rdt["NES"])>1),]
 
-gseaplot <- ggplot(rdt, aes(x=-log(FDR.q.val), y=reorder(NAME, -log(FDR.q.val)), fill = NES))
+gseaplot <- ggplot(rdt, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 gseaplot + geom_point(size=5, shape=21) + 
-  geom_vline(xintercept = 2, linetype = "dashed", color = "red") + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
   theme(
     panel.background = element_rect(fill = "white", color = "black"), 
     plot.title = element_text(hjust = 0.5)
     ) + 
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
-  labs(x="-log(FDR q-value)", y="Reactome Pathways", title="Normalized Enrichment Score")
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.8, 1.8)) + 
+  labs(x="-log(FDR q-value)", y="Reactome Pathways", title="DKO vs Tet2KO")
+
+dw1 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/reactomedkowt.Gsea.1727282754824/gsea_report_for_DKO_1727282754824.tsv")
+dw2 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/reactomedkowt.Gsea.1727282754824/gsea_report_for_WT_1727282754824.tsv")
+hw <- bind_rows(dw1, dw2)
+rm(dw1, dw2)
+hw <- hw[which(hw["FDR q-val"]<0.2 & abs(hw["NES"])>1),]
+hw <- rename(hw, FDR.q.val="FDR q-val")
+
+dr1 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/reactomedkorest.Gsea.1727282772001/gsea_report_for_DKO_1727282772001.tsv")
+dr2 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/reactomedkorest.Gsea.1727282772001/gsea_report_for_REST_1727282772001.tsv")
+hr <- bind_rows(dr1, dr2)
+rm(dr1, dr2)
+hr <- hr[which(hr["FDR q-val"]<0.2 & abs(hr["NES"])>1),]
+hr <- rename(hr, FDR.q.val="FDR q-val")
+
+hwplot <- ggplot(hw, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+hwplot + geom_point(size=5, shape=21) + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    plot.title = element_text(hjust = 0.5)
+    ) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.8, 1.8)) + 
+  labs(x="-log(FDR q-value)", y="Reactome Pathways", title="DKO vs WT")
+
+hrplot <- ggplot(hr, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+hrplot + geom_point(size=5, shape=21) + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    plot.title = element_text(hjust = 0.5)
+    ) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.8, 1.8)) + 
+  labs(x="-log(FDR q-value)", y="Reactome Pathways", title="DKO vs rest")
+
 ```
 
-```{r combined mpt}
+```{r cgp}
+dt1 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/cgpdkotet2.Gsea.1727301555695/gsea_report_for_DKO_1727301555695.tsv")
+dt2 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/cgpdkotet2.Gsea.1727301555695/gsea_report_for_Tet2KO_1727301555695.tsv")
+ht <- bind_rows(dt1, dt2)
+rm(dt1, dt2)
+ht <- ht[which(ht["FDR q-val"]<0.2 & abs(ht["NES"])>1),]
+ht <- rename(ht, FDR.q.val="FDR q-val")
+
+dw1 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/cgpdkowt.Gsea.1727301571556/gsea_report_for_DKO_1727301571556.tsv")
+dw2 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/cgpdkowt.Gsea.1727301571556/gsea_report_for_WT_1727301571556.tsv")
+hw <- bind_rows(dw1, dw2)
+rm(dw1, dw2)
+hw <- hw[which(hw["FDR q-val"]<0.125 & abs(hw["NES"])>1),]
+hw <- rename(hw, FDR.q.val="FDR q-val")
+
+dr1 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/cgpdkorest.Gsea.1727301646239/gsea_report_for_DKO_1727301646239.tsv")
+dr2 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/cgpdkorest.Gsea.1727301646239/gsea_report_for_REST_1727301646239.tsv")
+hr <- bind_rows(dr1, dr2)
+rm(dr1, dr2)
+hr <- hr[which(hr["FDR q-val"]<0.125 & abs(hr["NES"])>1),]
+hr <- rename(hr, FDR.q.val="FDR q-val")
+
+htplot <- ggplot(ht, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+htplot + geom_point(size=5, shape=21) + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    plot.title = element_text(hjust = 0.5)
+    ) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.9,1.9)) + 
+  labs(x="-log(FDR q-value)", y="CGP Pathways", title="DKO vs Tet2KO")
+
+hwplot <- ggplot(hw, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+hwplot + geom_point(size=5, shape=21) + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    plot.title = element_text(hjust = 0.5)
+    ) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.9,1.9)) + 
+  labs(x="-log(FDR q-value)", y="CGP Pathways", title="DKO vs WT")
+
+hrplot <- ggplot(hr, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+hrplot + geom_point(size=5, shape=21) + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    plot.title = element_text(hjust = 0.5)
+    ) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.9,1.9)) + 
+  labs(x="-log(FDR q-value)", y="CGP Pathways", title="DKO vs rest")
+```
+
+```{r gobp}
+dt1 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/gobpdkotet2.Gsea.1727282860346/gsea_report_for_DKO_1727282860346.tsv")
+dt2 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/gobpdkotet2.Gsea.1727282860346/gsea_report_for_Tet2KO_1727282860346.tsv")
+ht <- bind_rows(dt1, dt2)
+rm(dt1, dt2)
+ht <- ht[which(ht["FDR q-val"]<0.2 & abs(ht["NES"])>1),]
+ht <- rename(ht, FDR.q.val="FDR q-val")
+
+dw1 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/gobpdkowt.Gsea.1727291254438/gsea_report_for_DKO_1727291254438.tsv")
+dw2 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/gobpdkowt.Gsea.1727291254438/gsea_report_for_WT_1727291254438.tsv")
+hw <- bind_rows(dw1, dw2)
+rm(dw1, dw2)
+hw <- hw[which(hw["FDR q-val"]<0.141 & abs(hw["NES"])>1),]
+hw <- rename(hw, FDR.q.val="FDR q-val")
+
+dr1 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/gobpdkorest.Gsea.1727291264237/gsea_report_for_DKO_1727291264237.tsv")
+dr2 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/gobpdkorest.Gsea.1727291264237/gsea_report_for_REST_1727291264237.tsv")
+hr <- bind_rows(dr1, dr2)
+rm(dr1, dr2)
+hr <- hr[which(hr["FDR q-val"]<0.12 & abs(hr["NES"])>1),]
+hr <- rename(hr, FDR.q.val="FDR q-val")
+
+htplot <- ggplot(ht, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+htplot + geom_point(size=5, shape=21) + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    plot.title = element_text(hjust = 0.5)
+    ) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.9,1.9)) + 
+  labs(x="-log(FDR q-value)", y="GOBP", title="DKO vs Tet2KO")
+
+hwplot <- ggplot(hw, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+hwplot + geom_point(size=5, shape=21) + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    plot.title = element_text(hjust = 0.5)
+    ) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.9,1.9)) + 
+  labs(x="-log(FDR q-value)", y="GOBP", title="DKO vs WT")
+
+hrplot <- ggplot(hr, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+hrplot + geom_point(size=5, shape=21) + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    plot.title = element_text(hjust = 0.5)
+    ) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.9,1.9)) + 
+  labs(x="-log(FDR q-value)", y="GOBP", title="DKO vs rest")
+```
+
+
+```{r mpt}
 dt1 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/mptdkotet2.Gsea.1727291543940/gsea_report_for_DKO_1727291543940.tsv")
 dt2 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240925/mptdkotet2.Gsea.1727291543940/gsea_report_for_Tet2KO_1727291543940.tsv")
 mt <- bind_rows(dt1, dt2)
@@ -306,35 +461,35 @@ mr <- mr[which(mr["FDR q-val"]<0.2 & abs(mr["NES"])>1),]
 mr <- rename(mr, FDR.q.val="FDR q-val")
 rm(dr1, dr2)
 
-mtplot <- ggplot(mt, aes(x=-log(FDR.q.val), y=reorder(NAME, -log(FDR.q.val)), fill = NES))
+mtplot <- ggplot(mt, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 mtplot + geom_point(size=5, shape=21) + 
-  geom_vline(xintercept = 2, linetype = "dashed", color = "red") + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
   theme(
     panel.background = element_rect(fill = "white", color = "black"), 
     plot.title = element_text(hjust = 0.5)
     ) + 
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
-  labs(x="-log(FDR q-value)", y="Reactome Pathways", title="DKO vs Tet2KO")
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.6, 1.6)) + 
+  labs(x="-log(FDR q-value)", y="MPT Pathways", title="DKO vs Tet2KO")
 
-mwplot <- ggplot(mw, aes(x=-log(FDR.q.val), y=reorder(NAME, -log(FDR.q.val)), fill = NES))
+mwplot <- ggplot(mw, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 mwplot + geom_point(size=5, shape=21) + 
-  geom_vline(xintercept = 2, linetype = "dashed", color = "red") + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
   theme(
     panel.background = element_rect(fill = "white", color = "black"), 
     plot.title = element_text(hjust = 0.5)
     ) + 
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
-  labs(x="-log(FDR q-value)", y="Reactome Pathways", title="DKO vs WT")
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.6, 1.6)) + 
+  labs(x="-log(FDR q-value)", y="MPT Pathways", title="DKO vs WT")
 
-mrplot <- ggplot(mr, aes(x=-log(FDR.q.val), y=reorder(NAME, -log(FDR.q.val)), fill = NES))
+mrplot <- ggplot(mr, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 mrplot + geom_point(size=5, shape=21) + 
-  geom_vline(xintercept = 2, linetype = "dashed", color = "red") + 
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red") + 
   theme(
     panel.background = element_rect(fill = "white", color = "black"), 
     plot.title = element_text(hjust = 0.5)
     ) + 
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
-  labs(x="-log(FDR q-value)", y="Reactome Pathways", title="DKO vs rest")
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.6, 1.6)) + 
+  labs(x="-log(FDR q-value)", y="MPT Pathways", title="DKO vs rest")
 ```
 
 
