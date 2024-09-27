@@ -204,7 +204,8 @@ pca + geom_point(size=5) +
     axis.text = element_blank(), # Remove axis numbers
     axis.ticks = element_blank(), # Remove axis ticks
   ) + 
-  scale_color_manual(values = c("WT" = "black", "Tet2KO" = "blue", "DKO" = "red"))
+  scale_color_manual(labels=c("Tet2-/- Ripk3-/-", "Tet2-/-", "WT"), values = c("red","blue", "black")) + 
+  lims(x=c(-15, 25), y=c(-15, 25))
 ```
 
 ##Display GSEA Results
