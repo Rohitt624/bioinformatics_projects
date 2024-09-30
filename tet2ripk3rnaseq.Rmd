@@ -201,10 +201,10 @@ pca <- plotPCA(rlog)
 pca + geom_point(size=5) + 
   theme(
     panel.background = element_rect(fill = "white", color = "black"), # White background
-    axis.text = element_blank(), # Remove axis numbers
-    axis.ticks = element_blank(), # Remove axis ticks
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
   ) + 
-  scale_color_manual(labels=c("Tet2-/- Ripk3-/-", "Tet2-/-", "WT"), values = c("red","blue", "black")) + 
+  scale_color_manual(labels=c("Tet2-/- Ripk3-/-", "Tet2-/-", "WT"), values = c("red","blue", "green3")) + 
   lims(x=c(-15, 25), y=c(-15, 25))
 ```
 
@@ -518,7 +518,7 @@ write.csv(hr, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/K
 
 ```{r Generate Plots}
 ht <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finaltfoll.csv")
-htplot <- ggplot(ht, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+htplot <- ggplot(ht, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 htplot + geom_point(size=5, shape=21) + 
  theme(
     panel.background = element_rect(fill = "white"), 
@@ -527,11 +527,12 @@ htplot + geom_point(size=5, shape=21) +
     axis.text=element_text(color="black", face="bold")
     ) +
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.4,2.4)) + 
-  labs(x="-log(FDR q-value)", y="Genesets", title="T cell & Lymphoma Genesets")
+  labs(x="-log(FDR q-value)", y="Genesets", title="T cell & Lymphoma Genesets") +
+  xlim(0,5.1)
 
 hw <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finalcellcycle.csv")
-hwplot <- ggplot(hw, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-hwplot + geom_point(size=5, shape=21) + 
+hwplot <- ggplot(hw, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+hwplot + geom_point(size=5, shape=21) +  
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
@@ -539,11 +540,12 @@ hwplot + geom_point(size=5, shape=21) +
     axis.text=element_text(color="black", face="bold")
     ) +
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.2,2.2)) + 
-  labs(x="-log(FDR q-value)", y="Genesets", title="Cell Cycle & Proliferation Genesets")
+  labs(x="-log(FDR q-value)", y="Genesets", title="Cell Cycle & Proliferation Genesets") +
+  xlim(0,5.1)
 
 hr <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finalmyeloid.csv")
-hrplot <- ggplot(hr, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-hrplot + geom_point(size=5, shape=21) + 
+hrplot <- ggplot(hr, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+hrplot + geom_point(size=5, shape=21) +  
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
@@ -551,6 +553,7 @@ hrplot + geom_point(size=5, shape=21) +
     axis.text=element_text(color="black", face="bold")
     ) +
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.0,2.0)) + 
-  labs(x="-log(FDR q-value)", y="Genesets", title="Myeloid Genesets")
+  labs(x="-log(FDR q-value)", y="Genesets", title="Myeloid Genesets") +
+  xlim(0,5.1)
 ```
 
