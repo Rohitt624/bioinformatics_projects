@@ -493,4 +493,64 @@ mrplot + geom_point(size=5, shape=21) +
   labs(x="-log(FDR q-value)", y="MPT Pathways", title="DKO vs rest")
 ```
 
+```{r GSEA Results}
+dt1 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/gsea_report_for_DKO_1727713030884.tsv")
+dt2 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/gsea_report_for_Tet2KO_1727713030884.tsv")
+ht <- bind_rows(dt1, dt2)
+rm(dt1, dt2)
+ht <- ht[which(ht["FDR q-val"]<0.25 & abs(ht["NES"])>1),]
+ht <- rename(ht, FDR.q.val="FDR q-val")
+
+write.csv(ht, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/filtereddkotet2.csv")
+
+hw <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totalwt.Gsea.1727713054043/gsea_report_for_DKO_1727713054043.tsv")
+hw <- hw[which(hw["FDR q-val"]<0.25 & abs(hw["NES"])>1),]
+hw <- rename(hw, FDR.q.val="FDR q-val")
+
+write.csv(hw, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/filtereddkowt.csv")
+
+hr <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totaltet2wt.Gsea.1727713885757/gsea_report_for_Tet2KO_1727713885757.tsv")
+hr <- hr[which(hr["FDR q-val"]<0.25 & abs(hr["NES"])>1),]
+hr <- rename(hr, FDR.q.val="FDR q-val")
+
+write.csv(hr, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/filteredtet2wt.csv")
+```
+
+```{r Generate Plots}
+ht <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finaltfoll.csv")
+htplot <- ggplot(ht, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+htplot + geom_point(size=5, shape=21) + 
+ theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.4,2.4)) + 
+  labs(x="-log(FDR q-value)", y="Genesets", title="T cell & Lymphoma Genesets")
+
+hw <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finalcellcycle.csv")
+hwplot <- ggplot(hw, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+hwplot + geom_point(size=5, shape=21) + 
+ theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.2,2.2)) + 
+  labs(x="-log(FDR q-value)", y="Genesets", title="Cell Cycle & Proliferation Genesets")
+
+hr <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finalmyeloid.csv")
+hrplot <- ggplot(hr, aes(x=-log10(FDR.q.val), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+hrplot + geom_point(size=5, shape=21) + 
+ theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.0,2.0)) + 
+  labs(x="-log(FDR q-value)", y="Genesets", title="Myeloid Genesets")
+```
 
