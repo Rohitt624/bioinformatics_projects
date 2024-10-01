@@ -233,8 +233,9 @@ hr <- rename(hr, FDR.q.val="FDR q-val")
 write.csv(hr, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/filteredtet2wt.csv")
 ```
 
-```{r Generate Plots}
+```{r Generate Plots - DKO vs Tet2KO}
 ht <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finaltfoll.csv")
+ht <- ht[which(ht["FDR.q.val"]<0.25 & abs(ht["NES"])>1.3),]
 htplot <- ggplot(ht, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 htplot + geom_point(size=5, shape=21) + 
  theme(
@@ -244,10 +245,11 @@ htplot + geom_point(size=5, shape=21) +
     axis.text=element_text(color="black", face="bold")
     ) +
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.4,2.4)) + 
-  labs(x="-log(FDR q-value)", y="Genesets", title="T cell & Lymphoma Genesets") +
+  labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
   xlim(0,5.1)
 
 hw <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finalcellcycle.csv")
+hw <- hw[which(hw["FDR.q.val"]<0.25 & abs(hw["NES"])>1.3),]
 hwplot <- ggplot(hw, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 hwplot + geom_point(size=5, shape=21) +  
  theme(
@@ -261,6 +263,7 @@ hwplot + geom_point(size=5, shape=21) +
   xlim(0,5.1)
 
 hr <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finalmyeloid.csv")
+hr <- hr[which(hr["FDR.q.val"]<0.25 & abs(hr["NES"])>1.3),]
 hrplot <- ggplot(hr, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 hrplot + geom_point(size=5, shape=21) +  
  theme(
@@ -270,6 +273,51 @@ hrplot + geom_point(size=5, shape=21) +
     axis.text=element_text(color="black", face="bold")
     ) +
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.0,2.0)) + 
+  labs(x="-log(FDR q-value)", y="Genesets", title="Myeloid Genesets") +
+  xlim(0,5.1)
+```
+
+
+```{r Generate Plots - DKO vs WT}
+ht <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totalwt.Gsea.1727713054043/finaltfoll.csv")
+ht <- ht[which(ht["FDR.q.val"]<0.25 & abs(ht["NES"])>1.3),]
+htplot <- ggplot(ht, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+htplot + geom_point(size=5, shape=21) + 
+ theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.9,1.9)) + 
+  labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
+  xlim(0,5.1)
+
+hw <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totalwt.Gsea.1727713054043/finalcellcycle.csv")
+hw <- hw[which(hw["FDR.q.val"]<0.25 & abs(hw["NES"])>1.3),]
+hwplot <- ggplot(hw, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+hwplot + geom_point(size=5, shape=21) +  
+ theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.7,1.7)) + 
+  labs(x="-log(FDR q-value)", y="Genesets", title="Cell Cycle & Proliferation Genesets") +
+  xlim(0,5.1)
+
+hr <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totalwt.Gsea.1727713054043/finalmyeloid.csv")
+hr <- hr[which(hr["FDR.q.val"]<0.25 & abs(hr["NES"])>1.3),]
+hrplot <- ggplot(hr, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+hrplot + geom_point(size=5, shape=21) +  
+ theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.5,1.5)) + 
   labs(x="-log(FDR q-value)", y="Genesets", title="Myeloid Genesets") +
   xlim(0,5.1)
 ```
