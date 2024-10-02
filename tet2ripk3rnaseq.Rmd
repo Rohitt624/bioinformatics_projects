@@ -1,15 +1,17 @@
 ---
-title: "Tet2 Ripk3 RNA Sequencing Work"
-output: html_document
-editor_options: 
+title: "Tet2 Ripk3 RNA Sequencing Analysis"
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
   chunk_output_type: console
 ---
 
 # Initial Setup:
 
-Load required packages and set working directory.
+Load required packages (this is assuming you already have these packages installed)
 
-```{r packages}
+```{r packages, message=FALSE, warning=FALSE}
 library(DESeq2)
 library(tximport)
 library(tidyverse)
@@ -20,9 +22,10 @@ library(cowplot)
 ```
 
 # DESeq2 analysis
-Load data into DESeq dataset
 
-```{r load data}
+## Load counts matrix into a DESeqDataSet object
+
+```{r Load Data, warning=FALSE, message=FALSE}
 cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/raw_counts modified corrected triplicates.csv") #file path to Counts csv document
 cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
 cts <- cts2[, -1]
@@ -33,24 +36,23 @@ cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/
 dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~ condition)
 ```
 
-Differential Expression
+## Differential Expression analysis
 
 ```{r DESeq}
+rlog <- rlog(dds, blind=FALSE)
 dds <- DESeq(dds)
 rescmp <- results(dds) 
-vst <- vst(dds, blind=FALSE)
-rlog <- rlog(dds, blind=FALSE)
 ```
 
-write results as csv
+### Save results as csv
 
-```{r save results}
+```{r Save Results, eval=FALSE}
 write.csv(rescmp, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/completeresults.csv")
 ```
 
 ### Comparison 1 of 3: DKO-WT
 
-```{r}
+```{r Comp1, eval=FALSE}
 res1 <- DESeq2::results(dds, 
                        contrast = c("condition", "DKO", "WT"),
                        independentFiltering = TRUE,
@@ -60,7 +62,7 @@ write.csv(res1, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab
 
 ### Comparison 2 of 3: Tet2KO-WT
 
-```{r}
+```{r Comp2, eval=FALSE}
 res2 <- DESeq2::results(dds, 
                        contrast = c("condition", "Tet2KO", "WT"),
                        independentFiltering = TRUE,
@@ -70,7 +72,7 @@ write.csv(res2, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab
 
 ### Comparison 3 of 3: DKO-Tet2KO
 
-```{r}
+```{r Comp3, eval=FALSE}
 res3 <- DESeq2::results(dds, 
                        contrast = c("condition", "DKO", "Tet2KO"),
                        independentFiltering = TRUE,
@@ -78,9 +80,9 @@ res3 <- DESeq2::results(dds,
 write.csv(res3, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dko_tet2ko.csv")
 ```
 
-#### Filter for p-value
+### Filter for p-value
 
-```{r filter for p-value}
+```{r Filter for p-value, eval=FALSE}
 res_filtered1 <- res1[which(res1$padj < 0.1 & !is.na(res1$padj)), ]
 
 write.csv(res_filtered1, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dko_wt_filter.csv")
@@ -94,67 +96,9 @@ res_filtered3 <- res3[which(res3$padj < 0.1 & !is.na(res1$padj)), ]
 write.csv(res_filtered3, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dko_tet2ko_filter.csv")
 ```
 
-## Generate Heatmap
+# Generate Heatmap
 
-```{r top 20 heatmap}
-select <- order(rowMeans(abs(assay(rlog))),
-                decreasing=TRUE)[1:50]
-df <- as.data.frame(colData(rlog)[,c("condition")])
-color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
-pheatmap(assay(rlog)[select,], cluster_rows=FALSE, show_rownames=TRUE,
-         cluster_cols=FALSE, color=color_palette, main="Top 20 Heatmap")
-```
-
-Attempt at top 20 from each condition heatmap
-```{r Top 20 from each condition heatmap (WIP)}
-
-# Assuming you have a DESeqDataSet object called 'dds'
-# Perform differential expression analysis for each condition
-
-# Rank genes based on adjusted p-value
-top_genes_condition1 <- head(order(res_filtered1$log2FoldChange), 20)
-top_genes_condition2 <- head(order(res_filtered2$log2FoldChange), 20)
-top_genes_condition3 <- head(order(res_filtered3$log2FoldChange), 20)
-
-# Extract top 20 genes for each condition
-top_genes_condition1 <- rownames(res_filtered1)[top_genes_condition1]
-top_genes_condition2 <- rownames(res_filtered2)[top_genes_condition2]
-top_genes_condition3 <- rownames(res_filtered3)[top_genes_condition3]
-
-# Combine results
-top_genes <- unique(c(top_genes_condition1, top_genes_condition2, top_genes_condition3))
-
-# Subset normalized counts to include only the genes of interest
-subset_rlog <- assay(rlog)[rownames(rlog) %in% top_genes, ]
-subset_rlog <- as.matrix(subset_rlog)
-
-# Define the desired column order
-desired_order <- c("WT_1", "WT_2", "WT_3", "Tet2KO_1", "Tet2KO_2", "Tet2KO_3", "DKO_1", "DKO_2", "DKO_3")
-
-# Reorder the columns
-subset_rlog <- subset_rlog[, desired_order]
-
-# Extract column data (sample information) and reorder it
-col_data <- colData(dds)[desired_order, ]
-
-# Define color palette
-color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
-
-# Create a heatmap
-heatmap <- pheatmap(subset_rlog, 
-         scale = "row", 
-         clustering_distance_rows = "euclidean", 
-         cluster_cols = FALSE, 
-         clustering_method = "complete", 
-         color = color_palette,
-         show_rownames = TRUE, 
-         show_colnames = TRUE,
-         main = "Heatmap of AITL Genes",
-         treeheight_row = 0)
-```
-row_order <- order(rowMeans(subset_rlog), decreasing = TRUE)
-subset_rlog <- subset_rlog[row_order, ]
-
+This heatmap is generated using a list of AITL genes curated using other datasets. 
 
 ```{r Heatmap of Specific Genes}
 # List of specific genes
@@ -194,9 +138,9 @@ heatmap <- pheatmap(subset_rlog,
          treeheight_row = 0)
 ```
 
-##Generate PCA Plot
+# Generate PCA Plot
 
-```{r pca plot}
+```{r PCA Plot}
 pca <- plotPCA(rlog)
 pca + geom_point(size=5) + 
   theme(
@@ -208,36 +152,38 @@ pca + geom_point(size=5) +
   lims(x=c(-15, 25), y=c(-15, 25))
 ```
 
-##Display GSEA Results
+# Display GSEA Results
 
+## Filter GSEA reports for an FDR q-value < 0.25 and Normalized Enrichment Score > 1.3
+
+The negative reports were not added for the DKO vs WT comparison as the report was empty, and that created some errors. 
 ```{r GSEA Results}
 dt1 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/gsea_report_for_DKO_1727713030884.tsv")
 dt2 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/gsea_report_for_Tet2KO_1727713030884.tsv")
-ht <- bind_rows(dt1, dt2)
+dt <- bind_rows(dt1, dt2)
 rm(dt1, dt2)
-ht <- ht[which(ht["FDR q-val"]<0.25 & abs(ht["NES"])>1),]
-ht <- rename(ht, FDR.q.val="FDR q-val")
+dt <- dt[which(dt["FDR q-val"]<0.25 & abs(dt["NES"])>1.3),]
+dt <- rename(dt, FDR.q.val="FDR q-val")
 
-write.csv(ht, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/filtereddkotet2.csv")
+write.csv(dt, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/filtereddkotet2.csv")
 
-hw <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totalwt.Gsea.1727713054043/gsea_report_for_DKO_1727713054043.tsv")
-hw <- hw[which(hw["FDR q-val"]<0.25 & abs(hw["NES"])>1),]
-hw <- rename(hw, FDR.q.val="FDR q-val")
+dw <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totalwt.Gsea.1727713054043/gsea_report_for_DKO_1727713054043.tsv")
+dw <- dw[which(dw["FDR q-val"]<0.25 & abs(dw["NES"])>1.3),]
+dw <- rename(dw, FDR.q.val="FDR q-val")
 
-write.csv(hw, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/filtereddkowt.csv")
-
-hr <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totaltet2wt.Gsea.1727713885757/gsea_report_for_Tet2KO_1727713885757.tsv")
-hr <- hr[which(hr["FDR q-val"]<0.25 & abs(hr["NES"])>1),]
-hr <- rename(hr, FDR.q.val="FDR q-val")
-
-write.csv(hr, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/filteredtet2wt.csv")
+write.csv(dw, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/filtereddkowt.csv")
 ```
 
-```{r Generate Plots - DKO vs Tet2KO}
-ht <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finaltfoll.csv")
-ht <- ht[which(ht["FDR.q.val"]<0.25 & abs(ht["NES"])>1.3),]
-htplot <- ggplot(ht, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-htplot + geom_point(size=5, shape=21) + 
+## Generate Plots
+
+The filtered reports from above were then separated into three categories to then be plotted together. 
+
+#### DKO vs Tet2KO comparison results
+```{r Generate Plots - DKO vs Tet2KO, fig.width=10, fig.height=9}
+tf <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finaltfoll.csv")
+tf <- tf[which(tf["FDR.q.val"]<0.25 & abs(tf["NES"])>1.3),]
+tfplot <- ggplot(tf, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+tfplot + geom_point(size=5, shape=21) + 
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
@@ -248,10 +194,10 @@ htplot + geom_point(size=5, shape=21) +
   labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
   xlim(0,5.1)
 
-hw <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finalcellcycle.csv")
-hw <- hw[which(hw["FDR.q.val"]<0.25 & abs(hw["NES"])>1.3),]
-hwplot <- ggplot(hw, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-hwplot + geom_point(size=5, shape=21) +  
+cc <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finalcellcycle.csv")
+cc <- cc[which(cc["FDR.q.val"]<0.25 & abs(cc["NES"])>1.3),]
+ccplot <- ggplot(cc, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+ccplot + geom_point(size=5, shape=21) +  
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
@@ -262,10 +208,10 @@ hwplot + geom_point(size=5, shape=21) +
   labs(x="-log(FDR q-value)", y="Genesets", title="Cell Cycle & Proliferation Genesets") +
   xlim(0,5.1)
 
-hr <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finalmyeloid.csv")
-hr <- hr[which(hr["FDR.q.val"]<0.25 & abs(hr["NES"])>1.3),]
-hrplot <- ggplot(hr, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-hrplot + geom_point(size=5, shape=21) +  
+my <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/total.Gsea.1727713030884/finalmyeloid.csv")
+my <- my[which(my["FDR.q.val"]<0.25 & abs(my["NES"])>1.3),]
+myplot <- ggplot(my, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+myplot + geom_point(size=5, shape=21) +  
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
@@ -277,12 +223,12 @@ hrplot + geom_point(size=5, shape=21) +
   xlim(0,5.1)
 ```
 
-
-```{r Generate Plots - DKO vs WT}
-ht <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totalwt.Gsea.1727713054043/finaltfoll.csv")
-ht <- ht[which(ht["FDR.q.val"]<0.25 & abs(ht["NES"])>1.3),]
-htplot <- ggplot(ht, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-htplot + geom_point(size=5, shape=21) + 
+#### DKO vs WT comparison results
+```{r Generate Plots - DKO vs WT, fig.width=10, fig.height=9}
+tf <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totalwt.Gsea.1727713054043/finaltfoll.csv")
+tf <- tf[which(tf["FDR.q.val"]<0.25 & abs(tf["NES"])>1.3),]
+tfplot <- ggplot(tf, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+tfplot + geom_point(size=5, shape=21) + 
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
@@ -293,10 +239,10 @@ htplot + geom_point(size=5, shape=21) +
   labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
   xlim(0,5.1)
 
-hw <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totalwt.Gsea.1727713054043/finalcellcycle.csv")
-hw <- hw[which(hw["FDR.q.val"]<0.25 & abs(hw["NES"])>1.3),]
-hwplot <- ggplot(hw, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-hwplot + geom_point(size=5, shape=21) +  
+cc <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totalwt.Gsea.1727713054043/finalcellcycle.csv")
+cc <- cc[which(cc["FDR.q.val"]<0.25 & abs(cc["NES"])>1.3),]
+ccplot <- ggplot(cc, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+ccplot + geom_point(size=5, shape=21) +  
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
@@ -307,10 +253,10 @@ hwplot + geom_point(size=5, shape=21) +
   labs(x="-log(FDR q-value)", y="Genesets", title="Cell Cycle & Proliferation Genesets") +
   xlim(0,5.1)
 
-hr <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totalwt.Gsea.1727713054043/finalmyeloid.csv")
-hr <- hr[which(hr["FDR.q.val"]<0.25 & abs(hr["NES"])>1.3),]
-hrplot <- ggplot(hr, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-hrplot + geom_point(size=5, shape=21) +  
+my <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/totalwt.Gsea.1727713054043/finalmyeloid.csv")
+my <- my[which(my["FDR.q.val"]<0.25 & abs(my["NES"])>1.3),]
+myplot <- ggplot(my, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+myplot + geom_point(size=5, shape=21) +  
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
