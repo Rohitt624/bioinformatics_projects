@@ -16,12 +16,8 @@ rm(cts2)
 coldata <- read.csv("coldata.csv") #make coldata file with sample names in one column and then condition in second column
 dds <- DESeqDataSetFromMatrix(countData = cts, colData = coldata, design = ~ condition)
 
-#Pre-filter
-smallestGroupSize <- 3
-keep <- rowSums(counts(dds) >= 10) >= smallestGroupSize
-dds <- dds[keep,]
-
 #Differential Expression
+rlog <- rlog(dds, blind=FALSE)
 dds <- DESeq(dds)
 rescmp <- results(dds) 
 
@@ -35,18 +31,7 @@ res <- DESeq2::results(dds,
 #write results as csv
 write.csv(rescmp, "completeresults.csv")
 
-#display as heatmap
-ntd <- normTransform(dds)
-select <- order(rowMeans(counts(dds,normalized=TRUE)),
-                decreasing=TRUE)[1:20]
-df <- as.data.frame(colData(dds)[,c("condition")])
+#filter for p-value
+res_filtered1 <- res1[which(res1$padj < 0.1 & !is.na(res1$padj)), ]
 
-colnames(assay(ntd)[select,]) <- str_sub(colnames(assay(ntd)[select,]), 1, -3)
-rownames(df) <- colnames(assay(ntd)[select,])
-# For displaying the plot
-pheatmap(assay(ntd)[select,], cluster_rows=FALSE, show_rownames=TRUE,
-         cluster_cols=FALSE, annotation_col=df)
-
-# For saving the plot
-pheatmap(assay(ntd)[select,], cluster_rows=FALSE, show_rownames=TRUE,
-         cluster_cols=FALSE, annotation_col=df, filename="heatmap.pdf")
+write.csv(res_filtered1, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dko_wt_filter.csv")

@@ -394,44 +394,6 @@ dds &lt;- DESeq(dds)</code></pre>
 <h3>Save results as csv</h3>
 <pre class="r"><code>write.csv(rescmp, &quot;C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/completeresults.csv&quot;)</code></pre>
 </div>
-<div id="comparison-1-of-3-dko-wt" class="section level3">
-<h3>Comparison 1 of 3: DKO-WT</h3>
-<pre class="r"><code>res1 &lt;- DESeq2::results(dds, 
-                       contrast = c(&quot;condition&quot;, &quot;DKO&quot;, &quot;WT&quot;),
-                       independentFiltering = TRUE,
-)
-write.csv(res1, &quot;C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dko_wt.csv&quot;)</code></pre>
-</div>
-<div id="comparison-2-of-3-tet2ko-wt" class="section level3">
-<h3>Comparison 2 of 3: Tet2KO-WT</h3>
-<pre class="r"><code>res2 &lt;- DESeq2::results(dds, 
-                       contrast = c(&quot;condition&quot;, &quot;Tet2KO&quot;, &quot;WT&quot;),
-                       independentFiltering = TRUE,
-)
-write.csv(res2, &quot;C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/tet2_wt.csv&quot;)</code></pre>
-</div>
-<div id="comparison-3-of-3-dko-tet2ko" class="section level3">
-<h3>Comparison 3 of 3: DKO-Tet2KO</h3>
-<pre class="r"><code>res3 &lt;- DESeq2::results(dds, 
-                       contrast = c(&quot;condition&quot;, &quot;DKO&quot;, &quot;Tet2KO&quot;),
-                       independentFiltering = TRUE,
-)
-write.csv(res3, &quot;C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dko_tet2ko.csv&quot;)</code></pre>
-</div>
-<div id="filter-for-p-value" class="section level3">
-<h3>Filter for p-value</h3>
-<pre class="r"><code>res_filtered1 &lt;- res1[which(res1$padj &lt; 0.1 &amp; !is.na(res1$padj)), ]
-
-write.csv(res_filtered1, &quot;C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dko_wt_filter.csv&quot;)
-
-res_filtered2 &lt;- res2[which(res2$padj &lt; 0.1 &amp; !is.na(res1$padj)), ]
-
-write.csv(res_filtered2, &quot;C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/tet2_wt_filter.csv&quot;)
-
-res_filtered3 &lt;- res3[which(res3$padj &lt; 0.1 &amp; !is.na(res1$padj)), ]
-
-write.csv(res_filtered3, &quot;C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dko_tet2ko_filter.csv&quot;)</code></pre>
-</div>
 </div>
 </div>
 <div id="generate-heatmap" class="section level1">

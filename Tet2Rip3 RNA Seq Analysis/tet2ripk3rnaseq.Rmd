@@ -1,8 +1,8 @@
 ---
 title: "Tet2 Ripk3 RNA Sequencing Analysis"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 editor_options:
   chunk_output_type: console
 ---
@@ -48,52 +48,6 @@ rescmp <- results(dds)
 
 ```{r Save Results, eval=FALSE}
 write.csv(rescmp, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/completeresults.csv")
-```
-
-### Comparison 1 of 3: DKO-WT
-
-```{r Comp1, eval=FALSE}
-res1 <- DESeq2::results(dds, 
-                       contrast = c("condition", "DKO", "WT"),
-                       independentFiltering = TRUE,
-)
-write.csv(res1, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dko_wt.csv")
-```
-
-### Comparison 2 of 3: Tet2KO-WT
-
-```{r Comp2, eval=FALSE}
-res2 <- DESeq2::results(dds, 
-                       contrast = c("condition", "Tet2KO", "WT"),
-                       independentFiltering = TRUE,
-)
-write.csv(res2, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/tet2_wt.csv")
-```
-
-### Comparison 3 of 3: DKO-Tet2KO
-
-```{r Comp3, eval=FALSE}
-res3 <- DESeq2::results(dds, 
-                       contrast = c("condition", "DKO", "Tet2KO"),
-                       independentFiltering = TRUE,
-)
-write.csv(res3, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dko_tet2ko.csv")
-```
-
-### Filter for p-value
-
-```{r Filter for p-value, eval=FALSE}
-res_filtered1 <- res1[which(res1$padj < 0.1 & !is.na(res1$padj)), ]
-
-write.csv(res_filtered1, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dko_wt_filter.csv")
-
-res_filtered2 <- res2[which(res2$padj < 0.1 & !is.na(res1$padj)), ]
-
-write.csv(res_filtered2, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/tet2_wt_filter.csv")
-
-res_filtered3 <- res3[which(res3$padj < 0.1 & !is.na(res1$padj)), ]
-
-write.csv(res_filtered3, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/dko_tet2ko_filter.csv")
 ```
 
 # Generate Heatmap
