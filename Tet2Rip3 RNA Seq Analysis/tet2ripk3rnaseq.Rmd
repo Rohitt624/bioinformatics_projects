@@ -83,11 +83,29 @@ write.csv(rescmp, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang L
 
 ## Creating curated AITL Gene List
 
+#### GSE83918
 ```{r}
-EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnahscesam.csv", "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnahscesam_genename.csv")
+cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSM2221611.csv") 
+cts2$Gene_ID <- sub("\\..*", "", cts2$Gene_ID)
+cts <- cts2[, -1]
+table(duplicated(cts$Gene.name)) #check for duplicate gene names
+rownames(cts) <- make.names(cts2$Gene_ID, unique = TRUE) #forces gene names to become unique
+rm(cts2)
+cts[is.na(cts)] <- ""
+cts <- round(cts)
+cts <- EnsIDReplace(cts)
+cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSM2221611.csv") 
+GSE83918 <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~ condition)
+GSE83918$condition <- relevel(GSE83918$condition, ref="WT")
 ```
 
+```{r}
+GSE83918 <- DESeq(GSE83918)
+res83918 <- results(GSE83918)
+write.csv(res221599, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results83918.csv")
+```
 
+#### GSE221599
 ```{r}
 cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSM2221611.csv") 
 cts2$Gene_ID <- sub("\\..*", "", cts2$Gene_ID)
@@ -100,7 +118,7 @@ cts <- round(cts)
 cts <- EnsIDReplace(cts)
 cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSM2221611.csv") 
 GSE221599 <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~ condition)
-
+GSE221599$condition <- relevel(GSE221599$condition, ref="WT")
 ```
 
 ```{r}
@@ -108,6 +126,7 @@ GSE221599 <- DESeq(GSE221599)
 res221599 <- results(GSE221599)
 write.csv(res221599, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results221599.csv")
 ```
+
 
 # Generate Heatmap
 
