@@ -16,6 +16,19 @@ rm(cts2)
 coldata <- read.csv("coldata.csv") #make coldata file with sample names in one column and then condition in second column
 dds <- DESeqDataSetFromMatrix(countData = cts, colData = coldata, design = ~ condition)
 
+
+
+#Alternate setup
+cts2$Gene_ID <- sub("\\..*", "", cts2$Gene_ID)
+cts <- cts2[, -1]
+table(duplicated(cts$Gene.name)) #check for duplicate gene names
+rownames(cts) <- make.names(cts2$Gene_ID, unique = TRUE) #forces gene names to become unique
+rm(cts2)
+cts[is.na(cts)] <- ""
+cts <- round(cts)
+cts <- EnsIDReplace(cts)
+
+
 #Differential Expression
 rlog <- rlog(dds, blind=FALSE)
 dds <- DESeq(dds)

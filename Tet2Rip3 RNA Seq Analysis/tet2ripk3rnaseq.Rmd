@@ -86,37 +86,32 @@ write.csv(rescmp, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang L
 #### GSE83918
 ```{r}
 cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSM2221611.csv") 
-cts2$Gene_ID <- sub("\\..*", "", cts2$Gene_ID)
+cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
 cts <- cts2[, -1]
-table(duplicated(cts$Gene.name)) #check for duplicate gene names
-rownames(cts) <- make.names(cts2$Gene_ID, unique = TRUE) #forces gene names to become unique
+table(duplicated(cts$Gene_Name)) #check for duplicate gene names
+rownames(cts) <- make.names(cts2$Gene_Name, unique = TRUE)
 rm(cts2)
-cts[is.na(cts)] <- ""
-cts <- round(cts)
-cts <- EnsIDReplace(cts)
 cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSM2221611.csv") 
-GSE83918 <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~ condition)
-GSE83918$condition <- relevel(GSE83918$condition, ref="WT")
+design <- model.matrix(~ condition, data=cd)
+cts <- log2(cts+1)
 ```
 
 ```{r}
-GSE83918 <- DESeq(GSE83918)
-res83918 <- results(GSE83918)
-write.csv(res221599, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results83918.csv")
+GSE83918 <- lmFit(cts, design)
+GSE83918 <- eBayes(GSE83918)
+res83918 <- topTable(GSE83918, adjust = "fdr", number = Inf)
+write.csv(res83918, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results83918.csv")
 ```
 
 #### GSE221599
 ```{r}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSM2221611.csv") 
-cts2$Gene_ID <- sub("\\..*", "", cts2$Gene_ID)
+cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSE221599.csv") 
+cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
 cts <- cts2[, -1]
-table(duplicated(cts$Gene.name)) #check for duplicate gene names
-rownames(cts) <- make.names(cts2$Gene_ID, unique = TRUE) #forces gene names to become unique
+table(duplicated(cts$gene_name)) #check for duplicate gene names
+rownames(cts) <- make.names(cts2$gene_name, unique = TRUE) #forces gene names to become unique
 rm(cts2)
-cts[is.na(cts)] <- ""
-cts <- round(cts)
-cts <- EnsIDReplace(cts)
-cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSM2221611.csv") 
+cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSE221599.csv") 
 GSE221599 <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~ condition)
 GSE221599$condition <- relevel(GSE221599$condition, ref="WT")
 ```
@@ -124,9 +119,57 @@ GSE221599$condition <- relevel(GSE221599$condition, ref="WT")
 ```{r}
 GSE221599 <- DESeq(GSE221599)
 res221599 <- results(GSE221599)
-write.csv(res221599, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results221599.csv")
+res <- DESeq2::results(GSE221599, 
+                       contrast = c("condition", "DM", "WT"),
+                       independentFiltering = TRUE,
+)
+
+#write results as csv
+write.csv(res, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/res221599.csv")
 ```
 
+#### GSE90976
+```{r}
+cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSE90976.csv") 
+cts <- cts2[, -1]
+table(duplicated(cts$Genes)) #check for duplicate gene names
+rownames(cts) <- make.names(cts2$Genes, unique = TRUE)
+rm(cts2)
+cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSE90976.csv") 
+design <- model.matrix(~0 + condition, data=cd)
+cts <- log2(cts+1)
+```
+
+```{r}
+contrast_matrix <- makeContrasts(DKO_vs_WT = conditionDKO - conditionWT, levels = design)
+GSE90976 <- lmFit(cts, design)
+GSE90976 <- contrasts.fit(GSE90976, contrast_matrix)
+GSE90976 <- eBayes(GSE90976)
+res90976 <- topTable(GSE90976, adjust = "fdr", number = Inf)
+write.csv(res90976, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results90976.csv")
+```
+
+#### GSE121747
+```{r}
+cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSE121747.csv") 
+cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
+cts <- cts2[, -1]
+table(duplicated(cts$Genes)) #check for duplicate gene names
+rownames(cts) <- make.names(cts2$Genes, unique = TRUE)
+rm(cts2)
+cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSE121747.csv") 
+design <- model.matrix(~0 + condition, data=cd)
+cts <- log2(cts+1)
+```
+
+```{r}
+contrast_matrix <- makeContrasts(TM_vs_WT = conditionTM - conditionWT, levels = design)
+GSE121747 <- lmFit(cts, design)
+GSE121747 <- contrasts.fit(GSE121747, contrast_matrix)
+GSE121747 <- eBayes(GSE121747)
+res121747 <- topTable(GSE121747, adjust = "fdr", number = Inf)
+write.csv(res121747, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results121747.csv")
+```
 
 # Generate Heatmap
 
