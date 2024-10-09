@@ -9,7 +9,7 @@ editor_options:
 
 # Initial Setup:
 
-Load required packages (this is assuming you already have these packages installed)
+Load required packages (this is assuming you already have these packages installed). Always run this first.
 
 ```{r packages, message=FALSE, warning=FALSE}
 library(DESeq2)
@@ -20,6 +20,7 @@ library(pheatmap)
 library(ggalt)
 library(cowplot)
 library(biomaRt)
+library(limma)
 
 EnsIDReplace <- function(input){
 rna <- input
@@ -92,12 +93,14 @@ table(duplicated(cts$Gene_Name)) #check for duplicate gene names
 rownames(cts) <- make.names(cts2$Gene_Name, unique = TRUE)
 rm(cts2)
 cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSM2221611.csv") 
-design <- model.matrix(~ condition, data=cd)
+design <- model.matrix(~0 + condition, data=cd)
 cts <- log2(cts+1)
 ```
 
 ```{r}
+contrast_matrix <- makeContrasts(TM_vs_WT = conditionTM - conditionWT, levels = design)
 GSE83918 <- lmFit(cts, design)
+GSE83918 <- contrasts.fit(GSE83918, contrast_matrix)
 GSE83918 <- eBayes(GSE83918)
 res83918 <- topTable(GSE83918, adjust = "fdr", number = Inf)
 write.csv(res83918, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results83918.csv")
@@ -112,20 +115,20 @@ table(duplicated(cts$gene_name)) #check for duplicate gene names
 rownames(cts) <- make.names(cts2$gene_name, unique = TRUE) #forces gene names to become unique
 rm(cts2)
 cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSE221599.csv") 
-GSE221599 <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~ condition)
-GSE221599$condition <- relevel(GSE221599$condition, ref="WT")
+design <- model.matrix(~0 + condition, data=cd)
+dge <- DGEList(counts=cts, group=cd$condition)
+dge <- calcNormFactors(dge)
+dge <- voom(dge, design)
 ```
 
 ```{r}
-GSE221599 <- DESeq(GSE221599)
-res221599 <- results(GSE221599)
-res <- DESeq2::results(GSE221599, 
-                       contrast = c("condition", "DM", "WT"),
-                       independentFiltering = TRUE,
-)
-
+dge <- lmFit(dge, design)
+contrast_matrix <- makeContrasts(DM_vs_WT = conditionDM - conditionWT, levels=design)
+dge <- contrasts.fit(dge, contrast_matrix)
+dge <- eBayes(dge)
+res221599 <- topTable(dge, adjust = "fdr", number = Inf)
 #write results as csv
-write.csv(res, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/res221599.csv")
+write.csv(res, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/res221599v2.csv")
 ```
 
 #### GSE90976
@@ -171,6 +174,41 @@ res121747 <- topTable(GSE121747, adjust = "fdr", number = Inf)
 write.csv(res121747, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results121747.csv")
 ```
 
+#### Overlap
+
+```{r}
+res121747$gene <- rownames(res121747)
+res121747$gene <- sub("\\..*", "", res121747$gene)
+res121747.2 <- res121747[which(abs(res121747$logFC)>0.8),]
+res121747.up <- res121747[which(res121747$logFC>0.8),]
+res121747.down <- res121747[which(res121747$logFC < -0.8),]
+res221599$gene <- rownames(res221599)
+res221599$gene <- sub("\\..*", "", res221599$gene)
+res221599.2 <- res221599[which(abs(res221599$logFC)>0.8),]
+res221599.up <- res221599[which(res221599$logFC>0.8),]
+res221599.down <- res221599[which(res221599$logFC < -0.8),]
+res83918$gene <- rownames(res83918)
+res83918$gene <- sub("\\..*", "", res83918$gene)
+res83918.2 <- res83918[which(abs(res83918$logFC)>0.8),]
+res83918.up <- res83918[which(res83918$logFC>0.8),]
+res83918.down <- res83918[which(res83918$logFC < -0.8),]
+res90976$gene <- rownames(res90976)
+res90976$gene <- sub("\\..*", "", res90976$gene)
+res90976.2 <- res90976[which(abs(res90976$logFC)>0.8),]
+res90976.up <- res90976[which(res90976$logFC>0.8),]
+res90976.down <- res90976[which(res90976$logFC < -0.8),]
+
+
+overlap <- Reduce(intersect, list(res121747.2$gene, res83918.2$gene, res221599.2$gene, res90976.2$gene))
+overlapup <- Reduce(intersect, list(res121747.up$gene, res83918.up$gene, res221599.up$gene, res90976.up$gene))
+overlapdown <- Reduce(intersect, list(res121747.down$gene, res83918.down$gene, res221599.down$gene, res90976.up$gene))
+
+write.csv(overlap, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/overlap.csv")
+write.csv(overlapup, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/overlapup.csv")
+write.csv(overlapdown, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/overlapdown.csv")
+```
+power
+
 # Generate Heatmap
 
 This heatmap is generated using a list of AITL genes curated using other datasets. 
@@ -183,8 +221,10 @@ genes_of_interest <- c("Rgs1", "Sh2d1a", "Crip1", "S100a13", "Gabbr1", "Dtnb", "
                        "Il18", "Slco2b1", "Marcks", "Itga9", "Tns3", "Abcc3", "Wdfy3", "Arhgap23")
 
 # Subset normalized counts to include only the genes of interest
-subset_rlog <- assay(rlog)[rownames(rlog) %in% genes_of_interest, ]
-row_order <- order(rowMeans(subset_rlog), decreasing = TRUE)
+subset_rlog <- assay(rlog)[rownames(rlog) %in% overlap, ]
+dko_samples <- c("DKO_1", "DKO_2", "DKO_3")
+rest <- c("WT_1", "WT_2", "WT_3", "Tet2KO_1", "Tet2KO_2", "Tet2KO_3")
+row_order <- order(rowMeans(subset_rlog[, dko_samples])-rowMeans(subset_rlog[, rest]), decreasing = TRUE)
 subset_rlog <- subset_rlog[row_order, ]
 subset_rlog <- as.matrix(subset_rlog)
 
@@ -203,7 +243,7 @@ color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
 # Create a heatmap
 heatmap <- pheatmap(subset_rlog, 
          scale = "row", 
-         clustering_distance_rows = "euclidean", 
+         clustering_distance_rows = "binary", 
          cluster_cols = FALSE, 
          clustering_method = "complete", 
          color = color_palette,
@@ -211,6 +251,7 @@ heatmap <- pheatmap(subset_rlog,
          show_colnames = TRUE,
          main = "Heatmap of AITL Genes",
          treeheight_row = 0)
+
 ```
 
 # Generate PCA Plot
@@ -248,6 +289,24 @@ dw <- rename(dw, FDR.q.val="FDR q-val")
 
 write.csv(dw, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/20240930/filtereddkowt.csv")
 ```
+
+```{r GSEA Results}
+dt1 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/newaitl2.Gsea.1728424109372/gsea_report_for_DKO_1728424109372.tsv")
+dt2 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/newaitl2.Gsea.1728424109372/gsea_report_for_Tet2KO_1728424109372.tsv")
+dt <- bind_rows(dt1, dt2)
+rm(dt1, dt2)
+dt <- dt[which(dt["FDR q-val"]<0.25 & abs(dt["NES"])>1.3),]
+dt <- rename(dt, FDR.q.val="FDR q-val")
+
+write.csv(dt, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/filtereddkotet2.csv")
+
+dw <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/newaitl6.Gsea.1728428240183/gsea_report_for_DKO_1728428240183.tsv")
+dw <- dw[which(dw["FDR q-val"]<0.25 & abs(dw["NES"])>1.3),]
+dw <- rename(dw, FDR.q.val="FDR q-val")
+
+write.csv(dw, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/filtereddkowt.csv")
+```
+
 
 ## Generate Plots
 
