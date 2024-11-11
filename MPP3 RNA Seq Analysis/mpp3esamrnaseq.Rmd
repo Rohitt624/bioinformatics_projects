@@ -1,5 +1,5 @@
 ---
-title: "Tet2 Ripk3 RNA Sequencing Analysis"
+title: "MPP3 ESAM RNA Sequencing Analysis"
 output:
   html_document: default
   pdf_document: default
@@ -18,26 +18,41 @@ library(rnaseqGene)
 library(pheatmap)
 library(ggalt)
 library(limma)
+library(sva)
 ```
 
 # DESeq2 analysis
 
 ## Load counts matrix into a DESeqDataSet object
 
-```{r Load Data, warning=FALSE, message=FALSE}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/raw_counts modified corrected triplicates.csv") #file path to Counts csv document
+```{r Load MPP3 Data, warning=FALSE, message=FALSE}
+mpp3 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/newgenenames.csv", row.names = 1) #file path to Counts csv document
+```
+
+```{r Load MPC Data, warning=FALSE, message=FALSE}
+cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/MPC_Counts_Corrected.csv") #file path to Counts csv document
 cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
 cts <- cts2[, -1]
 table(duplicated(cts$Gene.name)) #check for duplicate gene names
 rownames(cts) <- make.names(cts2$Gene.name, unique = TRUE) #forces gene names to become unique
 rm(cts2)
-cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/coldata.csv") #make coldata file with sample names in one column and then condition in second column
-dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~ condition)
+mpc <- cts
+rm(cts)
+```
+
+```{r Combine Batches, warning=FALSE, message=FALSE}
+common_genes <- intersect(rownames(mpp3), rownames(mpc))
+counts1 <- mpp3[common_genes, ]
+counts2 <- mpc[common_genes, ]
+cts <- cbind(counts1, counts2)
+rm(counts1, counts2, common_genes)
 ```
 
 ## Differential Expression analysis
 
 ```{r DESeq}
+cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/coldata.csv") #make coldata file with sample names in one column and then condition in second column
+dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~condition)
 rlog <- rlog(dds, blind=FALSE)
 dds <- DESeq(dds)
 rescmp <- results(dds) 
@@ -46,121 +61,7 @@ rescmp <- results(dds)
 ### Save results as csv
 
 ```{r Save Results, eval=FALSE}
-write.csv(rescmp, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/completeresults.csv")
-```
-
-## Creating curated AITL Gene List
-
-#### GSE83918
-```{r Setup8}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSM2221611.csv") 
-cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
-cts <- cts2[, -1]
-table(duplicated(cts$Gene_Name)) #check for duplicate gene names
-rownames(cts) <- make.names(cts2$Gene_Name, unique = TRUE)
-rm(cts2)
-cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSM2221611.csv") 
-design <- model.matrix(~0 + condition, data=cd)
-cts <- log2(cts+1)
-```
-
-```{r Analysis8}
-contrast_matrix <- makeContrasts(TM_vs_WT = conditionTM - conditionWT, levels = design)
-GSE83918 <- lmFit(cts, design)
-GSE83918 <- contrasts.fit(GSE83918, contrast_matrix)
-GSE83918 <- eBayes(GSE83918)
-res83918 <- topTable(GSE83918, adjust = "fdr", number = Inf)
-write.csv(res83918, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results83918.csv")
-```
-
-#### GSE221599
-```{r Setup2}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSE221599.csv") 
-cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
-cts <- cts2[, -1]
-table(duplicated(cts$gene_name)) #check for duplicate gene names
-rownames(cts) <- make.names(cts2$gene_name, unique = TRUE) #forces gene names to become unique
-rm(cts2)
-cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSE221599.csv") 
-design <- model.matrix(~0 + condition, data=cd)
-dge <- DGEList(counts=cts, group=cd$condition)
-dge <- calcNormFactors(dge)
-dge <- voom(dge, design)
-```
-
-```{r Analysis2}
-dge <- lmFit(dge, design)
-contrast_matrix <- makeContrasts(DM_vs_WT = conditionDM - conditionWT, levels=design)
-dge <- contrasts.fit(dge, contrast_matrix)
-dge <- eBayes(dge)
-res221599 <- topTable(dge, adjust = "fdr", number = Inf)
-#write results as csv
-write.csv(res221599, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/res221599v2.csv")
-```
-
-#### GSE90976
-```{r Setup9}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSE90976.csv") 
-cts <- cts2[, -1]
-table(duplicated(cts$Genes)) #check for duplicate gene names
-rownames(cts) <- make.names(cts2$Genes, unique = TRUE)
-rm(cts2)
-cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSE90976.csv") 
-design <- model.matrix(~0 + condition, data=cd)
-cts <- log2(cts+1)
-```
-
-```{r Analysis9}
-contrast_matrix <- makeContrasts(DKO_vs_WT = conditionDKO - conditionWT, levels = design)
-GSE90976 <- lmFit(cts, design)
-GSE90976 <- contrasts.fit(GSE90976, contrast_matrix)
-GSE90976 <- eBayes(GSE90976)
-res90976 <- topTable(GSE90976, adjust = "fdr", number = Inf)
-write.csv(res90976, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results90976.csv")
-```
-
-#### GSE121747
-```{r Setup1}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSE121747.csv") 
-cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
-cts <- cts2[, -1]
-table(duplicated(cts$Genes)) #check for duplicate gene names
-rownames(cts) <- make.names(cts2$Genes, unique = TRUE)
-rm(cts2)
-cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSE121747.csv") 
-design <- model.matrix(~0 + condition, data=cd)
-cts <- log2(cts+1)
-```
-
-```{r Analysis1}
-contrast_matrix <- makeContrasts(TM_vs_WT = conditionTM - conditionWT, levels = design)
-GSE121747 <- lmFit(cts, design)
-GSE121747 <- contrasts.fit(GSE121747, contrast_matrix)
-GSE121747 <- eBayes(GSE121747)
-res121747 <- topTable(GSE121747, adjust = "fdr", number = Inf)
-write.csv(res121747, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results121747.csv")
-```
-
-#### Overlap
-
-```{r Overlap}
-res121747$gene <- rownames(res121747)
-res121747$gene <- sub("\\..*", "", res121747$gene)
-res121747.2 <- res121747[which(abs(res121747$logFC)>0.8),]
-res221599$gene <- rownames(res221599)
-res221599$gene <- sub("\\..*", "", res221599$gene)
-res221599.2 <- res221599[which(abs(res221599$logFC)>0.8),]
-res83918$gene <- rownames(res83918)
-res83918$gene <- sub("\\..*", "", res83918$gene)
-res83918.2 <- res83918[which(abs(res83918$logFC)>0.8),]
-res90976$gene <- rownames(res90976)
-res90976$gene <- sub("\\..*", "", res90976$gene)
-res90976.2 <- res90976[which(abs(res90976$logFC)>0.8),]
-
-
-overlap <- Reduce(intersect, list(res121747.2$gene, res83918.2$gene, res221599.2$gene, res90976.2$gene))
-
-write.csv(overlap, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/overlap.csv")
+write.csv(rescmp, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/completeresults.csv")
 ```
 
 # Generate Heatmap
@@ -212,10 +113,10 @@ pca + geom_point(size=5) +
     axis.text = element_blank(),
     axis.ticks = element_blank(),
   ) + 
-  scale_color_manual(labels=c("Tet2-/- Ripk3-/-", "Tet2-/-", "WT"), values = c("red","blue", "green3")) + 
-  lims(x=c(-15, 25), y=c(-15, 25))
-```
+  scale_color_manual(labels=c("MPP3 ESAM-", "MPP3 ESAM+"), values = c("red","blue"))
 
+```
+  lims(x=c(-15, 25), y=c(-15, 25))
 # Display GSEA Results
 
 ## Filter GSEA reports for an FDR q-value < 0.25 and Normalized Enrichment Score > 1.3
