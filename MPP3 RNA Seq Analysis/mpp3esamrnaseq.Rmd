@@ -113,7 +113,7 @@ pca + geom_point(size=5) +
     axis.text = element_blank(),
     axis.ticks = element_blank(),
   ) + 
-  scale_color_manual(labels=c("MPP3 ESAM-", "MPP3 ESAM+"), values = c("red","blue"))
+  scale_color_manual(labels=c("MPP3 ESAM-", "MPP3 ESAM+", "GMP", "PG", "CMP", "PM", "MEP"), values = c("red","blue", "darkgreen", "purple", "orange", "black", "lightblue"))
 
 ```
   lims(x=c(-15, 25), y=c(-15, 25))
