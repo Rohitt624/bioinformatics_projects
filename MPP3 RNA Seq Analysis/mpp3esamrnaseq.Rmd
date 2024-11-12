@@ -112,11 +112,12 @@ pca + geom_point(size=5) +
     panel.background = element_rect(fill = "white", color = "black"), # White background
     axis.text = element_blank(),
     axis.ticks = element_blank(),
-  ) + 
-  scale_color_manual(labels=c("MPP3 ESAM-", "MPP3 ESAM+", "GMP", "PG", "CMP", "PM", "MEP"), values = c("red","blue", "darkgreen", "purple", "orange", "black", "lightblue"))
+  )+ 
+  scale_color_manual(labels=c("CMP", "GMP", "MEP", "MPP3 ESAM-", "MPP3 ESAM+", "PG", "PM"), values = c("red","blue", "darkgreen", "purple", "orange", "black", "maroon"))
 
 ```
   lims(x=c(-15, 25), y=c(-15, 25))
+  
 # Display GSEA Results
 
 ## Filter GSEA reports for an FDR q-value < 0.25 and Normalized Enrichment Score > 1.3
