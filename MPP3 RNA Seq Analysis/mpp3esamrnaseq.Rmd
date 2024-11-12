@@ -17,8 +17,17 @@ library(DESeq2)
 library(rnaseqGene)
 library(pheatmap)
 library(ggalt)
-library(limma)
-library(sva)
+library(fgsea)
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq")
+
+res1 <- DESeq2::results(dds, 
+                       contrast = c("condition", "MPP3neg", "MPP3pos"),
+                       independentFiltering = TRUE,)
+rnk <- setNames(res1$log2FoldChange, rownames(res1))
+rnk <- rnk[!is.na(rnk)]
+gmt <- gmtPathways("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/reactome_go_gsea.gmt")
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+
 ```
 
 # DESeq2 analysis
@@ -118,7 +127,22 @@ pca + geom_point(size=5) +
 ```
   lims(x=c(-15, 25), y=c(-15, 25))
   
-# Display GSEA Results
+# GSEA Analysis
+
+## Run GSEA
+```{r}
+res1 <- DESeq2::results(dds, 
+                       contrast = c("condition", "MPP3pos", "MPP3neg"),
+                       independentFiltering = TRUE,)
+rnk <- setNames(res1$log2FoldChange, rownames(res1))
+rnk <- rnk[!is.na(rnk)]
+gmt <- gmtPathways("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/reactome_go_gsea.gmt")
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gseadf <- as.data.frame(gsea)
+list_columns <- sapply(gseadf, is.list)
+gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
+write.csv(gseadf, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/mpp3gsea.csv")
+```
 
 ## Filter GSEA reports for an FDR q-value < 0.25 and Normalized Enrichment Score > 1.3
 
