@@ -23,7 +23,9 @@ setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA 
 run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
   res1 <- DESeq2::results(dds, 
                        contrast = c("condition", condition1, condition2),
-                       independentFiltering = TRUE,)
+                       independentFiltering = TRUE,
+                       alpha = 0.1)
+res1 <- subset(res1, padj < 0.1)
 rnk <- setNames(res1$log2FoldChange, rownames(res1))
 rnk <- rnk[!is.na(rnk)]
 gmt <- gmtPathways(gmt_path)
@@ -138,66 +140,41 @@ pca + geom_point(size=5) +
 # GSEA Analysis
 
 ## Run GSEA
-```{r GSEA CMP}
+```{r GSEA C1}
 run_gsea(dds,
-         condition1 = "CMP", 
-         condition2 = "PM", 
+         condition1 = "C1", 
+         condition2 = "C2", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/cmp_pm_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/cmp_pm_deg.csv"
+         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c1c2_gsea.csv", 
+         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c1c2_deg.csv"
          )
 
 run_gsea(dds,
-         condition1 = "CMP", 
-         condition2 = "PG", 
+         condition1 = "C1", 
+         condition2 = "C3", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/cmp_pg_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/cmp_pg_deg.csv"
-         )
-
-run_gsea(dds,
-         condition1 = "CMP", 
-         condition2 = "GMP", 
-         gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/cmp_gmp_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/cmp_gmp_deg.csv"
-         )
-
-run_gsea(dds,
-         condition1 = "CMP", 
-         condition2 = "MEP", 
-         gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/cmp_mep_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/cmp_mep_deg.csv"
-         )
-
-```
-
-```{r GSEA PM}
-run_gsea(dds,
-         condition1 = "PM", 
-         condition2 = "PG", 
-         gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/pm_pg_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/pm_pg_deg.csv"
-         )
-
-run_gsea(dds,
-         condition1 = "PM", 
-         condition2 = "MEP", 
-         gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/pm_mep_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/pm_mep_deg.csv"
+         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c1c3_gsea.csv", 
+         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c1c3_deg.csv"
          )
 ```
 
-```{r GSEA PG}
+```{r GSEA C2}
 run_gsea(dds,
-         condition1 = "PG", 
-         condition2 = "GMP", 
+         condition1 = "C2", 
+         condition2 = "C3", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/pg_gmp_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/pg_gmp_deg.csv"
+         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c2c3_gsea.csv", 
+         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c2c3_deg.csv"
+         )
+```
+
+```{r GSEA GMP}
+run_gsea(dds,
+         condition1 = "GMP", 
+         condition2 = "MEP", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/gmp_mep_gsea.csv", 
+         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/gmp_mep_deg.csv"
          )
 
 ```
