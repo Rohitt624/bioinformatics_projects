@@ -70,8 +70,8 @@ rm(counts1, counts2, common_genes)
 ## Differential Expression analysis
 
 ```{r DESeq}
-cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/mpccoldata.csv") #make coldata file with sample names in one column and then condition in second column
-dds <- DESeqDataSetFromMatrix(countData = mpc, colData = cd, design = ~condition)
+cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/mpp3coldata.csv") #make coldata file with sample names in one column and then condition in second column
+dds <- DESeqDataSetFromMatrix(countData = mpp3, colData = cd, design = ~condition)
 rlog <- rlog(dds, blind=FALSE)
 dds <- DESeq(dds)
 rescmp <- results(dds) 
@@ -175,6 +175,17 @@ run_gsea(dds,
          gmt_path = "reactome_go_gsea.gmt", 
          output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/gmp_mep_gsea.csv", 
          output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/gmp_mep_deg.csv"
+         )
+
+```
+
+```{r GSEA MPP3}
+run_gsea(dds,
+         condition1 = "MPP3pos", 
+         condition2 = "MPP3neg", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/mpp3_gsea.csv", 
+         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/mpp3_deg.csv"
          )
 
 ```
