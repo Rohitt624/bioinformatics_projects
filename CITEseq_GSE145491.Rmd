@@ -3,6 +3,8 @@ title: "GSE145491 CITE-Seq Analysis"
 output:
   html_document:
     df_print: paged
+editor_options: 
+  chunk_output_type: console
 ---
 
 # Set Up
@@ -40,6 +42,7 @@ seurat_object[["ADT"]] <- CreateAssay5Object(counts = adtmat)
 Assays(seurat_object)
 seurat_object <- NormalizeData(object = seurat_object, assay = "RNA")
 seurat_object <- NormalizeData(object = seurat_object, assay = "ADT", normalization.method = "RC")
+rm(adtmat, rnamat, rnafeat)
 ```
 
 Verify the features under each assay
@@ -50,7 +53,7 @@ rownames(seurat_object[["RNA"]])
 
 Test ADT data by choosing any two ADT features
 ```{r featurescatter}
-FeatureScatter(mpp3v2, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE, group.by = "gate")
+FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE)
 ```
 
 
@@ -82,7 +85,7 @@ seurat_object <- RunUMAP(object =seurat_object, dims = 1:30)
 
 Display the UMAP
 ```{r dimplot}
-DimPlot(seurat_object, group.by = "gating")
+DimPlot(seurat_object)
 ```
 
 # Analysis Tools
@@ -160,7 +163,7 @@ DimPlot(seurat_object, group.by = "gating")
 
 ### Similarly, to identify surface markers, you can make plots of ADT values the same way you can for RNA values.
 ```{r vlnplot}
-VlnPlot(seurat_object, features = CoagEns, group.by = "gating"githu)
+VlnPlot(seurat_object, features = CoagEns, group.by = "gating")
 ```
 
 ### View relationship between protein and RNA
