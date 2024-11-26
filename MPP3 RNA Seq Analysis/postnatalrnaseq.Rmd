@@ -83,33 +83,15 @@ rm(cts2)
 pn <- cts
 rm(cts)
 EnsIDReplace(pn, "pn_genename.csv")
-pn_gn <- read.csv("pn_genename.csv")
+pn_gn <- read.csv("pn_genename.csv", row.names = 1)
 ```
 
-```{r Load MPC Data, warning=FALSE, message=FALSE}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/MPC_Counts_Corrected.csv") #file path to Counts csv document
-cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
-cts <- cts2[, -1]
-table(duplicated(cts$Gene.name)) #check for duplicate gene names
-rownames(cts) <- make.names(cts2$Gene.name, unique = TRUE) #forces gene names to become unique
-rm(cts2)
-mpc <- cts
-rm(cts)
-```
-
-```{r Combine Batches, warning=FALSE, message=FALSE}
-common_genes <- intersect(rownames(mpp3), rownames(mpc))
-counts1 <- mpp3[common_genes, ]
-counts2 <- mpc[common_genes, ]
-cts <- cbind(counts1, counts2)
-rm(counts1, counts2, common_genes)
-```
 
 ## Differential Expression analysis
 
 ```{r DESeq}
-cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/mpp3coldata.csv") #make coldata file with sample names in one column and then condition in second column
-dds <- DESeqDataSetFromMatrix(countData = mpp3, colData = cd, design = ~condition)
+cd <- read.csv("pncoldata.csv") #make coldata file with sample names in one column and then condition in second column
+dds <- DESeqDataSetFromMatrix(countData = pn_gn, colData = cd, design = ~condition)
 rlog <- rlog(dds, blind=FALSE)
 dds <- DESeq(dds)
 rescmp <- results(dds) 
@@ -169,63 +151,118 @@ pca + geom_point(size=5) +
     panel.background = element_rect(fill = "white", color = "black"), # White background
     axis.text = element_blank(),
     axis.ticks = element_blank(),
-  )+ 
-  scale_color_manual(labels=c("CMP", "GMP", "MEP", "MPP3 ESAM-", "MPP3 ESAM+", "PG", "PM"), values = c("red","blue", "darkgreen", "purple", "orange", "black", "maroon"))
+  )
 
 ```
+ + 
+  scale_color_manual(labels=c("CMP", "GMP", "MEP", "MPP3 ESAM-", "MPP3 ESAM+", "PG", "PM"), values = c("red","blue", "darkgreen", "purple", "orange", "black", "maroon"))
   lims(x=c(-15, 25), y=c(-15, 25))
   
 # GSEA Analysis
 
 ## Run GSEA
-```{r GSEA C1}
+```{r GSEA Y1}
 run_gsea(dds,
-         condition1 = "C1", 
-         condition2 = "C2", 
+         condition1 = "Y1P", 
+         condition2 = "Y1N", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c1c2_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c1c2_deg.csv"
+         output_gsea = "y1_gsea.csv", 
+         output_deg = "y1_deg.csv"
          )
 
 run_gsea(dds,
-         condition1 = "C1", 
-         condition2 = "C3", 
+         condition1 = "Y1P", 
+         condition2 = "A1N", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c1c3_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c1c3_deg.csv"
+         output_gsea = "y1p_a1n_gsea.csv", 
+         output_deg = "y1p_a1n_deg.csv"
          )
-```
-
-```{r GSEA C2}
 run_gsea(dds,
-         condition1 = "C2", 
-         condition2 = "C3", 
+         condition1 = "Y1N", 
+         condition2 = "A1N", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c2c3_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c2c3_deg.csv"
+         output_gsea = "y1n_a1n_gsea.csv", 
+         output_deg = "y1n_a1n_deg.csv"
          )
 ```
 
-```{r GSEA GMP}
+```{r GSEA Y2}
 run_gsea(dds,
-         condition1 = "GMP", 
-         condition2 = "MEP", 
+         condition1 = "Y2P", 
+         condition2 = "Y2N", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/gmp_mep_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/gmp_mep_deg.csv"
+         output_gsea = "y2_gsea.csv", 
+         output_deg = "y2_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "Y2P", 
+         condition2 = "A2N", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "y2p_a1n_gsea.csv", 
+         output_deg = "y2p_a1n_deg.csv"
+         )
+run_gsea(dds,
+         condition1 = "Y2N", 
+         condition2 = "A2N", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "y2n_a1n_gsea.csv", 
+         output_deg = "y2n_a1n_deg.csv"
+         )
+```
+
+```{r GSEA M}
+run_gsea(dds,
+         condition1 = "YMP", 
+         condition2 = "YMN", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "ym_gsea.csv", 
+         output_deg = "ym_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "YMP", 
+         condition2 = "AM", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "ymp_am_gsea.csv", 
+         output_deg = "ymp_am_deg.csv"
+         )
+run_gsea(dds,
+         condition1 = "YMN", 
+         condition2 = "AM", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "ymn_am_gsea.csv", 
+         output_deg = "ymn_am_deg.csv"
          )
 
 ```
 
-```{r GSEA MPP3}
+```{r GSEA HSC}
 run_gsea(dds,
-         condition1 = "MPP3pos", 
-         condition2 = "MPP3neg", 
+         condition1 = "YH", 
+         condition2 = "AH", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/mpp3_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/mpp3_deg.csv"
+         output_gsea = "hsc_gsea.csv", 
+         output_deg = "hsc_deg.csv"
+         )
+```
+
+```{r GSEA Additional}
+run_gsea(dds,
+         condition1 = "YMP", 
+         condition2 = "Y2P", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "ymp_y2p_gsea.csv", 
+         output_deg = "ymp_y2p_deg.csv"
          )
 
+run_gsea(dds,
+         condition1 = "YMN", 
+         condition2 = "Y2N", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "ymn_y2n_gsea.csv", 
+         output_deg = "ymn_y2n_deg.csv"
+         )
 ```
 
 ## Filter GSEA reports for an FDR q-value < 0.25 and Normalized Enrichment Score > 1.3
