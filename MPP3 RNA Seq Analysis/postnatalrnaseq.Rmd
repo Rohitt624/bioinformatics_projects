@@ -1,5 +1,5 @@
 ---
-title: "MPP3 ESAM RNA Sequencing Analysis"
+title: "Postnatal RNA Sequencing Analysis"
 output:
   html_document: default
   pdf_document: default
@@ -18,7 +18,38 @@ library(rnaseqGene)
 library(pheatmap)
 library(ggalt)
 library(fgsea)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq")
+library(biomaRt)
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Postnatal RNA Seq")
+
+EnsIDReplace <- function(input, output){
+rna <- input
+rnanames <- rownames(rna)
+ensembl <- useEnsembl(biomart = "genes")
+listDatasets(ensembl)
+mart <- useDataset("mmusculus_gene_ensembl", useMart("ensembl"))
+gene_ids <- getBM(
+  filters = "ensembl_gene_id",
+  attributes = c("ensembl_gene_id", "mgi_symbol"),
+  values = rnanames,
+  mart = mart
+)
+
+id_list <- split(gene_ids[["mgi_symbol"]], gene_ids[["ensembl_gene_id"]])
+rnaname <- character(nrow(rna))
+for (i in seq_len(nrow(rna))) {
+  ensembl_id <- rownames(rna)[i]
+  if (ensembl_id %in% names(id_list)) {
+    rnaname[i] <- id_list[[ensembl_id]]
+  } else{
+    rnaname[i] <- ensembl_id
+  }
+}
+rnaname[rnaname == ""] <- NA
+
+rownames(rna) <- make.names(rnaname, unique = TRUE)
+rm(ensembl, gene_ids, id_list, mart, ensembl_id, i, rnaname)
+write.csv(rna, output)
+}
 
 run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
   res1 <- DESeq2::results(dds, 
@@ -44,8 +75,15 @@ write.csv(res1_filtered, output_deg)
 
 ## Load counts matrix into a DESeqDataSet object
 
-```{r Load MPP3 Data, warning=FALSE, message=FALSE}
-mpp3 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/newgenenames.csv", row.names = 1) #file path to Counts csv document
+```{r Load RNA Counts Data, warning=FALSE, message=FALSE}
+cts2 <- read.csv("Postnatal Compiled (2 wk_adult).csv") #file path to Counts csv document
+cts <- cts2[, -1]
+rownames(cts) <- make.names(cts2$Geneid, unique = TRUE) #forces gene names to become unique
+rm(cts2)
+pn <- cts
+rm(cts)
+EnsIDReplace(pn, "pn_genename.csv")
+pn_gn <- read.csv("pn_genename.csv")
 ```
 
 ```{r Load MPC Data, warning=FALSE, message=FALSE}
