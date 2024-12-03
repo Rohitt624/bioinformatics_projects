@@ -32,20 +32,11 @@ gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, p
 write.csv(gseadf, output_gsea)
 }
 
-EnsIDReplace <- function(input, output){
+EnsIDReplace2 <- function(input, output){
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rna <- input
   rnanames <- rownames(rna)
-  ensembl <- useEnsembl(biomart = "genes")
-  listDatasets(ensembl)
-  mart <- useDataset("mmusculus_gene_ensembl", useMart("ensembl"))
-  gene_ids <- getBM(
-    filters = "ensembl_gene_id",
-    attributes = c("ensembl_gene_id", "mgi_symbol"),
-    values = rnanames,
-    mart = mart
-  )
-  
-  id_list <- split(gene_ids[["mgi_symbol"]], gene_ids[["ensembl_gene_id"]])
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
   rnaname <- character(nrow(rna))
   for (i in seq_len(nrow(rna))) {
     ensembl_id <- rownames(rna)[i]
@@ -58,8 +49,8 @@ EnsIDReplace <- function(input, output){
   rnaname[rnaname == ""] <- NA
   
   rownames(rna) <- rnaname
-  rm(ensembl, gene_ids, id_list, mart, ensembl_id, i, rnaname)
   output <- rna
+  rm(gene_mapping, id_list, ensembl_id, i, rnaname)
 }
 ```
 
@@ -281,7 +272,8 @@ rna_markers <- FindMarkers(mpp3v2, ident.1 = "ESAM+", ident.2 = "ESAM-", assay =
 write.csv(adt_markers, "adtmpp3.csv")
 write.csv(rna_markers, "rnampp3.csv")
 
-EnsIDReplace(rna_markers, mpp3esam_newgene)
+EnsIDReplace2(rna_markers, mpp3esam)
+write.csv(mpp3esam_newgene, "rnampp3_genename.csv")
 
 run_gsea(mpp3esam_newgene, "reactome_go_gsea.gmt", "mpp3esam_gsea.csv")
 ```
