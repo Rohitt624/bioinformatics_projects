@@ -63,3 +63,6 @@ so <- FindClusters(so)
 so <- RunUMAP(so, dims = 1:30)
 ```
 
+```{r}
+DimPlot(so, group.by = c("orig.ident"))
+```
