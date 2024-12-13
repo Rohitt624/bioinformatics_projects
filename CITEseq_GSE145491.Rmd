@@ -89,7 +89,7 @@ rownames(seurat_object[["RNA"]])
 Test ADT data by choosing any two ADT features
 ```{r featurescatter}
 mpp3v2 <- SetIdent(mpp3v2, value = "ESAM")
-FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_CD135", log = TRUE)
+FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_48", log = TRUE)
 
 DimPlot(seurat_object)
 ```
