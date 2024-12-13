@@ -61,6 +61,7 @@ so <- RunPCA(so)
 so <- FindNeighbors(so, dims = 1:30)
 so <- FindClusters(so)
 so <- RunUMAP(so, dims = 1:30)
+rm(data)
 ```
 
 ```{r}
