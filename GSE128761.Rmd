@@ -66,4 +66,47 @@ rm(data)
 
 ```{r}
 DimPlot(so, group.by = c("orig.ident"))
+
+FeaturePlot(so, features = c("Ctnnal1"))
+```
+
+
+```{r Bar Chart}
+aCat <- FetchData(so, vars = c("seurat_clusters", "Ctnnal1"))
+aCat <- data.frame(Cell = rownames(aCat), Cluster = aCat$seurat_clusters, aCat = aCat$Ctnnal1)
+aCat <- aCat[order(aCat$Cluster),]
+aCat$Cell <- factor(aCat$Cell, levels = aCat$Cell)
+
+aCatbar <- ggplot(aCat, aes(x = Cell, y = aCat, fill = as.factor(Cluster))) + 
+    geom_bar(stat = "identity", width = 1) +
+  theme(
+    axis.text = element_blank(), 
+    axis.title = element_blank(), 
+    axis.ticks = element_blank(), 
+    legend.position = "none",
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  )
+ 
+
+cd9 <- FetchData(seurat_object, vars = c("seurat_clusters", "adt_CD9"))
+cd9 <- data.frame(Cell = rownames(cd9), Cluster = cd9$seurat_clusters, CD9 = cd9$adt_CD9)
+cd9 <- cd9[order(cd9$Cluster),]
+cd9$Cell <- factor(cd9$Cell, levels = cd9$Cell)
+
+cd9bar <- ggplot(cd9, aes(x = Cell, y = CD9, fill = as.factor(Cluster))) + 
+    geom_bar(stat = "identity") + 
+  theme(
+    axis.text = element_blank(), 
+    axis.title = element_blank(), 
+    axis.ticks = element_blank(), 
+    legend.position = "none",
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  )
+
+barchart <- aCatbar / cd9bar
+
+aCatbar
+
+barchart  
+
 ```
