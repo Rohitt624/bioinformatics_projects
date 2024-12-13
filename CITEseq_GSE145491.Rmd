@@ -89,7 +89,9 @@ rownames(seurat_object[["RNA"]])
 Test ADT data by choosing any two ADT features
 ```{r featurescatter}
 mpp3v2 <- SetIdent(mpp3v2, value = "ESAM")
-FeatureScatter(mpp3v2, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE)
+FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_CD135", log = TRUE)
+
+DimPlot(seurat_object)
 ```
 
 
@@ -152,9 +154,23 @@ p1|p2
 
 Can "gate" cells using FeatureLocator
 ```{r gating, eval=FALSE}
-adtscatter <- FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_CD135", log = TRUE)
+adtscatter <- FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_CD48") +
+                geom_point() +
+                geom_density_2d_filled() +
+                scale_x_log10() + 
+                scale_y_log10()
 seurat_object <- CellSelector(adtscatter, object = seurat_object, ident = "MPP4")
 ```
+limits = c(3, 500)
+limits = c(20, NA)
+
+
+Contour plot arguments: 
+geom_point() +
+geom_density_2d() +
+
+geom_density_2d_filled()
+
 Save gating
 ```{r save gating, eval=FALSE}
 Idents(seurat_object) <- "seurat_clusters"
