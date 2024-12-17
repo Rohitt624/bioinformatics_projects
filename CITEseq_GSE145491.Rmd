@@ -89,10 +89,10 @@ rownames(seurat_object[["RNA"]])
 Test ADT data by choosing any two ADT features
 ```{r featurescatter}
 mpp3v2 <- SetIdent(mpp3v2, value = "ESAM")
-Idents(seurat_object) <- "gates"
-FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_CD135", log = TRUE) + labs(title="CD135 CD150")
+Idents(cd135neg) <- "gates2"
+FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_CD48", log = TRUE) + labs(title="CD48 CD150")
 
-DimPlot(seurat_object, group.by = "gates")
+DimPlot(cd135neg, group.by = "gates")
 ```
 
 
@@ -158,6 +158,7 @@ Can "gate" cells using FeatureLocator
 adtscatter <- FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_CD135") +
                 scale_x_log10() + 
                 scale_y_log10()
+adtscatter
 seurat_object <- CellSelector(adtscatter, object = seurat_object, ident = "test")
 
 ```
@@ -177,55 +178,53 @@ seurat_object$gates <- NULL
 
 gating <- FetchData(seurat_object, vars = c("adt_CD150", "adt_CD135"))
 gating_value <- gating[gating$adt_CD150 > 0 & gating$adt_CD135 > 0,]
-gating_value <- gating_value[gating_value$adt_CD150 < 100,]
-threshold <- quantile(gating_value$adt_CD135, 0.5)
+gating_value <- gating_value[gating_value$adt_CD150 < 200,]
+threshold <- quantile(gating_value$adt_CD135, 0.65)
 
-seurat_object$gates <- ifelse(gating$adt_CD135 > threshold & gating$adt_CD150 < 100 & gating$adt_CD150 > 0, "MPP4", ifelse(gating$adt_CD135 < threshold & gating$adt_CD150 > 0 & gating$adt_CD135 > 0, "CD135-", NA))
+seurat_object$gates <- ifelse(gating$adt_CD135 > threshold & gating$adt_CD150 < 200 & gating$adt_CD150 > 0, "MPP4", ifelse(gating$adt_CD135 < threshold & gating$adt_CD150 > 0 & gating$adt_CD135 > 0, "CD135-", NA))
 
 ```
 
 ```{r cd135- featurescatter}
+Idents(cd135neg) <- "gates2"
 adtscatter <- FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_CD48") +
-                scale_x_log10() + 
-                scale_y_log10() +
-                geom_density_2d_filled(bins = 15)
+                scale_x_log10(limits = c(5, 10000)) + 
+                scale_y_log10(limits = c(100, 10000))
+                
 adtscatter
-seurat_object <- CellSelector(adtscatter, object = seurat_object, ident = "test")
+cd135neg <- CellSelector(adtscatter, object = cd135neg, ident = "test")
+```
+limits = c(3, 800)
+limits = c(1000, 10000)
+ + 
+                geom_density_2d(bins = 15)
+                
+``` {r}
+max(FetchData(cd135neg, vars = "adt_CD150")[WhichCells(cd135neg, idents = "test"), "adt_CD150"])
 ```
 
 Manual gating
 ``` {r gating}
-seurat_object$gates <- NULL
+cd135neg$gates2 <- NULL
 
-gating <- FetchData(seurat_object, vars = c("adt_CD150", "adt_CD135"))
-gating_value <- gating[gating$adt_CD150 > 0 & gating$adt_CD135 > 0,]
-gating_value <- gating_value[gating_value$adt_CD150 < 100,]
-threshold <- quantile(gating_value$adt_CD135, 0.5)
+gating <- FetchData(cd135neg, vars = c("adt_CD150", "adt_CD48"))
 
-seurat_object$gates <- ifelse(gating$adt_CD135 > threshold & gating$adt_CD150 < 100 & gating$adt_CD150 > 0, "MPP4", ifelse(gating$adt_CD135 < threshold & gating$adt_CD150 > 0 & gating$adt_CD135 > 0, "CD135-", NA))
+cd135neg$gates2 <- ifelse(gating$adt_CD48 > 4500 & gating$adt_CD150 < 200 & gating$adt_CD150 > 0, "MPP3", ifelse(gating$adt_CD48 < 4500 & gating$adt_CD150 > 0 & gating$adt_CD48 > 0 & gating$adt_CD150 < 200, "MPP1", ifelse(gating$adt_CD48 > 4500 & gating$adt_CD150 > 200, "MPP2", ifelse(gating$adt_CD48 < 4500 & gating$adt_CD48 > 0 & gating$adt_CD150 > 200, "HSC", cd135neg$gates))))
+
 
 ```
 
-
+  ifelse(gating$adt_CD48 > 5600 & gating$adt_CD150 < 700 & gating$adt_CD150 > 0, "MPP3", ifelse(gating$adt_CD48 < 5600 & gating$adt_CD150 > 0 & gating$adt_CD48 > 0 & gating$adt_CD150 < 700, "MPP1", ifelse(gating$adt_CD48 > 2500 & gating$adt_CD150 > 700, "MPP2", ifelse(gating$adt_CD48 < 2500 & gating$adt_CD48 > 0 & gating$adt_CD150 > 700, "HSC", cd135neg$gates))))
 
 ```{r subsetting}
 mpp4 <- subset(seurat_object, idents = "MPP4")
 cd135neg <- subset(seurat_object, idents = "CD135-")
-rm(test, test2)
 ```
 
 
 Verify
 ``` {r}
-fullcount <- FetchData(seurat_object, vars = c("adt_CD150", "adt_CD135"))
-mpp4count <- FetchData(mpp4, vars = c("adt_CD150", "adt_CD135"))
-cd135count <- FetchData(cd135neg, vars = c("adt_CD150", "adt_CD135"))
-countfull <- sum(fullcount$adt_CD150 > 0 & fullcount$adt_CD135 > 0)
-countmpp4 <- sum(mpp4count$adt_CD150 > 0 & mpp4count$adt_CD135 > 0)
-countcd135 <- sum(cd135count$adt_CD150 > 0 & cd135count$adt_CD135 > 0)
-countfull
-countmpp4
-countcd135
+table(cd135neg$gates2)
 ```
 
 Save gating
