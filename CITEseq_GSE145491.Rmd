@@ -19,6 +19,7 @@ library(biomaRt)
 library(pheatmap)
 library(fgsea)
 library(patchwork)
+library(scales)
 options(future.globals.maxSize = 4000 * 1024^2)
 setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491")
 
@@ -155,11 +156,12 @@ p1|p2
 
 Can "gate" cells using FeatureLocator
 ```{r featurescatter, eval=FALSE}
+Idents(seurat_object) <- "gates"
 adtscatter <- FeatureScatter(seurat_object, feature1 = "adt_CD150", feature2 = "adt_CD135") +
                 scale_x_log10() + 
-                scale_y_log10()
+                scale_y_log10() + 
+                scale_color_manual(values = c("MPP4" = "red", "CD135-" = "blue", "NA" = "grey"))
 adtscatter
-seurat_object <- CellSelector(adtscatter, object = seurat_object, ident = "test")
 
 ```
 limits = c(3, 500)
@@ -179,9 +181,9 @@ seurat_object$gates <- NULL
 gating <- FetchData(seurat_object, vars = c("adt_CD150", "adt_CD135"))
 gating_value <- gating[gating$adt_CD150 > 0 & gating$adt_CD135 > 0,]
 gating_value <- gating_value[gating_value$adt_CD150 < 200,]
-threshold <- quantile(gating_value$adt_CD135, 0.65)
+threshold <- quantile(gating_value$adt_CD135, 0.55)
 
-seurat_object$gates <- ifelse(gating$adt_CD135 > threshold & gating$adt_CD150 < 200 & gating$adt_CD150 > 0, "MPP4", ifelse(gating$adt_CD135 < threshold & gating$adt_CD150 > 0 & gating$adt_CD135 > 0, "CD135-", NA))
+seurat_object$gates <- ifelse(gating$adt_CD135 > threshold & gating$adt_CD150 < 200 & gating$adt_CD150 > 0, "MPP4", ifelse(gating$adt_CD150 > 0 & gating$adt_CD135 > 0, "CD135-", NA))
 
 ```
 
@@ -192,7 +194,6 @@ adtscatter <- FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_C
                 scale_y_log10(limits = c(100, 10000))
                 
 adtscatter
-cd135neg <- CellSelector(adtscatter, object = cd135neg, ident = "test")
 ```
 limits = c(3, 800)
 limits = c(1000, 10000)
@@ -214,6 +215,43 @@ cd135neg$gates2 <- ifelse(gating$adt_CD48 > 4500 & gating$adt_CD150 < 200 & gati
 
 ```
 
+```{r}
+Idents(cd135neg) <- "gates2"
+gating <- FetchData(cd135neg, vars = c("adt_CD150", "adt_CD48"))
+compress_y <- trans_new(
+  name = "compress_log",
+  transform = function(y) {
+    ifelse(y <= 1000, 0.2333 * log10(y), 0.7 * (log10(y) - 3) / (4 - 3) + 0.7)
+  },
+  inverse = function(y) {
+    ifelse(y <= 0.3, 10^(y / 0.3), 10^(3 + (y - 0.3) * (4 - 3) / 0.7))
+  }
+)
+
+adtscatter <- FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_CD48") +
+  scale_x_log10(limits = c(5, 10000)) + 
+  scale_y_continuous(
+    trans = compress_y,
+    limits = c(100, 10000),
+    breaks = c(100, 1000, 10000),
+    labels = c("100", "1000", "10000")
+  )
+
+adtscatter
+
+```
+
+```{r}
+y_values <- seq(1, 10000, length.out = 1000)
+transformed_y <- compress_y$transform(y_values)
+
+ggplot(data.frame(y = y_values, transformed_y = transformed_y), aes(x = y, y = transformed_y)) +
+  geom_line() +
+  scale_x_log10() +
+  labs(title = "Transformation Function", x = "Original y", y = "Transformed y")
+```
+
+
   ifelse(gating$adt_CD48 > 5600 & gating$adt_CD150 < 700 & gating$adt_CD150 > 0, "MPP3", ifelse(gating$adt_CD48 < 5600 & gating$adt_CD150 > 0 & gating$adt_CD48 > 0 & gating$adt_CD150 < 700, "MPP1", ifelse(gating$adt_CD48 > 2500 & gating$adt_CD150 > 700, "MPP2", ifelse(gating$adt_CD48 < 2500 & gating$adt_CD48 > 0 & gating$adt_CD150 > 700, "HSC", cd135neg$gates))))
 
 ```{r subsetting}
@@ -224,8 +262,51 @@ cd135neg <- subset(seurat_object, idents = "CD135-")
 
 Verify
 ``` {r}
+table(seurat_object$gates)
 table(cd135neg$gates2)
 ```
+
+```{r subset mpp3}
+mpp3 <- subset(cd135neg, idents = "MPP3")
+```
+
+ESAM+ vs - gating
+```{r ESAM gating}
+mpp3$gates <- NULL
+
+esam <- FetchData(mpp3, vars = "adt_ESAM")
+esam_value <- esam[esam > 0]
+thirty <- quantile(esam_value, 0.4)
+seventy <- quantile(esam_value, 0.6)
+mpp3$ESAM <- "ESAMmid"
+mpp3$ESAM[esam > seventy] <- "ESAM+"
+mpp3$ESAM[esam < thirty & esam > 0] <- "ESAM-"
+
+```
+
+```{r ESAM featurescatter}
+Idents(mpp3) <- "ESAM"
+adtscatter <- FeatureScatter(mpp3, feature1 = "adt_CD150", feature2 = "adt_ESAM") +
+                scale_x_log10() + 
+                scale_y_log10()
+                
+adtscatter
+```
+
+```{r ESAM DEG GSEA}
+Idents(mpp3) <- "ESAM"
+adt_markers <- FindMarkers(mpp3, ident.1 = "ESAM+", ident.2 = "ESAM-", assay = "ADT")
+rna_markers <- FindMarkers(mpp3, ident.1 = "ESAM+", ident.2 = "ESAM-", assay = "RNA")
+
+write.csv(adt_markers, "Output/adtmpp3.csv")
+write.csv(rna_markers, "Output/rnampp3.csv")
+
+EnsIDReplace2(rna_markers, mpp3esam)
+write.csv(rna_markers, "Output/rnampp3_genename.csv")
+
+run_gsea(rna_markers, "reactome_go_gsea.gmt", "Output/mpp3esam_gsea.csv")
+```
+
 
 Save gating
 ```{r save gating, eval=FALSE}
@@ -380,19 +461,6 @@ write.csv(adt_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Z
 write.csv(rna_markers, "C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3.csv")
 
 EnsIDReplace("C:/Users/rthalla//OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3.csv", "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/rnampp3_genename.csv")
-```
-
-```{r ESAM DEG GSEA}
-adt_markers <- FindMarkers(mpp3v2, ident.1 = "ESAM+", ident.2 = "ESAM-", assay = "ADT")
-rna_markers <- FindMarkers(mpp3v2, ident.1 = "ESAM+", ident.2 = "ESAM-", assay = "RNA")
-
-write.csv(adt_markers, "adtmpp3.csv")
-write.csv(rna_markers, "rnampp3.csv")
-
-EnsIDReplace2(rna_markers, mpp3esam)
-write.csv(mpp3esam_newgene, "rnampp3_genename.csv")
-
-run_gsea(mpp3esam_newgene, "reactome_go_gsea.gmt", "mpp3esam_gsea.csv")
 ```
 
 Replace RNA Ensembl IDs with gene IDs (this part is still buggy, leaves some blank cells, and uses 40 gb of RAM. So skip it). It works just fine if you do it for the files generated by FindMarkers
