@@ -65,48 +65,120 @@ rm(data)
 ```
 
 ```{r}
-DimPlot(so, group.by = c("orig.ident"))
+DimPlot(so)
+DimPlot(adult)
 
 FeaturePlot(so, features = c("Ctnnal1"))
 ```
 
+, group.by = c("orig.ident")
 
 ```{r Bar Chart}
-aCat <- FetchData(so, vars = c("seurat_clusters", "Ctnnal1"))
-aCat <- data.frame(Cell = rownames(aCat), Cluster = aCat$seurat_clusters, aCat = aCat$Ctnnal1)
-aCat <- aCat[order(aCat$Cluster),]
-aCat$Cell <- factor(aCat$Cell, levels = aCat$Cell)
+Idents(so) <- "orig.ident"
+test <- FetchData(so, vars = c("orig.ident", "Ctnnal1"))
+test <- data.frame(Cell = rownames(test), Cluster = test$orig.ident, test = test$Ctnnal1)
+test <- test[order(test$Cluster),]
+test$Cell <- factor(test$Cell, levels = test$Cell)
 
-aCatbar <- ggplot(aCat, aes(x = Cell, y = aCat, fill = as.factor(Cluster))) + 
+testplot <- ggplot(test, aes(x = Cell, y = test, fill = as.factor(Cluster))) + 
     geom_bar(stat = "identity", width = 1) +
   theme(
     axis.text = element_blank(), 
     axis.title = element_blank(), 
     axis.ticks = element_blank(), 
-    legend.position = "none",
     panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
   )
+testplot
+
+Idents(so) <- "orig.ident"
+test2 <- FetchData(so, vars = c("orig.ident", "seurat_clusters", "Ctnnal1"))
+test2 <- data.frame(Cell = rownames(test2), TimePoint = test2$orig.ident, Cluster = test2$seurat_clusters, 
+                    Ctnnal1 = test2$Ctnnal1)
+test2 <- test2[order(test2$Cluster),]
+test2$Cell <- factor(test2$Cell, levels = test2$Cell)
+
+test2p <- ggplot(test2, aes(x=Cell, y=Ctnnal1, fill=as.factor(Cluster))) + 
+    geom_bar(stat = "identity", width = 1) +
+    facet_wrap(~ TimePoint, scales = "free_x") + 
+  theme(
+    axis.text.x = element_blank(), 
+    axis.title.x = element_blank(), 
+    axis.ticks.x = element_blank(), 
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  ) + 
+  labs(y="Ctnnal1")
+test2p
+
+Idents(so) <- "orig.ident"
+test2 <- FetchData(so, vars = c("orig.ident", "seurat_clusters", "Ctnnal1"))
+test2 <- data.frame(Cell = rownames(test2), TimePoint = test2$orig.ident, Cluster = test2$seurat_clusters, 
+                    Ctnnal1 = test2$Ctnnal1)
+test2 <- test2[order(test2$Cluster),]
+test2$Cell <- factor(test2$Cell, levels = test2$Cell)
+
+test2$HPC.E16 <- ifelse(test2$TimePoint == "HPC.E16.5", test2$Ctnnal1, 0)
+test2$HPC.P7 <- ifelse(test2$TimePoint == "HPC.P7", test2$Ctnnal1, 0)
+test2$HPC.P14 <- ifelse(test2$TimePoint == "HPC.P14", test2$Ctnnal1, 0)
+test2$HPC.Adult <- ifelse(test2$TimePoint == "HPC.Adult", test2$Ctnnal1, 0)
+
+
+aCatadult <- ggplot(test2, aes(x = Cell, y = HPC.Adult, fill = as.factor(Cluster))) + 
+    geom_bar(stat = "identity", width = 1) +
+  theme(
+    axis.text = element_blank(), 
+    axis.title.x = element_blank(), 
+    axis.ticks = element_blank(), 
+    legend.position = "none",
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  ) + 
+  labs(y="Adult")
  
 
-cd9 <- FetchData(seurat_object, vars = c("seurat_clusters", "adt_CD9"))
-cd9 <- data.frame(Cell = rownames(cd9), Cluster = cd9$seurat_clusters, CD9 = cd9$adt_CD9)
-cd9 <- cd9[order(cd9$Cluster),]
-cd9$Cell <- factor(cd9$Cell, levels = cd9$Cell)
-
-cd9bar <- ggplot(cd9, aes(x = Cell, y = CD9, fill = as.factor(Cluster))) + 
-    geom_bar(stat = "identity") + 
+aCate16 <- ggplot(test2, aes(x = Cell, y = HPC.E16, fill = as.factor(Cluster))) + 
+    geom_bar(stat = "identity", width = 1) +
   theme(
+    axis.text = element_blank(), 
+    axis.title.x = element_blank(), 
+    axis.ticks = element_blank(),
+    legend.position = "none", 
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  ) + 
+  labs(y="E16.5")
+
+aCatp14 <- ggplot(test2, aes(x = Cell, y = HPC.P14, fill = as.factor(Cluster))) + 
+    geom_bar(stat = "identity", width = 1) +
+  theme(
+    axis.text = element_blank(), 
+    axis.title.x = element_blank(), 
+    axis.ticks = element_blank(), 
+    legend.position = "none", 
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  ) + 
+  labs(y="P14")
+
+aCatp7 <- ggplot(test2, aes(x = Cell, y = HPC.P7, fill = as.factor(Cluster))) + 
+    geom_bar(stat = "identity", width = 1) +
+  theme(
+    axis.text = element_blank(), 
+    axis.title.x = element_blank(), 
+    axis.ticks = element_blank(), 
+    legend.position = "none",
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  ) + 
+  labs(y="P7")
+
+
+
+barchart <- aCate16 / aCatp7 / aCatp14 / aCatadult
+
+barchart
+
+```
+
+barchart <- aCatbar / cd9bar
+barchart
+
     axis.text = element_blank(), 
     axis.title = element_blank(), 
     axis.ticks = element_blank(), 
     legend.position = "none",
-    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
-  )
-
-barchart <- aCatbar / cd9bar
-
-aCatbar
-
-barchart  
-
-```
