@@ -1,0 +1,67 @@
+---
+title: "GSE243197"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r load, results='hide'}
+library(Seurat)
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(biomaRt)
+library(pheatmap)
+library(fgsea)
+library(patchwork)
+options(future.globals.maxSize = 4000 * 1024^2)
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE243197/")
+
+run_gsea <- function(markers, gmt_path, output_gsea) {
+rnk <- setNames(markers$avg_log2FC, rownames(markers))
+rnk <- rnk[!is.na(rnk)]
+gmt <- gmtPathways(gmt_path)
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gseadf <- as.data.frame(gsea)
+list_columns <- sapply(gseadf, is.list)
+gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
+write.csv(gseadf, output_gsea)
+}
+
+EnsIDReplace2 <- function(input, output){
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  rna <- input
+  rnanames <- rownames(rna)
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+  rnaname <- character(nrow(rna))
+  for (i in seq_len(nrow(rna))) {
+    ensembl_id <- rownames(rna)[i]
+    if (ensembl_id %in% names(id_list)) {
+      rnaname[i] <- id_list[[ensembl_id]]
+    } else{
+      rnaname[i] <- ensembl_id
+    }
+  }
+  rnaname[rnaname == ""] <- NA
+  
+  rownames(rna) <- rnaname
+  output <- rna
+  rm(gene_mapping, id_list, ensembl_id, i, rnaname)
+}
+```
+
+
+```{r}
+dataf <- Read10X_h5("Data/GSE243197_filtered_feature_bc_matrix.h5")
+datar <- Read10X_h5("Data/GSE243197_raw_feature_bc_matrix.h5")
+so <- CreateSeuratObject(counts = data)
+so <- NormalizeData(so)
+so <- FindVariableFeatures(so)
+so <- ScaleData(so)
+so <- RunPCA(so)
+so <- FindNeighbors(so, dims = 1:30)
+so <- FindClusters(so)
+so <- RunUMAP(so, dims = 1:30)
+rm(data)
+
+```

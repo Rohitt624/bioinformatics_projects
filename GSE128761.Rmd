@@ -182,3 +182,28 @@ barchart
     axis.title = element_blank(), 
     axis.ticks = element_blank(), 
     legend.position = "none",
+
+
+```{r}
+VlnPlot(so, features = c("Ctnnal1"), group.by = "orig.ident")
+
+RidgePlot(so, features = c("Ctnnal1"), group.by = "orig.ident")
+
+```
+
+```{r}
+Idents(so) <- "seurat_clusters"
+c10 <- FindMarkers(so, ident.1 = 10, ident.2 = NULL)
+
+```
+
+```{r}
+x <- FetchData(so, vars = c("Ctnnal1"))
+so$acat <- ifelse(x$Ctnnal1 > 0, TRUE, FALSE)
+table(so$acat)
+
+aCat <- subset(so, subset = Ctnnal1 > 0)
+Idents(aCat) <- "orig.ident"
+degtest <- FindMarkers(aCat, ident.1 = "HPC.E16.5", ident.2 = "HPC.Adult")
+
+```
