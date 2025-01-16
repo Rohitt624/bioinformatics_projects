@@ -16,6 +16,7 @@ library(tidyverse)
 library(rnaseqGene)
 library(pheatmap)
 library(ggalt)
+library(biomaRt)
 ```
 
 # DESeq2 analysis
@@ -39,6 +40,30 @@ dds <- DESeq(dds)
 rescmp <- results(dds) 
 vst <- vst(dds, blind=FALSE)
 rlog <- rlog(dds, blind=FALSE)
+```
+
+Convert to fpkm
+
+```{r fpkm}
+ensembl <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+attributes <- c("mgi_symbol", "ensembl_gene_id", "start_position", "end_position")
+gene_names <- rownames(dds)
+feature_data <- getBM(attributes = attributes, filter = "mgi_symbol", values = gene_names, mart = ensembl)
+feature_data$length <- feature_data$end_position - feature_data$start_position + 1
+
+gene_names <- rownames(dds)
+unique_gene_names <- make.unique(gene_names)
+rownames(dds) <- unique_gene_names
+
+rownames(feature_data) <- make.unique(feature_data$mgi_symbol)
+mcols(dds)$basepairs <- feature_data$length
+
+
+rownames(feature_data) <- feature_data$mgi_symbol
+mcols(dds)$basepairs <- feature_data[rownames(dds), "length"]
+
+fpkm <- fpkm(dds)
+
 ```
 
 write results as csv
