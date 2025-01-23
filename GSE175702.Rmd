@@ -1,0 +1,83 @@
+---
+title: "GSE175702"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+
+# Set Up
+
+### Loading in required packages
+```{r libraries, results='hide'}
+library(Seurat)
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(biomaRt)
+library(pheatmap)
+library(fgsea)
+library(patchwork)
+library(scales)
+library(ggbreak)
+options(future.globals.maxSize = 6000 * 1024^2)
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE175702/")
+
+run_gsea <- function(markers, gmt_path, output_gsea) {
+rnk <- setNames(markers$avg_log2FC, rownames(markers))
+rnk <- rnk[!is.na(rnk)]
+gmt <- gmtPathways(gmt_path)
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gseadf <- as.data.frame(gsea)
+list_columns <- sapply(gseadf, is.list)
+gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
+write.csv(gseadf, output_gsea)
+}
+
+EnsIDReplace2 <- function(input){
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  rnanames <- rownames(input)
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+  rnaname <- character(nrow(input))
+  for (i in seq_len(nrow(input))) {
+    ensembl_id <- rownames(input)[i]
+    if (ensembl_id %in% names(id_list)) {
+      rnaname[i] <- id_list[[ensembl_id]]
+    } else{
+      rnaname[i] <- ensembl_id
+    }
+  }
+  rnaname[rnaname == ""] <- NA
+  
+  rownames(input) <- rnaname
+  rm(gene_mapping, id_list, ensembl_id, i, rnaname)
+}
+```
+
+```{r load data}
+lskdata <- Read10X("GSM5344482_Sca1pos_CITEseq/Data/")
+lsk <- CreateSeuratObject(counts=lskdata$`Gene Expression`, assay = "RNA")
+lsk[["ADT"]] <- CreateAssay5Object(counts = lskdata$`Antibody Capture`)
+rm(lskdata)
+
+original_names <- rownames(lsk[["ADT"]])
+cleaned_names <- sub("-TotalSeqA|-hashtag-\\d{4}", "", original_names)
+rownames(lsk[["ADT"]]) <- cleaned_names
+rm(cleaned_names, original_names)
+
+rownames(lsk[["RNA"]])
+rownames(lsk[["ADT"]])
+```
+
+```{r cluster}
+lsk <- NormalizeData(lsk)
+lsk <- NormalizeData(object = lsk, assay = "ADT", normalization.method = "RC")
+lsk <- FindVariableFeatures(lsk)
+lsk <- ScaleData(lsk)
+lsk <- RunPCA(lsk, verbose = FALSE)
+lsk <- FindNeighbors(lsk, dims = 1:30)
+lsk <- FindClusters(lsk, resolution = 0.8, verbose = FALSE)
+lsk <- RunUMAP(lsk, dims = 1:30)
+
+```
+
