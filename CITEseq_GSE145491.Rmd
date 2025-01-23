@@ -19,6 +19,8 @@ library(biomaRt)
 library(pheatmap)
 library(fgsea)
 library(patchwork)
+library(scales)
+library(ggbreak)
 options(future.globals.maxSize = 4000 * 1024^2)
 setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491")
 
@@ -88,11 +90,13 @@ rownames(seurat_object[["RNA"]])
 
 Test ADT data by choosing any two ADT features
 ```{r featurescatter}
-mpp3v2 <- SetIdent(mpp3v2, value = "ESAM")
+seurat_object <- SetIdent(seurat_object, value = "gates")
 Idents(cd135neg) <- "gates2"
-FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_CD48", log = TRUE) + labs(title="CD48 CD150")
+FeatureScatter(seurat_object, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000001946", log = TRUE)
 
-DimPlot(cd135neg, group.by = "gates")
+linear <- lm(rna_ENSMUSG00000001946~adt_ESAM, data = seurat_object)
+
+DimPlot(seurat_object, group.by = "gates")
 ```
 
 
@@ -249,7 +253,7 @@ mpp3v2 <- subset(seurat_object, idents = "CD135- MPP3")
 ```
 
 ```{r more gating, eval=FALSE}
-subsetmpp3 <- FeatureScatter(mpp3v2, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE)
+subsetmpp3 <- FeatureScatter(mpp3, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE)
 mpp3v2 <- CellSelector(subsetmpp3, object = mpp3v2, ident = "ESAM+")
 ```
 Save gating
@@ -275,7 +279,7 @@ ESAM+ vs - gating
 ```{r}
 mpp3v2$gates <- NULL
 
-esam <- FetchData(mpp3v2, vars = "adt_ESAM")
+esam <- FetchData(mpp3, vars = "adt_ESAM")
 esam_value <- esam[esam > 0]
 thirty <- quantile(esam_value, 0.3)
 seventy <- quantile(esam_value, 0.7)
@@ -333,6 +337,67 @@ seurat_object$gating[Cells(mpp3v2)] <- paste("CD135- MPP3", mpp3v2$gate)
 DimPlot(seurat_object, group.by = "gating")
 ```
 
+### MPP2 Work
+```{r subset mpp2}
+Idents(cd135neg) <- "gates2"
+mpp2 <- subset(cd135neg, idents = "MPP2")
+```
+
+```{r visualize}
+Idents(mpp2) <- "ESAM"
+subsetmpp2 <- FeatureScatter(mpp2, feature1 = "adt_CD150", feature2 = "adt_ESAM", log = TRUE)
+subsetmpp2
+adtesammpp2 <- FetchData(mpp2, vars = "adt_ESAM")
+ggplot(adtesammpp2, aes(x=adt_ESAM)) + 
+  geom_histogram() + 
+  lims(x=c(0, 2400))
+
+adtesammpp3 <- FetchData(mpp3, vars = "adt_ESAM")
+ggplot(adtesammpp3, aes(x=adt_ESAM)) + 
+  geom_histogram() + 
+  lims(x=c(0, 2400))
+```
+
+```{r ESAM + vs -}
+esam <- FetchData(mpp2, vars = "adt_ESAM")
+esam_value <- esam[esam > 0]
+thirty <- quantile(esam_value, 0.4)
+seventy <- quantile(esam_value, 0.6)
+mpp2$ESAM <- NA
+mpp2$ESAM[esam > seventy] <- "ESAM+"
+mpp2$ESAM[esam < thirty & esam > 0] <- "ESAM-"
+mpp2$ESAM[esam > thirty & esam < seventy] <- "ESAMmid"
+```
+
+```{r GSEA}
+adt_markers <- FindMarkers(mpp2, ident.1 = "ESAM+", ident.2 = "ESAM-", assay = "ADT")
+rna_markers <- FindMarkers(mpp2, ident.1 = "ESAM+", ident.2 = "ESAM-", assay = "RNA")
+
+write.csv(adt_markers, "adtmpp2.csv")
+write.csv(rna_markers, "rnampp2.csv")
+
+
+  rnanames <- rownames(rna_markers)
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+  rnaname <- character(nrow(rna_markers))
+  for (i in seq_len(nrow(rna_markers))) {
+    ensembl_id <- rownames(rna_markers)[i]
+    if (ensembl_id %in% names(id_list)) {
+      rnaname[i] <- id_list[[ensembl_id]]
+    } else{
+      rnaname[i] <- ensembl_id
+    }
+  }
+  rnaname[rnaname == ""] <- NA
+  
+  rownames(rna_markers) <- rnaname
+  mpp2esam <- rna_markers
+  rm(gene_mapping, id_list, ensembl_id, i, rnaname)
+  write.csv(mpp2esam, "rnampp2_genename.csv")
+
+
+run_gsea(mpp2esam, "reactome_go_gsea.gmt", "mpp2esam_gsea.csv")
+```
 
 ### Similarly, to identify surface markers, you can make plots of ADT values the same way you can for RNA values.
 ```{r vlnplot}
@@ -341,7 +406,66 @@ VlnPlot(seurat_object, features = "rna_ENSMUSG00000045095", group.by = "seurat_c
 
 ### View relationship between protein and RNA
 ```{r protein-v-rna}
-FeatureScatter(seurat_object, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000001946")
+FeatureScatter(filter, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000001946", log=TRUE) + labs(title="ESAM RNA vs Protein")+ 
+  geom_density2d_filled() +
+  scale_fill_manual(values = c("white", "#482173", "#433E85", "#38598C", "#2D708E", "#25858E", "#1E9B8A", "#2BB07F", "#51C56A", "#85D54A", "#C2DF23", "#FDE725")) + 
+  labs(x = "ESAM ADT", y = "ESAM RNA") 
+
+
+
+adtscatter
+
+filter <- subset(seurat_object, cells = rownames(esamdata))
+
+
+
+```
++ 
+  geom_density2d_filled() +
+  scale_fill_manual(values = c("white", hue_pal()(n = 11)))
+
+ + 
+  geom_abline(intercept = int, slope = slope, color = "red", size = 1.5) + 
+  geom_abline(intercept = intlin, slope = slopelin, color = "darkgreen", size = 1.5) + 
+  
+  
+  + 
+  scale_y_log10(limits = c(0.05, 2.5)) + 
+  scale_x_continuous(
+    trans = compress_y,
+    limits = c(1, 5000),
+    breaks = c(1, 50, 5000), # Custom breaks
+    labels = c("1", "50", "10000")
+  )
+
+
+compress_x <- trans_new(
+  name = "compress_log",
+  transform = function(x) {
+    ifelse(x <= 50, 0.1 * log10(x), 0.1 + 0.9 * (log10(x) - log10(50)) / (log10(5000) - log10(50)))
+  },
+  inverse = function(x) {
+    ifelse(x <= 0.1, 10^(x / 0.1), 10^(log10(50) + (x - 0.1) * (log10(5000) - log10(50)) / 0.9))
+  }
+)
+
+```{r linear regression}
+rnaESAM <- FetchData(filter, vars = "rna_ENSMUSG00000001946")
+adtESAM <- FetchData(filter, vars = "adt_ESAM")
+esamdata <- data.frame(rna = rnaESAM, adt = adtESAM)
+esamdata <- subset(esamdata, esamdata$rna > 0 & esamdata$adt > 0)
+esamdata$logrna <- log10(esamdata$rna_ENSMUSG00000001946)
+esamdata$logadt <- log10(esamdata$adt_ESAM)
+linear <- lm(esamdata$rna ~ esamdata$adt, data = esamdata)
+log <- lm(esamdata$logrna ~ esamdata$logadt, data = esamdata)
+summary(linear)
+summary(log)
+
+int <- coef(log)[1]
+slope <- coef(log)[2]
+
+intlin <- coef(linear)[1]
+slopelin <- coef(linear)[2]
 ```
 
 ### You can also FindMarkers for each assay
