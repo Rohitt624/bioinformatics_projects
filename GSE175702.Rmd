@@ -69,9 +69,26 @@ rownames(lsk[["RNA"]])
 rownames(lsk[["ADT"]])
 ```
 
-```{r cluster}
+> rownames(lsk[["ADT"]])
+ [1] "CD27"     "CD150"    "CD274"    "CD41"     "CD55"     "TER-119"  "NK-1"     "CD135"    "CD127"    "CD45R"   
+[11] "CD25"     "CD4"      "CD11c"    "CD115"    "CD19"     "CD117"    "CD62L"    "CD8a"     "CD16"     "Ly-6G"   
+[21] "CD11b"    "CD93"     "Ly-6A"    "CD357"    "CD3"      "CD45"     "F4"       "FceRIa"   "Siglec-H" "Ly-6C"   
+[31] "CD5"      "CD105"    "CD9"      "CD34"     "HTO3"     "HTO4"     "HTO1"     "HTO2"   
+
+```{r filter}
 lsk <- NormalizeData(lsk)
 lsk <- NormalizeData(object = lsk, assay = "ADT", normalization.method = "RC")
+
+VlnPlot(lsk, features = c("nFeature_RNA", "nCount_RNA"), ncol = 2)
+VlnPlot(lsk, features = c("nFeature_ADT", "nCount_ADT"), ncol = 2)
+
+adt <- FetchData(lsk, vars = "adt_CD117-TotalSeqA")
+ggplot(adt, aes(x=adt_CD117-TotalSeqA)) + 
+  geom_histogram(bins = 100)
+
+```
+
+```{r cluster}
 lsk <- FindVariableFeatures(lsk)
 lsk <- ScaleData(lsk)
 lsk <- RunPCA(lsk, verbose = FALSE)
