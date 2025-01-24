@@ -54,7 +54,7 @@ EnsIDReplace2 <- function(input){
 }
 ```
 
-```{r load data}
+```{r load data Sca1pos}
 lskdata <- Read10X("GSM5344482_Sca1pos_CITEseq/Data/")
 lsk <- CreateSeuratObject(counts=lskdata$`Gene Expression`, assay = "RNA")
 lsk[["ADT"]] <- CreateAssay5Object(counts = lskdata$`Antibody Capture`)
@@ -75,7 +75,23 @@ rownames(lsk[["ADT"]])
 [21] "CD11b"    "CD93"     "Ly-6A"    "CD357"    "CD3"      "CD45"     "F4"       "FceRIa"   "Siglec-H" "Ly-6C"   
 [31] "CD5"      "CD105"    "CD9"      "CD34"     "HTO3"     "HTO4"     "HTO1"     "HTO2"   
 
-```{r filter}
+```{r load data Sca1neg}
+lkdata <- Read10X("GSM5344483_Sca1neg_CITEseq/Data/")
+lk <- CreateSeuratObject(counts=lkdata$`Gene Expression`, assay = "RNA")
+lk[["ADT"]] <- CreateAssay5Object(counts = lkdata$`Antibody Capture`)
+rm(lkdata)
+
+original_names <- rownames(lk[["ADT"]])
+cleaned_names <- sub("-TotalSeqA|-hashtag-\\d{4}", "", original_names)
+rownames(lk[["ADT"]]) <- cleaned_names
+rm(cleaned_names, original_names)
+
+rownames(lk[["RNA"]])
+rownames(lk[["ADT"]])
+```
+
+
+```{r filter lsk}
 lsk <- NormalizeData(lsk)
 lsk <- NormalizeData(object = lsk, assay = "ADT", normalization.method = "RC")
 
@@ -88,13 +104,36 @@ ggplot(adt, aes(x=adt_CD117-TotalSeqA)) +
 
 ```
 
-```{r cluster}
+```{r cluster lsk}
 lsk <- FindVariableFeatures(lsk)
 lsk <- ScaleData(lsk)
 lsk <- RunPCA(lsk, verbose = FALSE)
 lsk <- FindNeighbors(lsk, dims = 1:30)
 lsk <- FindClusters(lsk, resolution = 0.8, verbose = FALSE)
 lsk <- RunUMAP(lsk, dims = 1:30)
+
+```
+
+```{r filter lk}
+lk <- NormalizeData(lk)
+lk <- NormalizeData(object = lk, assay = "ADT", normalization.method = "RC")
+
+VlnPlot(lk, features = c("nFeature_RNA", "nCount_RNA"), ncol = 2)
+VlnPlot(lk, features = c("nFeature_ADT", "nCount_ADT"), ncol = 2)
+
+adt <- FetchData(lk, vars = "adt_CD117")
+ggplot(adt, aes(x=adt_CD117)) + 
+  geom_histogram(bins = 100)
+
+```
+
+```{r cluster lk}
+lk <- FindVariableFeatures(lk)
+lk <- ScaleData(lk)
+lk <- RunPCA(lk, verbose = FALSE)
+lk <- FindNeighbors(lk, dims = 1:30)
+lk <- FindClusters(lk, resolution = 0.8, verbose = FALSE)
+lk <- RunUMAP(lk, dims = 1:30)
 
 ```
 
