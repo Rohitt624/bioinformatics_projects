@@ -1,18 +1,133 @@
 ---
 title: "Aged and Postnatal RNA Seq Analysis"
 output: html_notebook
+editor_options: 
+  chunk_output_type: console
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+# Initial Setup:
+```{r packages}
+library(tidyverse)
+library(DESeq2)
+library(rnaseqGene)
+library(pheatmap)
+library(ggalt)
+library(fgsea)
+library(biomaRt)
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Aged RNA Seq")
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+EnsIDReplace2 <- function(input){
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  rnanames <- rownames(input)
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+  rnaname <- character(nrow(input))
+  for (i in seq_len(nrow(input))) {
+    ensembl_id <- rownames(input)[i]
+    if (ensembl_id %in% names(id_list)) {
+      rnaname[i] <- id_list[[ensembl_id]]
+    } else{
+      rnaname[i] <- ensembl_id
+    }
+  }
+  rnaname[rnaname == ""] <- NA
+  
+  rownames(input) <- make.names(rnaname, unique = TRUE)
+  rm(gene_mapping, id_list, ensembl_id, i, rnaname)
+}
 
-```{r}
-plot(cars)
+run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
+  res1 <- DESeq2::results(dds, 
+                       contrast = c("condition", condition1, condition2),
+                       independentFiltering = TRUE,
+                       alpha = 0.1)
+res1 <- subset(res1, padj < 0.1)
+rnk <- setNames(res1$log2FoldChange, rownames(res1))
+rnk <- rnk[!is.na(rnk)]
+gmt <- gmtPathways(gmt_path)
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gseadf <- as.data.frame(gsea)
+list_columns <- sapply(gseadf, is.list)
+gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
+write.csv(gseadf, output_gsea)
+res1_filtered <- res1[complete.cases(res1), ]
+write.csv(res1_filtered, output_deg)
+}
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+# DESeq2 analysis
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+## Load counts matrix into a DESeqDataSet object
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r Load RNA Counts Data, warning=FALSE, message=FALSE}
+cts <- read.csv("Postnatal Compiled (Aged).csv")
+rownames(cts) <- cts$Geneid
+cts <- cts[, -1]
+EnsIDReplace2(cts)
+cts <- cts[,-13]
+write.csv(cts, "aged_genename.csv")
+```
+
+
+## Differential Expression analysis
+
+```{r DESeq}
+cd <- read.csv("agedcd.csv") #make coldata file with sample names in one column and then condition in second column
+dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~condition)
+rlog <- rlog(dds, blind=FALSE)
+dds <- DESeq(dds)
+rescmp <- results(dds) 
+```
+
+### Save results as csv
+
+```{r Save Results, eval=FALSE}
+write.csv(rescmp, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/completeresults.csv")
+```
+
+# Generate PCA Plot
+
+```{r PCA Plot}
+pca <- plotPCA(rlog)
+pca + geom_point(size=5) + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), # White background
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+  )
+
+```
+ + 
+  scale_color_manual(labels=c("CMP", "GMP", "MEP", "MPP3 ESAM-", "MPP3 ESAM+", "PG", "PM"), values = c("red","blue", "darkgreen", "purple", "orange", "black", "maroon"))
+  lims(x=c(-15, 25), y=c(-15, 25))
+
+# GSEA Analysis
+
+## Run GSEA
+```{r GSEA O2}
+run_gsea(dds,
+         condition1 = "O2P", 
+         condition2 = "O2N", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "o2_gsea.csv", 
+         output_deg = "o2_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "OMP", 
+         condition2 = "OMN", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "om_gsea.csv", 
+         output_deg = "om_deg.csv"
+         )
+
+```
+
+### Overlap
+```{r}
+o2 <- read.csv("o2_deg.csv", row.names = 1)
+om <- read.csv("om_deg.csv", row.names = 1)
+overlap <- Reduce(intersect, list(rownames(o2), rownames(om)))
+
+```
+
+
