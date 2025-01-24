@@ -126,8 +126,11 @@ run_gsea(dds,
 ```{r}
 o2 <- read.csv("o2_deg.csv", row.names = 1)
 om <- read.csv("om_deg.csv", row.names = 1)
+o2pos <- subset(o2, o2$log2FoldChange > 1)
+ompos <- subset(om, om$log2FoldChange > 1)
 overlap <- Reduce(intersect, list(rownames(o2), rownames(om)))
-
+ovpos <- Reduce(intersect, list(rownames(o2pos), rownames(ompos)))
+write.csv(ovpos, "positiveoverlap.csv")
 ```
 
 
