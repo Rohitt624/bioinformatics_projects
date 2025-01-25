@@ -14,7 +14,9 @@ library(pheatmap)
 library(ggalt)
 library(fgsea)
 library(biomaRt)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Aged RNA Seq")
+library(ggVennDiagram)
+library(VennDiagram)
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Aged RNA Seq")
 
 EnsIDReplace2 <- function(input){
   gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
@@ -54,7 +56,7 @@ write.csv(res1_filtered, output_deg)
 }
 ```
 
-# DESeq2 analysis
+# Aged Dataset
 
 ## Load counts matrix into a DESeqDataSet object
 
@@ -84,7 +86,7 @@ rescmp <- results(dds)
 write.csv(rescmp, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/completeresults.csv")
 ```
 
-# Generate PCA Plot
+## Generate PCA Plot
 
 ```{r PCA Plot}
 pca <- plotPCA(rlog)
@@ -100,10 +102,10 @@ pca + geom_point(size=5) +
   scale_color_manual(labels=c("CMP", "GMP", "MEP", "MPP3 ESAM-", "MPP3 ESAM+", "PG", "PM"), values = c("red","blue", "darkgreen", "purple", "orange", "black", "maroon"))
   lims(x=c(-15, 25), y=c(-15, 25))
 
-# GSEA Analysis
+## GSEA Analysis
 
-## Run GSEA
-```{r GSEA O2}
+### Run GSEA
+```{r GSEA Old}
 run_gsea(dds,
          condition1 = "O2P", 
          condition2 = "O2N", 
@@ -123,14 +125,42 @@ run_gsea(dds,
 ```
 
 ### Overlap
-```{r}
+```{r aged overlap}
 o2 <- read.csv("o2_deg.csv", row.names = 1)
 om <- read.csv("om_deg.csv", row.names = 1)
 o2pos <- subset(o2, o2$log2FoldChange > 1)
 ompos <- subset(om, om$log2FoldChange > 1)
-overlap <- Reduce(intersect, list(rownames(o2), rownames(om)))
-ovpos <- Reduce(intersect, list(rownames(o2pos), rownames(ompos)))
-write.csv(ovpos, "positiveoverlap.csv")
+ovpos_o <- Reduce(intersect, list(rownames(o2pos), rownames(ompos)))
+write.csv(ovpos_o, "oldpositiveoverlap.csv")
+```
+
+# Postnatal Dataset
+
+## Load counts matrix into a DESeqDataSet object
+
+### Overlap
+```{r postnatal overlap}
+y2 <- read.csv("y2_deg.csv", row.names = 1)
+ym <- read.csv("ym_deg.csv", row.names = 1)
+y2pos <- subset(y2, y2$log2FoldChange > 1)
+ympos <- subset(ym, ym$log2FoldChange > 1)
+ovpos_y <- Reduce(intersect, list(rownames(y2pos), rownames(ympos)))
+write.csv(ovpos_y, "youngpositiveoverlap.csv")
 ```
 
 
+### Overall overlap
+```{r}
+ovpos <- Reduce(intersect, list(rownames(o2pos), rownames(ompos), rownames(y2pos), rownames(ympos)))
+write.csv(ovpos, "overallpositiveoverlap.csv")
+
+o2gene <- rownames(o2pos)
+omgene <- rownames(ompos)
+y2gene <- rownames(y2pos)
+ymgene <- rownames(ympos)
+genelist <- list(O2 = o2gene, OM = omgene, Y2 = y2gene, YM = ymgene)
+
+ggVennDiagram(genelist, label_alpha = 0) + 
+  scale_fill_gradient(low = "white", high = "lightblue")
+
+```
