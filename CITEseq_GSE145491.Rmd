@@ -57,7 +57,7 @@ EnsIDReplace2 <- function(input, output){
 }
 ```
 
-Load the dataset and create Seurat Object with two assays
+# Load the dataset and create Seurat Object with two assays
 
 ```{r load-data}
 data <- as.sparse(read.table(file = "GSE145491_UMIsMatrix.txt.gz",
