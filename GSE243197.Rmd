@@ -5,7 +5,11 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r load, results='hide'}
+
+# Set Up
+
+### Loading in required packages
+```{r libraries, results='hide'}
 library(Seurat)
 library(ggplot2)
 library(patchwork)
@@ -14,8 +18,11 @@ library(biomaRt)
 library(pheatmap)
 library(fgsea)
 library(patchwork)
+library(scales)
+library(ggbreak)
+library(ggcyto)
 options(future.globals.maxSize = 4000 * 1024^2)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE243197/")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE243197")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -51,17 +58,131 @@ EnsIDReplace2 <- function(input, output){
 ```
 
 
-```{r}
-dataf <- Read10X_h5("Data/GSE243197_filtered_feature_bc_matrix.h5")
-datar <- Read10X_h5("Data/GSE243197_raw_feature_bc_matrix.h5")
-so <- CreateSeuratObject(counts = data)
-so <- NormalizeData(so)
-so <- FindVariableFeatures(so)
-so <- ScaleData(so)
-so <- RunPCA(so)
-so <- FindNeighbors(so, dims = 1:30)
-so <- FindClusters(so)
-so <- RunUMAP(so, dims = 1:30)
-rm(data)
+```{r load data Sca1pos}
+lskdata <- Read10X_h5("Data/GSE243197_filtered_feature_bc_matrix.h5")
+lsk <- CreateSeuratObject(counts=lskdata$`Gene Expression`, assay = "RNA")
+lsk[["ADT"]] <- CreateAssay5Object(counts = lskdata$`Antibody Capture`)
+rm(lskdata)
 
+rownames(lsk[["RNA"]])
+rownames(lsk[["ADT"]])
+Key(lsk[["RNA"]])
+Key(lsk[["ADT"]])
+```
+
+> rownames(lsk[["ADT"]])
+ [1] "CD3"         "CD4"         "CD5"         "CD8a"        "CD8b"        "CD11a"       "CD11b"       "CD11c"      
+ [9] "CD16-32"     "CD19"        "CD20"        "CD21-CD35"   "CD23"        "CD24"        "CD25"        "CD27"       
+[17] "CD28"        "CD34"        "CD38"        "CD44"        "CD45"        "CD45R-B220-" "CD49d"       "CD49f"      
+[25] "CD54"        "CD55"        "CD62L"       "CD64"        "CD79b"       "CD86"        "CD93"        "CD102"      
+[33] "CD106"       "CD115"       "CD117"       "CD122"       "CD127"       "CD135"       "CD137"       "CD150"      
+[41] "CD152"       "CD183"       "CD197"       "CD200"       "CD206"       "CD223"       "CD274"       "CD279"      
+[49] "CD304"       "CD309"       "CD335"       "CD357"       "CD366"       "FceRIa"      "F4-80"       "I-A-I-E"    
+[57] "integrin-7"  "Ly6A-E"      "Ly6C"        "Ly6D"        "Ly6G"        "Ly-6G-Ly-6C" "NK1.1"       "Siglec-H"   
+[65] "TCRb"        "TCRg-d"      "TER-199"    
+
+```{r cluster}
+lsk <- NormalizeData(lsk)
+lsk <- NormalizeData(object = lsk, assay = "ADT", normalization.method = "RC")
+lsk <- FindVariableFeatures(lsk)
+lsk <- ScaleData(lsk)
+lsk <- RunPCA(lsk, verbose = FALSE)
+lsk <- FindNeighbors(lsk, dims = 1:30)
+lsk <- FindClusters(lsk, resolution = 0.8, verbose = FALSE)
+lsk <- RunUMAP(lsk, dims = 1:30)
+
+```
+
+```{r}
+DimPlot(lsk)
+FeatureScatter(lsk, feature1 = "adt_CD4", feature2 = "adt_CD8a") + 
+  scale_x_flowjo_biexp() + 
+  scale_y_flowjo_biexp()
+
+cd4 <- FetchData(lsk, vars = "adt_CD4")
+cd8 <- FetchData(lsk, vars = "adt_CD8a")
+
+```
+
+maxValue = 800,
+                       widthBasis = -30,
+                       pos = 4.5,
+                       neg = 0
+
+```{r Cd135 gating}
+cd135 <- FetchData(lsk, vars = c("adt_CD135", "adt_CD150"))
+cd135 <- subset(cd135, cd135$adt_CD135 > 0 & cd135$adt_CD150 > 0)
+filter <- subset(lsk, cells = rownames(cd135))
+Idents(filter) <- "gate2"
+FeatureScatter(filter, feature1 = "adt_CD150", feature2 = "adt_CD135") + 
+  scale_x_flowjo_biexp(maxValue = 8500) + 
+  scale_y_flowjo_biexp(maxValue = 2200,
+                       widthBasis = -100)
+
+adtscatter <- FeatureScatter(filter, feature1 = "adt_CD150", feature2 = "adt_CD135") + 
+  scale_x_flowjo_biexp(maxValue = 8500) + 
+  scale_y_flowjo_biexp(maxValue = 2200,
+                       widthBasis = -100)
+filter <- CellSelector(adtscatter, object = filter, ident = "CD135neg")
+
+filter$gates <- ifelse(Idents(filter) == "MPP4", "MPP4",
+                       ifelse(Idents(filter) == "CD135neg", "CD135neg", NA))
+mpp4 <- subset(filter, gates == "MPP4")
+mpp4thresholds <- FetchData(mpp4, vars = c("adt_CD135", "adt_CD150"))
+cd135neg <- subset(filter, gates == "CD135neg")
+cd135thresholds <- FetchData(cd135neg, vars = c("adt_CD135", "adt_CD150"))
+rownames(mpp4[["ADT"]])
+
+filter$gate2 <- NA
+filter$gate2 <- ifelse(cd135$adt_CD135 > 83 & cd135$adt_CD150 < 53, "MPP4", 
+                       ifelse(cd135$adt_CD135 < 83 & cd135$adt_CD150 < 53, "CD135- CD150-", NA))
+rm(mpp4, mpp4thresholds, cd135thresholds, cd135neg, cd135)
+```
+
+```{r mpp gating}
+cd135150 <- subset(filter, gate2 == "CD135- CD150-")
+
+Idents(cd135neg) <- "gate3"
+FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_Ly6A-E") + 
+  scale_x_flowjo_biexp(pos = 10) + 
+  scale_y_flowjo_biexp(widthBasis = -50) + 
+  geom_density2d()
+
+
+adt <- FetchData(cd135neg, vars = c("adt_CD48", "adt_CD150"))
+adt <- subset(adt, adt$adt_CD48 > 0 & adt$adt_CD150 > 0)
+filter2 <- subset(cd135neg, cells = rownames(adt))
+rnacd48 <- FetchData(cd135neg, vars = c("rna_Cd48"))
+
+adtscatter <- FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_Ly6A-E") + 
+  scale_x_flowjo_biexp(pos = 10) + 
+  scale_y_flowjo_biexp(widthBasis = -50)
+cd135neg <- CellSelector(adtscatter, object = cd135neg, ident = "pseudoMPP3")
+cd135neg$gate3 <- ifelse(Idents(cd135neg) == "pseudoMPP3", "pseudoMPP3", NA)
+
+mpp3 <- subset(cd135neg, gate3 == "pseudoMPP3")
+FeatureScatter(mpp3, feature1 = "adt_CD62L", feature2 = "rna_Esam") + 
+  scale_x_flowjo_biexp() + 
+  scale_y_flowjo_biexp()
+count <- FetchData(mpp3, vars = c("rna_Esam", "adt_CD62L"))
+sum(count$rna_Esam > 0)
+
+adtscatter <- FeatureScatter(mpp3, feature1 = "adt_CD62L", feature2 = "rna_Esam") + 
+  scale_x_flowjo_biexp() + 
+  scale_y_flowjo_biexp()
+mpp3 <- CellSelector(adtscatter, object = mpp3, ident = "cd62l-")
+
+mpp3$gate4 <- ifelse(Idents(mpp3) == "cd62l-", "cd62l-", NA)
+final <- subset(mpp3, gate4 == "cd62l-")
+
+esam <- FetchData(final, vars = c("rna_Esam"))
+final$gate5 <- NA
+final$gate5 <- ifelse(esam$rna_Esam > 0, "ESAM+", 
+                       "ESAM-")
+FeatureScatter(final, feature1 = "adt_CD62L", feature2 = "rna_Esam") + 
+  scale_x_flowjo_biexp() + 
+  scale_y_flowjo_biexp()
+Idents(final) <- "gate5"
+rnamarkers <- FindMarkers(final, ident.1 = "ESAM+", ident.2 = "ESAM-", assay = "RNA")
+write.csv(rnamarkers, "esamrnamarkers.csv")
 ```

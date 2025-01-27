@@ -16,7 +16,7 @@ library(fgsea)
 library(biomaRt)
 library(ggVennDiagram)
 library(VennDiagram)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Aged RNA Seq")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Aged RNA Seq")
 
 EnsIDReplace2 <- function(input){
   gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
@@ -59,6 +59,16 @@ write.csv(res1_filtered, output_deg)
 # Aged Dataset
 
 ## Load counts matrix into a DESeqDataSet object
+
+```{r Load RNA Counts Data, warning=FALSE, message=FALSE}
+cts <- read.csv("Postnatal Compiled (Aged).csv")
+rownames(cts) <- cts$Geneid
+cts <- cts[, -1]
+EnsIDReplace2(cts)
+cts <- cts[,-13]
+write.csv(cts, "aged_genename.csv")
+```
+
 
 ```{r Load RNA Counts Data, warning=FALSE, message=FALSE}
 cts <- read.csv("Postnatal Compiled (Aged).csv")
@@ -164,3 +174,33 @@ ggVennDiagram(genelist, label_alpha = 0) +
   scale_fill_gradient(low = "white", high = "lightblue")
 
 ```
+
+
+# Convert to fpkm
+```{r fpkm}
+ensembl <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+attributes <- c("mgi_symbol", "ensembl_gene_id", "start_position", "end_position")
+gene_names <- rownames(dds)
+feature_data <- getBM(attributes = attributes, filter = "mgi_symbol", values = gene_names, mart = ensembl)
+feature_data$length <- feature_data$end_position - feature_data$start_position + 1
+
+gene_names <- rownames(dds)
+unique_gene_names <- make.unique(gene_names)
+rownames(dds) <- unique_gene_names
+
+rownames(feature_data) <- make.unique(feature_data$mgi_symbol)
+mcols(dds)$basepairs <- feature_data$length
+
+
+rownames(feature_data) <- feature_data$mgi_symbol
+mcols(dds)$basepairs <- feature_data[rownames(dds), "length"]
+
+fpkm <- fpkm(dds)
+
+```
+
+```{r save fpkm}
+write.csv(fpkm ,"agedfpkm.csv")
+```
+
+
