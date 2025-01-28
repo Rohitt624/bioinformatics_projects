@@ -81,4 +81,10 @@ rownames(lk)
 ```{r}
 DimPlot(lk)
 FeaturePlot(lk, features = c("Esam"))
+VlnPlot(lk, features = lk$CD34_measurement)
+
+cd34 <- lk@meta.data$CD34_measurement
+ggplot(lk@meta.data, aes(x = CD34_measurement)) + 
+  geom_histogram()
+
 ```
