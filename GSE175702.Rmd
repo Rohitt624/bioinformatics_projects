@@ -76,9 +76,9 @@ rownames(lsk[["ADT"]])
 [31] "CD5"      "CD105"    "CD9"      "CD34"     "HTO3"     "HTO4"     "HTO1"     "HTO2"   
 
 ```{r load data Sca1neg}
-lkdata <- Read10X("GSM5344483_Sca1neg_CITEseq/Data/")
+lkdata <- Read10X("GSM5344483_Sca1neg_CITEseq/")
 lk <- CreateSeuratObject(counts=lkdata$`Gene Expression`, assay = "RNA")
-lk[["ADT"]] <- CreateAssay5Object(counts = lkdata$`Antibody Capture`)
+lk[["ADT"]] <- CreateAssay5Object(counts = lkdata$`Antibody Capture 2`)
 rm(lkdata)
 
 original_names <- rownames(lk[["ADT"]])
@@ -121,10 +121,7 @@ lk <- NormalizeData(object = lk, assay = "ADT", normalization.method = "RC")
 VlnPlot(lk, features = c("nFeature_RNA", "nCount_RNA"), ncol = 2)
 VlnPlot(lk, features = c("nFeature_ADT", "nCount_ADT"), ncol = 2)
 
-adt <- FetchData(lk, vars = "adt_CD117")
-ggplot(adt, aes(x=adt_CD117)) + 
-  geom_histogram(bins = 100)
-
+VlnPlot(lk, features = c("adt_CD117"))
 ```
 
 ```{r cluster lk}
@@ -135,5 +132,6 @@ lk <- FindNeighbors(lk, dims = 1:30)
 lk <- FindClusters(lk, resolution = 0.8, verbose = FALSE)
 lk <- RunUMAP(lk, dims = 1:30)
 
+FeaturePlot(lk, features = c("adt_CD117"))
 ```
 
