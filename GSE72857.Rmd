@@ -1,0 +1,84 @@
+---
+title: "GSE72857"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+# Set Up
+
+### Loading in required packages
+```{r libraries, results='hide'}
+library(Seurat)
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(biomaRt)
+library(pheatmap)
+library(fgsea)
+library(patchwork)
+library(scales)
+library(ggbreak)
+library(ggcyto)
+options(future.globals.maxSize = 4000 * 1024^2)
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSE72857")
+
+run_gsea <- function(markers, gmt_path, output_gsea) {
+rnk <- setNames(markers$avg_log2FC, rownames(markers))
+rnk <- rnk[!is.na(rnk)]
+gmt <- gmtPathways(gmt_path)
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gseadf <- as.data.frame(gsea)
+list_columns <- sapply(gseadf, is.list)
+gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
+write.csv(gseadf, output_gsea)
+}
+
+EnsIDReplace2 <- function(input, output){
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  rna <- input
+  rnanames <- rownames(rna)
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+  rnaname <- character(nrow(rna))
+  for (i in seq_len(nrow(rna))) {
+    ensembl_id <- rownames(rna)[i]
+    if (ensembl_id %in% names(id_list)) {
+      rnaname[i] <- id_list[[ensembl_id]]
+    } else{
+      rnaname[i] <- ensembl_id
+    }
+  }
+  rnaname[rnaname == ""] <- NA
+  
+  rownames(rna) <- rnaname
+  output <- rna
+  rm(gene_mapping, id_list, ensembl_id, i, rnaname)
+}
+```
+
+```{r load data}
+data <- as.sparse(read.table(file = "GSE72857_umitab.txt.gz",
+                               sep = "", header = TRUE, row.names = 1))
+design <- read.csv("GSE72857_experimental_design_edited.csv")
+d2 <- read.csv("Gse72857_experimental_design.csv")
+
+lk <- CreateSeuratObject(data)
+lk <- AddMetaData(lk, metadata = design)
+```
+
+```{r cluster}
+lk <- NormalizeData(object = lk)
+lk <- FindVariableFeatures(object = lk)
+lk <- ScaleData(object = lk)
+lk <- RunPCA(object =lk)
+lk <- FindNeighbors(object =lk, dims = 1:30)
+lk <- FindClusters(object =lk)
+lk <- RunUMAP(object =lk, dims = 1:30)
+
+rownames(lk)
+```
+
+```{r}
+DimPlot(lk)
+FeaturePlot(lk, features = c("Esam"))
+```
