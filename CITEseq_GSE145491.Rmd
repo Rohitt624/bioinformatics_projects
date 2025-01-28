@@ -21,6 +21,7 @@ library(fgsea)
 library(patchwork)
 library(scales)
 library(ggbreak)
+library(ggcyto)
 options(future.globals.maxSize = 4000 * 1024^2)
 setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491")
 
@@ -134,6 +135,112 @@ FeaturePlot(seurat_object, features = "rna_ENSMUSG00000001946", min.cutoff = 0, 
   theme(legend.position = "none")
 ```
 rna_ENSMUSG00000001946 = ESAM
+
+# 01-27-2025 New Gating Using new tools
+
+```{r Cd135 gating}
+cd135 <- FetchData(seurat_object, vars = c("adt_CD135", "adt_CD150"))
+cd135 <- subset(cd135, cd135$adt_CD135 > 0 & cd135$adt_CD150 > 0)
+filter <- subset(seurat_object, cells = rownames(cd135))
+Idents(filter) <- "gate2"
+filter$default <- NA
+filter$default <- ifelse(cd135$adt_CD135>0, "blank", NA) 
+Idents(filter) <- "gate2"
+FeatureScatter(filter, feature1 = "adt_CD150", feature2 = "adt_CD135") + 
+  scale_x_flowjo_biexp(maxValue = 8100,
+                       widthBasis = -30,
+                       pos = 4.4) + 
+  scale_y_flowjo_biexp(maxValue = 2200,
+                       widthBasis = -170,
+                       pos = 4.3,
+                       neg = 0)
+
+adtscatter <- FeatureScatter(filter, feature1 = "adt_CD150", feature2 = "adt_CD135") + 
+  scale_x_flowjo_biexp(maxValue = 8100,
+                       widthBasis = -30,
+                       pos = 4.4) + 
+  scale_y_flowjo_biexp(maxValue = 2200,
+                       widthBasis = -170,
+                       pos = 4.3,
+                       neg = 0)
+filter <- CellSelector(adtscatter, object = filter, ident = "MPP4")
+
+filter$gates <- ifelse(Idents(filter) == "MPP4", "MPP4",
+                       ifelse(Idents(filter) == "CD135neg", "CD135neg", NA))
+mpp4 <- subset(filter, gates == "MPP4")
+mpp4thresholds <- FetchData(mpp4, vars = c("adt_CD135", "adt_CD150"))
+cd135neg <- subset(filter, gate2 == "CD135-")
+cd135thresholds <- FetchData(cd135neg, vars = c("adt_CD135", "adt_CD150"))
+rownames(mpp4[["ADT"]])
+
+filter$gate2 <- NA
+filter$gate2 <- ifelse(cd135$adt_CD135 > 140 & cd135$adt_CD150 < 270, "MPP4", 
+                       ifelse(cd135$adt_CD135 < 140, "CD135-", NA))
+rm(mpp4, mpp4thresholds, cd135thresholds, cd135neg, cd135)
+
+```
+
+```{r}
+cd135work <- FetchData(cd135neg, vars = c("adt_CD48", "adt_CD150"))
+Idents(cd135neg) <- "gate3"
+FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_CD48") + 
+  scale_x_flowjo_biexp(pos = 5) + 
+  scale_y_flowjo_biexp(widthBasis = -150,
+                       pos = 3)
+
+adtscatter <- FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_CD48") + 
+  scale_x_flowjo_biexp(pos = 5) + 
+  scale_y_flowjo_biexp(widthBasis = -150,
+                       pos = 3)
+cd135neg <- CellSelector(adtscatter, object = cd135neg, ident = "MPP3")
+
+cd135neg$gate3 <- ifelse(Idents(cd135neg) == "MPP3", "MPP3", NA)
+
+mpp3 <- subset(cd135neg, gate3 == "MPP3")
+mpp3threshold <- FetchData(mpp3, vars = c("adt_ESAM"))
+
+cd135neg$gate3 <- NA
+cd135neg$gate3 <- ifelse(cd135work$adt_CD48 > 5000 & cd135work$adt_CD150 < 270, "MPP3", NA)
+
+top40 <- quantile(mpp3threshold$adt_ESAM, 0.6)
+bottom40 <- quantile(mpp3threshold$adt_ESAM, 0.4)
+mpp3$gate4 <- NA
+mpp3$gate4 <- ifelse(mpp3threshold$adt_ESAM > top40, "ESAMhigh",
+                     ifelse(mpp3threshold$adt_ESAM < bottom40, "ESAMlow", "ESAMmid"))
+Idents(mpp3) <- "gate4"
+FeatureScatter(mpp3, feature1 = "adt_ESAM", feature2 = "adt_CD150") + 
+  scale_x_flowjo_biexp() + 
+  scale_y_flowjo_biexp()
+
+rnamarkers <- FindMarkers(mpp3, ident.1 = "ESAMhigh", ident.2 = "ESAMlow", assay = "RNA")
+
+```
+
+```{r}
+gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+rnanames <- rownames(rnamarkers)
+id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+rnaname <- character(nrow(rnamarkers))
+for (i in seq_len(nrow(rnamarkers))) {
+  ensembl_id <- rownames(rnamarkers)[i]
+  if (ensembl_id %in% names(id_list)) {
+    rnaname[i] <- id_list[[ensembl_id]]
+  } else{
+     rnaname[i] <- ensembl_id
+   }
+}
+rnanames[rnanames == ""] <- NA
+  
+rownames(rnamarkers) <- rnaname
+rm(gene_mapping, id_list, ensembl_id, i, rnaname, rnanames)
+
+write.csv(rnamarkers, "20250127_regate_mpp3_esam.csv")
+
+run_gsea(rnamarkers, "reactome_go_gsea.gmt", "mpp3esam_gsea.csv")
+```
+
+
+
 # Analysis Tools
 
 ## Visualization
