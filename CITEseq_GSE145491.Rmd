@@ -214,6 +214,12 @@ FeatureScatter(mpp3, feature1 = "adt_ESAM", feature2 = "adt_CD150") +
 
 rnamarkers <- FindMarkers(mpp3, ident.1 = "ESAMhigh", ident.2 = "ESAMlow", assay = "RNA")
 
+ggplot(mpp3threshold, aes(x=adt_ESAM)) + 
+  geom_histogram(data = subset(mpp3threshold, mpp3threshold$adt_ESAM <130), fill = "blue", binwidth = 10) +
+  geom_histogram(data = subset(mpp3threshold, mpp3threshold$adt_ESAM > 130 & mpp3threshold$adt_ESAM < 291), fill = "green", binwidth = 10) + 
+  geom_histogram(data = subset(mpp3threshold, mpp3threshold$adt_ESAM > 291), fill = "red", binwidth = 10)
+
+
 ```
 
 ```{r}
