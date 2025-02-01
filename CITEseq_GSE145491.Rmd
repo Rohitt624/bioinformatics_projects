@@ -245,7 +245,28 @@ write.csv(rnamarkers, "20250127_regate_mpp3_esam.csv")
 run_gsea(rnamarkers, "reactome_go_gsea.gmt", "mpp3esam_gsea.csv")
 ```
 
+# 01-31-2025 Recluster the MPP3s
+```{r}
+rm(cd135, cd135neg, cd135work, filter, mpp3threshold, seurat_object, bottom40, top40)
+DimPlot(mpp3, group.by = "seurat_clusters")
+mpp3 <- NormalizeData(object = mpp3, assay = "RNA")
+mpp3 <- NormalizeData(object = mpp3, assay = "ADT", normalization.method = "RC")
+mpp3 <- FindVariableFeatures(object = mpp3)
+mpp3 <- ScaleData(object = mpp3)
+mpp3 <- RunPCA(object =mpp3)
+mpp3 <- FindNeighbors(object =mpp3, dims = 1:30)
+mpp3 <- FindClusters(object =mpp3, resolution = 1.2)
+mpp3 <- RunUMAP(object =mpp3, dims = 1:30)
+DimPlot(mpp3, group.by = "seurat_clusters")
+FeaturePlot(mpp3, features = c("rna_ENSMUSG00000001946"))
 
+VlnPlot(mpp3, features = c("adt_ESAM"))
+VlnPlot(mpp3, features = c("rna_ENSMUSG00000001946"))
+RidgePlot(mpp3, features = c("rna_ENSMUSG00000001946"))
+
+DimPlot(mpp3, group.by = "gate4")
+```
+rna_ENSMUSG00000001946
 
 # Analysis Tools
 
