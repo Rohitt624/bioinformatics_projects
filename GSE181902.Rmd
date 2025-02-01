@@ -220,7 +220,7 @@ mpp3$seurat_clusters <- factor(mpp3$seurat_clusters, levels = c(0, 6, 9, 7, 8, 1
 # Create a heatmap
 DoHeatmap(
   object = mpp3,
-  features = genelists$Esam,
+  features = genelists$list,
   group.by = "seurat_clusters"
 ) + scale_fill_gradientn(colors = c("navy", "white", "red"))
 
