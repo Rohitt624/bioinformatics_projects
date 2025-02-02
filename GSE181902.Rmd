@@ -22,8 +22,8 @@ library(scales)
 library(ggbreak)
 library(ggcyto)
 library(DESeq2)
-options(future.globals.maxSize = 4000 * 1024^2)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSE181902")
+options(future.globals.maxSize = 8000 * 1024^2)
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSE181902")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -216,17 +216,20 @@ mpp3 <- ScaleData(mpp3, assay = "vst")
 
 mpp3$seurat_clusters <- factor(mpp3$seurat_clusters, levels = c(0, 6, 9, 7, 8, 1, 2, 3, 4, 5))
 
+newclusters <- c(1, 6, 7, 8, 9, 10, 2, 4, 5, 3)
+clusters <- Idents(mpp3)
+names(newclusters) <- levels(clusters)
+mpp3 <- RenameIdents(mpp3, newclusters)
+mpp3$newclusters <- Idents(mpp3)
+mpp3$newclusters <- factor(mpp3$newclusters, levels = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
+DimPlot(mpp3, group.by = "newclusters")
 
 # Create a heatmap
 DoHeatmap(
   object = mpp3,
   features = genelists$list,
-  group.by = "seurat_clusters"
-) + scale_fill_gradientn(colors = c("navy", "white", "red"))
-
-
-numbers <- GetAssayData(mpp3, slot = "scale.data", assay = "vst")
-numbers <- numbers[genelists$Esam, ]
+  group.by = "newclusters"
+) + scale_fill_gradientn(colors = c("blue", "white", "red"))
 
 
 ```
