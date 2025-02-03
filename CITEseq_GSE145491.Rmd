@@ -22,7 +22,7 @@ library(patchwork)
 library(scales)
 library(ggbreak)
 library(ggcyto)
-options(future.globals.maxSize = 4000 * 1024^2)
+options(future.globals.maxSize = 5000 * 1024^2)
 setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
@@ -258,7 +258,7 @@ mpp3 <- FindNeighbors(object =mpp3, dims = 1:30)
 mpp3 <- FindClusters(object =mpp3, resolution = 1.2)
 mpp3 <- RunUMAP(object =mpp3, dims = 1:30)
 DimPlot(mpp3, group.by = "seurat_clusters")
-FeaturePlot(mpp3, features = c("rna_ENSMUSG00000001946"))
+FeaturePlot(mpp3, features = c("rna_ENSMUSG00000005339"))
 
 VlnPlot(mpp3, features = c("adt_ESAM"))
 VlnPlot(mpp3, features = c("rna_ENSMUSG00000001946"))
@@ -267,6 +267,36 @@ RidgePlot(mpp3, features = c("rna_ENSMUSG00000001946"))
 DimPlot(mpp3, group.by = "gate4")
 ```
 rna_ENSMUSG00000001946
+
+# 02-03-2025 Look for Esam int mast cell signature
+
+```{r mast cell module}
+mast <- read.csv("mastcellgenes.csv")
+
+gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+rnanames <- mast$ensembl
+id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+rnaname <- character(nrow(mast))
+for (i in seq_len(nrow(mast))) {
+  ensembl_id <- mast$ensembl[i]
+  if (ensembl_id %in% names(id_list)) {
+    rnaname[i] <- id_list[[ensembl_id]]
+  } else{
+     rnaname[i] <- ensembl_id
+   }
+}
+rnanames[rnanames == ""] <- NA
+  
+mast$ensembl <- rnaname
+rm(gene_mapping, id_list, ensembl_id, i, rnaname, rnanames)
+
+mpp3 <- AddModuleScore(mpp3, features = list(mast$ensembl), name = "mastcell")
+FeaturePlot(mpp3, 
+            features = "mastcell1")
+VlnPlot(mpp3, features = "mastcell1")
+
+
+```
 
 # Analysis Tools
 
