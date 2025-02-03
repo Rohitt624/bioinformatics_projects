@@ -22,8 +22,8 @@ library(scales)
 library(ggbreak)
 library(ggcyto)
 library(DESeq2)
-options(future.globals.maxSize = 8000 * 1024^2)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSE181902")
+options(future.globals.maxSize = 5000 * 1024^2)
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/GSE181902")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -157,6 +157,13 @@ run_gsea(esamnegmarkers, "reactome_go_gsea.gmt", "esamneggsea.csv")
 run_gsea(esamintmarkers, "reactome_go_gsea.gmt", "esamintgsea.csv")
 ```
 
+```{r esam pos vs neg gsea}
+posnegmarkers <- FindMarkers(mpp3, ident.1 = "ESAM Positive", ident.2 = "ESAM Negative")
+write.csv(posnegmarkers, "esamposnegmarkers.csv")
+run_gsea(posnegmarkers, "reactome_go_gsea.gmt", "esamposneggsea.csv")
+```
+
+
 ```{r Bar Chart}
 esam <- FetchData(seurat_object, vars = c("seurat_clusters", "adt_ESAM"))
 esam <- data.frame(Cell = rownames(esam), Cluster = esam$seurat_clusters, ESAM = esam$adt_ESAM)
@@ -216,7 +223,7 @@ mpp3 <- ScaleData(mpp3, assay = "vst")
 
 mpp3$seurat_clusters <- factor(mpp3$seurat_clusters, levels = c(0, 6, 9, 7, 8, 1, 2, 3, 4, 5))
 
-newclusters <- c(1, 6, 7, 8, 9, 10, 2, 4, 5, 3)
+newclusters <- c(10, 1, 2, 4, 3, 5, 9, 6, 7, 8)
 clusters <- Idents(mpp3)
 names(newclusters) <- levels(clusters)
 mpp3 <- RenameIdents(mpp3, newclusters)
