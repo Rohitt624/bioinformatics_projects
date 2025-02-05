@@ -176,6 +176,13 @@ rownames(mpp4[["ADT"]])
 filter$gate2 <- NA
 filter$gate2 <- ifelse(cd135$adt_CD135 > 140 & cd135$adt_CD150 < 270, "MPP4", 
                        ifelse(cd135$adt_CD135 < 140, "CD135-", NA))
+mpp4 <- subset(filter, gate2 == "MPP4")
+FeatureScatter(mpp4, feature1 = "rna_ENSMUSG00000026581", feature2 = "adt_CD48") + 
+  scale_x_flowjo_biexp(widthBasis = -100) + 
+  scale_y_flowjo_biexp()
+cd62l <- FetchData(mpp4, vars = c("rna_ENSMUSG00000026581"))
+sum(cd62l$rna_ENSMUSG00000026581 > 0)
+mpp4$gate5 <- ifelse(cd62l$rna_ENSMUSG00000026581 > 0, "MPP4 CD62L+", "MPP4 CD62L-")
 rm(mpp4, mpp4thresholds, cd135thresholds, cd135neg, cd135)
 
 ```
@@ -199,14 +206,17 @@ cd135neg$gate3 <- ifelse(Idents(cd135neg) == "MPP3", "MPP3", NA)
 mpp3 <- subset(cd135neg, gate3 == "MPP3")
 mpp3threshold <- FetchData(mpp3, vars = c("adt_ESAM"))
 
-cd135neg$gate3 <- NA
-cd135neg$gate3 <- ifelse(cd135work$adt_CD48 > 5000 & cd135work$adt_CD150 < 270, "MPP3", NA)
+cd135neg$gate3 <- NULL
+cd135neg$gate3 <- ifelse(cd135work$adt_CD48 > 5000 & cd135work$adt_CD150 < 270, "MPP3", 
+                         ifelse(cd135work$adt_CD48 < 5000 & cd135work$adt_CD150 < 270, "MPP1",
+                                ifelse(cd135work$adt_CD48 > 5000 & cd135work$adt_CD150 > 270, "MPP2", 
+                                       ifelse(cd135work$adt_CD48 < 5000 & cd135work$adt_CD150 > 270, "HSC", NA))))
 
 top40 <- quantile(mpp3threshold$adt_ESAM, 0.6)
 bottom40 <- quantile(mpp3threshold$adt_ESAM, 0.4)
 mpp3$gate4 <- NA
-mpp3$gate4 <- ifelse(mpp3threshold$adt_ESAM > top40, "ESAMhigh",
-                     ifelse(mpp3threshold$adt_ESAM < bottom40, "ESAMlow", "ESAMmid"))
+mpp3$gate4 <- ifelse(mpp3threshold$adt_ESAM > top40, "MPP3 ESAMhigh",
+                     ifelse(mpp3threshold$adt_ESAM < bottom40, "MPP3 ESAMlow", "MPP3 ESAMmid"))
 Idents(mpp3) <- "gate4"
 FeatureScatter(mpp3, feature1 = "adt_ESAM", feature2 = "adt_CD150") + 
   scale_x_flowjo_biexp() + 
@@ -294,6 +304,87 @@ mpp3 <- AddModuleScore(mpp3, features = list(mast$ensembl), name = "mastcell")
 FeaturePlot(mpp3, 
             features = "mastcell1")
 VlnPlot(mpp3, features = "mastcell1")
+
+
+```
+
+# 02-04-2025 Signature genes analysis
+
+```{r}
+possig <- read.csv("esampossignature.csv")
+possig <- possig[,-1]
+negsig <- read.csv("esamnegsignature.csv")
+negsig <- negsig[,-1]
+
+mpp3esam <- mpp3$gate4
+cd135neg$gate3 <- mpp3esam
+mpp <- cd135neg$gate3
+filter$gate2 <- mpp
+mpp4cd62l <- mpp4$gate5
+filter$gate2 <- mpp4cd62l
+DimPlot(filter, group.by = "gate2")
+groups <- filter$gate2
+seurat_object$gating <- NA
+seurat_object$gating <- groups
+DimPlot(seurat_object, group.by = "gating")
+table <- table(seurat_object$gating)
+table(filter$gate2)
+labels <- unique(na.omit(seurat_object$gating))
+filter3 <- subset(seurat_object, gating %in% labels)
+
+Idents(filter3) <- "gating"
+filter3$gating <- factor(filter3$gating, levels = c("HSC", "MPP1", "MPP2", "MPP3 ESAMhigh", "MPP3 ESAMmid", "MPP3 ESAMlow", "MPP4 CD62L+", "MPP4 CD62L-"))
+DimPlot(filter3)
+
+ensembl <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+gene_info <- getBM(attributes = c("external_gene_name", "ensembl_gene_id"),
+                   filters = "external_gene_name",
+                   values = possig,
+                   mart = ensembl)
+possigens <- gene_info$ensembl_gene_id
+
+gene_info <- getBM(attributes = c("external_gene_name", "ensembl_gene_id"),
+                   filters = "external_gene_name",
+                   values = negsig,
+                   mart = ensembl)
+negsigens <- gene_info$ensembl_gene_id
+
+filter3 <- AddModuleScore(filter3, features = list(possigens), name = "EPS")
+FeaturePlot(filter3, 
+            features = "EPS1") +
+  labs(title="ESAM Positive Signature")
+VlnPlot(filter3, features = "EPS1", group.by = "gating", pt.size = 0.5) + 
+  labs(title="ESAM Positive Signature")
+VlnPlot(filter3, features = "EPS1", group.by = "seurat_clusters") + 
+  labs(title="ESAM Positive Signature")
+
+RidgePlot(filter3, features = "EPS1", group.by = "gating") + 
+  labs(title="ESAM Positive Signature")
+RidgePlot(filter3, features = "EPS1", group.by = "seurat_clusters") + 
+  labs(title="ESAM Positive Signature")
+
+filter3 <- AddModuleScore(filter3, features = list(negsigens), name = "ENS")
+FeaturePlot(filter3, 
+            features = "ENS1") +
+  labs(title="ESAM Negative Signature")
+VlnPlot(filter3, features = "ENS1", group.by = "gating", pt.size = 0) + 
+  labs(title="ESAM Negative Signature")
+VlnPlot(filter3, features = "ENS1", group.by = "seurat_clusters") + 
+  labs(title="ESAM Negative Signature")
+
+RidgePlot(filter3, features = "ENS1", group.by = "gating") + 
+  labs(title="ESAM Negative Signature")
+RidgePlot(filter3, features = "ENS1", group.by = "seurat_clusters") + 
+  labs(title="ESAM Negative Signature")
+
+DimPlot(filter3)
+
+sell <- FetchData(mpp4, vars = "rna_ENSMUSG00000026581")
+ggplot(sell, aes(x=sell$rna_ENSMUSG00000026581)) + 
+  geom_histogram()
+median(sell$rna_ENSMUSG00000026581)
+sellsub <- subset(sell, sell$rna_ENSMUSG00000026581 > 0)
+median(sellsub$rna_ENSMUSG00000026581)
 
 
 ```
@@ -570,16 +661,16 @@ VlnPlot(seurat_object, features = "rna_ENSMUSG00000045095", group.by = "seurat_c
 
 ### View relationship between protein and RNA
 ```{r protein-v-rna}
-FeatureScatter(filter, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000001946", log=TRUE) + labs(title="ESAM RNA vs Protein")+ 
-  geom_density2d_filled() +
-  scale_fill_manual(values = c("white", "#482173", "#433E85", "#38598C", "#2D708E", "#25858E", "#1E9B8A", "#2BB07F", "#51C56A", "#85D54A", "#C2DF23", "#FDE725")) + 
-  labs(x = "ESAM ADT", y = "ESAM RNA") 
+Idents(filter2) <- "gate2"
+FeatureScatter(filter2, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000001946", log=TRUE) + labs(title="ESAM RNA vs Protein")+ 
+  labs(x = "ESAM ADT", y = "ESAM RNA") +
+  geom_abline(intercept = int, slope = slope, color = "red", size = 1.5)
 
 
 
 adtscatter
 
-filter <- subset(seurat_object, cells = rownames(esamdata))
+filter2 <- subset(filter, cells = rownames(esamdata))
 
 
 
@@ -613,6 +704,9 @@ compress_x <- trans_new(
   }
 )
 
+  geom_density2d_filled() +
+  scale_fill_manual(values = c("white", "#482173", "#433E85", "#38598C", "#2D708E", "#25858E", "#1E9B8A", "#2BB07F", "#51C56A", "#85D54A", "#C2DF23", "#FDE725")) + 
+
 ```{r linear regression}
 rnaESAM <- FetchData(filter, vars = "rna_ENSMUSG00000001946")
 adtESAM <- FetchData(filter, vars = "adt_ESAM")
@@ -622,7 +716,7 @@ esamdata$logrna <- log10(esamdata$rna_ENSMUSG00000001946)
 esamdata$logadt <- log10(esamdata$adt_ESAM)
 linear <- lm(esamdata$rna ~ esamdata$adt, data = esamdata)
 log <- lm(esamdata$logrna ~ esamdata$logadt, data = esamdata)
-summary(linear)
+linsum <- summary(linear)
 summary(log)
 
 int <- coef(log)[1]
@@ -630,6 +724,7 @@ slope <- coef(log)[2]
 
 intlin <- coef(linear)[1]
 slopelin <- coef(linear)[2]
+write.csv(summary(linear), "linearregression.csv")
 ```
 
 ### You can also FindMarkers for each assay
