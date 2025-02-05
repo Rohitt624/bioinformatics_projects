@@ -333,7 +333,8 @@ table(filter$gate2)
 labels <- unique(na.omit(seurat_object$gating))
 filter3 <- subset(seurat_object, gating %in% labels)
 
-
+rm(adtESAM, cd135work, cd62l, esamdata, filter, filter2, linear, linsum, log, mpp3, mpp3threshold, rnaESAM, sell, sellsub, seurat_object)
+rm(bottom40, groups, int, intlin, labels, mode, mpp, mpp3esam, mpp4cd62l, negsig, possig, slope, slopelin, table, top40)
 
 Idents(filter3) <- "gating"
 filter3$gating <- factor(filter3$gating, levels = c("HSC", "MPP1", "MPP2", "MPP3 ESAMhigh", "MPP3 ESAMmid", "MPP3 ESAMlow", "MPP4"))
