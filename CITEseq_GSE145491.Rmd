@@ -182,7 +182,8 @@ FeatureScatter(mpp4, feature1 = "rna_ENSMUSG00000026581", feature2 = "adt_CD48")
   scale_y_flowjo_biexp()
 cd62l <- FetchData(mpp4, vars = c("rna_ENSMUSG00000026581"))
 sum(cd62l$rna_ENSMUSG00000026581 > 0)
-mpp4$gate5 <- ifelse(cd62l$rna_ENSMUSG00000026581 > 0, "MPP4 CD62L+", "MPP4 CD62L-")
+mpp4$gate5 <- ifelse(cd62l$rna_ENSMUSG00000026581 > top40, "MPP4", 
+                     ifelse(cd62l$rna_ENSMUSG00000026581 == bottom40, "MPP4", "MPP4"))
 rm(mpp4, mpp4thresholds, cd135thresholds, cd135neg, cd135)
 
 ```
@@ -332,9 +333,11 @@ table(filter$gate2)
 labels <- unique(na.omit(seurat_object$gating))
 filter3 <- subset(seurat_object, gating %in% labels)
 
+
+
 Idents(filter3) <- "gating"
-filter3$gating <- factor(filter3$gating, levels = c("HSC", "MPP1", "MPP2", "MPP3 ESAMhigh", "MPP3 ESAMmid", "MPP3 ESAMlow", "MPP4 CD62L+", "MPP4 CD62L-"))
-DimPlot(filter3)
+filter3$gating <- factor(filter3$gating, levels = c("HSC", "MPP1", "MPP2", "MPP3 ESAMhigh", "MPP3 ESAMmid", "MPP3 ESAMlow", "MPP4"))
+DimPlot(filter3, group.by = "gating")
 
 ensembl <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
 gene_info <- getBM(attributes = c("external_gene_name", "ensembl_gene_id"),
@@ -353,10 +356,12 @@ filter3 <- AddModuleScore(filter3, features = list(possigens), name = "EPS")
 FeaturePlot(filter3, 
             features = "EPS1") +
   labs(title="ESAM Positive Signature")
-VlnPlot(filter3, features = "EPS1", group.by = "gating", pt.size = 0.5) + 
-  labs(title="ESAM Positive Signature")
+VlnPlot(filter3, features = "EPS1", group.by = "gating") + 
+  labs(title="ESAM Positive Signature") + 
+  lims(y = c(-0.5, 0.6))
 VlnPlot(filter3, features = "EPS1", group.by = "seurat_clusters") + 
-  labs(title="ESAM Positive Signature")
+  labs(title="ESAM Positive Signature") + 
+  lims(y=c(-0.5, 0.6))
 
 RidgePlot(filter3, features = "EPS1", group.by = "gating") + 
   labs(title="ESAM Positive Signature")
@@ -367,10 +372,12 @@ filter3 <- AddModuleScore(filter3, features = list(negsigens), name = "ENS")
 FeaturePlot(filter3, 
             features = "ENS1") +
   labs(title="ESAM Negative Signature")
-VlnPlot(filter3, features = "ENS1", group.by = "gating", pt.size = 0) + 
-  labs(title="ESAM Negative Signature")
+VlnPlot(filter3, features = "ENS1", group.by = "gating") + 
+  labs(title="ESAM Negative Signature") + 
+  lims(y = c(-0.5, 0.6))
 VlnPlot(filter3, features = "ENS1", group.by = "seurat_clusters") + 
-  labs(title="ESAM Negative Signature")
+  labs(title="ESAM Negative Signature") + 
+  lims(y=c(-0.5, 1.2))
 
 RidgePlot(filter3, features = "ENS1", group.by = "gating") + 
   labs(title="ESAM Negative Signature")
@@ -382,11 +389,8 @@ DimPlot(filter3)
 sell <- FetchData(mpp4, vars = "rna_ENSMUSG00000026581")
 ggplot(sell, aes(x=sell$rna_ENSMUSG00000026581)) + 
   geom_histogram()
-median(sell$rna_ENSMUSG00000026581)
-sellsub <- subset(sell, sell$rna_ENSMUSG00000026581 > 0)
-median(sellsub$rna_ENSMUSG00000026581)
-
-
+top40 <- quantile(sell$rna_ENSMUSG00000026581, 0.6)
+bottom40 <- quantile(sell$rna_ENSMUSG00000026581, 0.4)
 ```
 
 # Analysis Tools
