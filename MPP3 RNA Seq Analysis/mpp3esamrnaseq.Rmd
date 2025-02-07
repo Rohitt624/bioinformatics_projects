@@ -299,3 +299,34 @@ myplot + geom_point(size=5, shape=21) +
   labs(x="-log(FDR q-value)", y="Genesets", title="Myeloid Genesets") +
   xlim(0,5.1)
 ```
+
+
+# Convert to fpkm
+```{r fpkm}
+ensembl <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+attributes <- c("mgi_symbol", "ensembl_gene_id", "start_position", "end_position")
+gene_names <- rownames(dds)
+feature_data <- getBM(attributes = attributes, filter = "mgi_symbol", values = gene_names, mart = ensembl)
+feature_data$length <- feature_data$end_position - feature_data$start_position + 1
+
+gene_names <- rownames(dds)
+unique_gene_names <- make.unique(gene_names)
+rownames(dds) <- unique_gene_names
+
+rownames(feature_data) <- make.unique(feature_data$mgi_symbol)
+mcols(dds)$basepairs <- feature_data$length
+
+
+rownames(feature_data) <- feature_data$mgi_symbol
+mcols(dds)$basepairs <- feature_data[rownames(dds), "length"]
+
+fpkm <- fpkm(dds)
+
+```
+
+```{r save fpkm}
+write.csv(fpkm ,"postnatalfpkm.csv")
+```
+
+
+
