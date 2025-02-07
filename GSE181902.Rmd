@@ -36,6 +36,17 @@ gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, p
 write.csv(gseadf, output_gsea)
 }
 
+run_gsea_seu <- function(markers, gmt_path, output_gsea) {
+rnk <- setNames(markers$avg_log2FC, markers$gene)
+rnk <- rnk[!is.na(rnk)]
+gmt <- gmtPathways(gmt_path)
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gseadf <- as.data.frame(gsea)
+list_columns <- sapply(gseadf, is.list)
+gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
+write.csv(gseadf, output_gsea)
+}
+
 EnsIDReplace2 <- function(input, output){
   gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rna <- input
@@ -182,7 +193,7 @@ DefaultAssay(mpp3) <- "vst"
 mpp3 <- ScaleData(mpp3, assay = "vst")
 
 mpp3$seurat_clusters <- factor(mpp3$seurat_clusters, levels = c(0, 6, 9, 7, 8, 1, 2, 3, 4, 5))
-
+Idents(mpp3) <- seurat_clusters
 newclusters <- c(1, 6, 7, 9, 8, 10, 2, 5, 4, 3)
 clusters <- Idents(mpp3)
 names(newclusters) <- levels(clusters)
@@ -197,6 +208,42 @@ DoHeatmap(
   features = genelists$list,
   group.by = "newclusters"
 ) + scale_fill_gradientn(colors = c("blue", "white", "red"))
+
+
+```
+
+```{r extra stuff}
+DimPlot(mpp3, split.by = "esam2")
+FeaturePlot(mpp3, features = "Esam pos signature1", split.by = "esam2")
+```
+
+```{r ESAM int overlap}
+citedeg <- read.csv("mpp3markers.csv", row.names = 1)
+esamintdeg <- subset(citedeg, citedeg$cluster == "ESAMmid")
+
+citeint <- subset(citedeg, citedeg$avg_log2FC > 0)
+scint <- subset(esamintmarkers, esamintmarkers$avg_log2FC > 0)
+
+
+
+topci <- posbulkdeg[order(citeint$p_val_adj),][1:100,]
+topsi <- posgsedeg[order(scint$p_val_adj),][1:100,]
+intoverlap <- intersect(rownames(citeint), rownames(scint))
+write.csv(intoverlap, "esamintoverlap.csv")
+
+
+```
+
+
+```{r c4 gsea}
+Idents(mpp3) <- "newclusters"
+newclustermarkers <- FindAllMarkers(mpp3)
+filteredmarkers <- subset(newclustermarkers, newclustermarkers$p_val_adj < 0.1)
+write.csv(filteredmarkers, "clustermarkersdeg.csv")
+filteredmarkers2 <- subset(filteredmarkers, filteredmarkers$cluster == 4)
+
+run_gsea_seu(filteredmarkers2, "reactome_go_gsea.gmt", "cluster4gsea.csv")
+
 
 
 ```

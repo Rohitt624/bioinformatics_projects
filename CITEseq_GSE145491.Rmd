@@ -147,7 +147,7 @@ filter$default <- NA
 filter$default <- ifelse(cd135$adt_CD135>0, "blank", NA) 
 Idents(filter) <- "gate2"
 FeatureScatter(filter, feature1 = "adt_CD150", feature2 = "adt_CD135") + 
-  scale_x_flowjo_biexp(maxValue = 8100,
+  scale_x_flowjo_biexp(maxValue = 10000,
                        widthBasis = -30,
                        pos = 4.4) + 
   scale_y_flowjo_biexp(maxValue = 2200,
@@ -392,6 +392,36 @@ ggplot(sell, aes(x=sell$rna_ENSMUSG00000026581)) +
   geom_histogram()
 top40 <- quantile(sell$rna_ENSMUSG00000026581, 0.6)
 bottom40 <- quantile(sell$rna_ENSMUSG00000026581, 0.4)
+```
+
+# 02-06-2025 ESAM Intermediate
+
+```{r}
+DimPlot(filter3, split.by = "gating")
+FeaturePlot(filter3, features = "ENS1", split.by = "gating")
+
+Idents(mpp3) <- "gate4"
+mpp3markers <- FindAllMarkers(mpp3)
+
+gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+rnanames <- rownames(mpp3markers)
+id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+rnaname <- character(nrow(mpp3markers))
+for (i in seq_len(nrow(mpp3markers))) {
+  ensembl_id <- rownames(mpp3markers)[i]
+  if (ensembl_id %in% names(id_list)) {
+    rnaname[i] <- id_list[[ensembl_id]]
+  } else{
+     rnaname[i] <- ensembl_id
+   }
+}
+rnanames[rnanames == ""] <- NA
+  
+rownames(mpp3markers) <- rnaname
+rm(gene_mapping, id_list, ensembl_id, i, rnaname, rnanames)
+
+write.csv(mpp3markers, "mpp3markers.csv")
+
 ```
 
 # Analysis Tools
