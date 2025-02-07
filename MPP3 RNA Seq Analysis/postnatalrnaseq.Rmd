@@ -19,6 +19,7 @@ library(pheatmap)
 library(ggalt)
 library(fgsea)
 library(biomaRt)
+library(GenomicFeatures)
 setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Postnatal RNA Seq")
 
 EnsIDReplace2 <- function(input){
@@ -366,29 +367,41 @@ myplot + geom_point(size=5, shape=21) +
 
 # Convert to fpkm
 ```{r fpkm}
+# Connect to Ensembl
 ensembl <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
-attributes <- c("mgi_symbol", "ensembl_gene_id", "start_position", "end_position")
-gene_names <- rownames(dds)
-feature_data <- getBM(attributes = attributes, filter = "mgi_symbol", values = gene_names, mart = ensembl)
-feature_data$length <- feature_data$end_position - feature_data$start_position + 1
 
+# Query for gene information
+gene_attributes <- c("mgi_symbol", "ensembl_gene_id", "start_position", "end_position")
 gene_names <- rownames(dds)
+gene_data <- getBM(attributes = gene_attributes, filters = "mgi_symbol", values = gene_names, mart = ensembl)
+
+# Calculate gene lengths
+gene_data$gene_length <- gene_data$end_position - gene_data$start_position + 1
+
+# Query for exon information
+exon_attributes <- c("ensembl_gene_id", "exon_chrom_start", "exon_chrom_end")
+exon_data <- getBM(attributes = exon_attributes, filters = "mgi_symbol", values = gene_names, mart = ensembl)
+
+# Calculate exon lengths
+exon_data$exon_length <- exon_data$exon_chrom_end - exon_data$exon_chrom_start + 1
+
+# Sum exon lengths for each gene
+exon_lengths <- aggregate(exon_length ~ ensembl_gene_id, data = exon_data, sum)
+
+# Merge gene and exon data based on ensembl_gene_id
+merged_data <- merge(gene_data, exon_lengths, by = "ensembl_gene_id")
+
 unique_gene_names <- make.unique(gene_names)
 rownames(dds) <- unique_gene_names
 
-rownames(feature_data) <- make.unique(feature_data$mgi_symbol)
-mcols(dds)$basepairs <- feature_data$length
-
-
-rownames(feature_data) <- feature_data$mgi_symbol
-mcols(dds)$basepairs <- feature_data[rownames(dds), "length"]
+rownames(merged_data) <- make.unique(merged_data$mgi_symbol)
+mcols(dds)$basepairs <- merged_data[rownames(dds), "exon_length"]
 
 fpkm <- fpkm(dds)
-
 ```
 
 ```{r save fpkm}
-write.csv(fpkm ,"postnatalfpkm.csv")
+write.csv(fpkm ,"postnatalfpkm2.csv")
 ```
 
 

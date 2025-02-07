@@ -17,13 +17,15 @@ library(rnaseqGene)
 library(pheatmap)
 library(ggalt)
 library(biomaRt)
+library(GenomicFeatures)
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/MPC Bulk RNA Seq")
 ```
 
 # DESeq2 analysis
 Load data into DESeq dataset
 
 ```{r load data}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ryan MPC/MPC BUlk RNA Seq/MPC_Counts_Corrected.csv") #file path to Counts csv document
+cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/MPC_Counts_Corrected.csv") #file path to Counts csv document
 cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
 cts <- cts2[, -1]
 table(duplicated(cts$Gene.name)) #check for duplicate gene names
@@ -45,25 +47,41 @@ rlog <- rlog(dds, blind=FALSE)
 Convert to fpkm
 
 ```{r fpkm}
+# Connect to Ensembl
 ensembl <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
-attributes <- c("mgi_symbol", "ensembl_gene_id", "start_position", "end_position")
-gene_names <- rownames(dds)
-feature_data <- getBM(attributes = attributes, filter = "mgi_symbol", values = gene_names, mart = ensembl)
-feature_data$length <- feature_data$end_position - feature_data$start_position + 1
 
+# Query for gene information
+gene_attributes <- c("mgi_symbol", "ensembl_gene_id", "start_position", "end_position")
 gene_names <- rownames(dds)
+gene_data <- getBM(attributes = gene_attributes, filters = "mgi_symbol", values = gene_names, mart = ensembl)
+
+# Calculate gene lengths
+gene_data$gene_length <- gene_data$end_position - gene_data$start_position + 1
+
+# Query for exon information
+exon_attributes <- c("ensembl_gene_id", "exon_chrom_start", "exon_chrom_end")
+exon_data <- getBM(attributes = exon_attributes, filters = "mgi_symbol", values = gene_names, mart = ensembl)
+
+# Calculate exon lengths
+exon_data$exon_length <- exon_data$exon_chrom_end - exon_data$exon_chrom_start + 1
+
+# Sum exon lengths for each gene
+exon_lengths <- aggregate(exon_length ~ ensembl_gene_id, data = exon_data, sum)
+
+# Merge gene and exon data based on ensembl_gene_id
+merged_data <- merge(gene_data, exon_lengths, by = "ensembl_gene_id")
+
 unique_gene_names <- make.unique(gene_names)
 rownames(dds) <- unique_gene_names
 
-rownames(feature_data) <- make.unique(feature_data$mgi_symbol)
-mcols(dds)$basepairs <- feature_data$length
-
-
-rownames(feature_data) <- feature_data$mgi_symbol
-mcols(dds)$basepairs <- feature_data[rownames(dds), "length"]
+rownames(merged_data) <- make.unique(merged_data$mgi_symbol)
+mcols(dds)$basepairs <- merged_data[rownames(dds), "exon_length"]
 
 fpkm <- fpkm(dds)
+```
 
+```{r}
+write.csv(fpkm, "mpcfpkm2.csv")
 ```
 
 write results as csv
