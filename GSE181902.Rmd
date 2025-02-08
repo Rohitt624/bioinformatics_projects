@@ -40,7 +40,7 @@ run_gsea_seu <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, markers$gene)
 rnk <- rnk[!is.na(rnk)]
 gmt <- gmtPathways(gmt_path)
-gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 10, maxSize = 500)
 gseadf <- as.data.frame(gsea)
 list_columns <- sapply(gseadf, is.list)
 gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
@@ -236,14 +236,21 @@ write.csv(intoverlap, "esamintoverlap.csv")
 
 
 ```{r c4 gsea}
-Idents(mpp3) <- "newclusters"
+DefaultAssay(mpp3) <- "RNA"
 newclustermarkers <- FindAllMarkers(mpp3)
 filteredmarkers <- subset(newclustermarkers, newclustermarkers$p_val_adj < 0.1)
-write.csv(filteredmarkers, "clustermarkersdeg.csv")
+write.csv(filteredmarkers, "clustermarkersdeg2.csv")
 filteredmarkers2 <- subset(filteredmarkers, filteredmarkers$cluster == 4)
 
-run_gsea_seu(filteredmarkers2, "reactome_go_gsea.gmt", "cluster4gsea.csv")
+write.csv(filteredmarkers2, "cluster4deg.csv")
+run_gsea_seu(filteredmarkers2, "reactome_go_gsea.gmt", "cluster4gsea3.csv")
+
+run_gsea_seu(filteredmarkers2, "mastcellgsea.gmt", "cluster4mastcellgsea2.csv")
+
+```
 
 
+```{r}
+fcer <- FetchData(mpp3, vars = c("Fcer1a", "newclusters"))
 
 ```
