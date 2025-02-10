@@ -357,10 +357,12 @@ filter3 <- AddModuleScore(filter3, features = list(possigens), name = "EPS")
 FeaturePlot(filter3, 
             features = "EPS1") +
   labs(title="ESAM Positive Signature")
-VlnPlot(filter3, features = "EPS1", group.by = "gating") + 
+VlnPlot(filter3, features = "EPS1", group.by = "gating", pt.size = 0) + 
+  geom_jitter(width = 0.1, size = 0.5) + 
   labs(title="ESAM Positive Signature") + 
   lims(y = c(-0.5, 0.6))
-VlnPlot(filter3, features = "EPS1", group.by = "seurat_clusters") + 
+VlnPlot(filter3, features = "EPS1", group.by = "seurat_clusters", pt.size = 0) + 
+  geom_jitter(width = 0.1, size = 0.5) + 
   labs(title="ESAM Positive Signature") + 
   lims(y=c(-0.5, 0.6))
 
@@ -373,10 +375,12 @@ filter3 <- AddModuleScore(filter3, features = list(negsigens), name = "ENS")
 FeaturePlot(filter3, 
             features = "ENS1") +
   labs(title="ESAM Negative Signature")
-VlnPlot(filter3, features = "ENS1", group.by = "gating") + 
+VlnPlot(filter3, features = "ENS1", group.by = "gating", pt.size = 0) + 
+  geom_jitter(width = 0.1, size = 0.5) + 
   labs(title="ESAM Negative Signature") + 
   lims(y = c(-0.5, 0.6))
-VlnPlot(filter3, features = "ENS1", group.by = "seurat_clusters") + 
+VlnPlot(filter3, features = "ENS1", group.by = "seurat_clusters", pt.size = 0) + 
+  geom_jitter(width = 0.1, size = 0.5) + 
   labs(title="ESAM Negative Signature") + 
   lims(y=c(-0.5, 1.2))
 

@@ -93,8 +93,10 @@ rownames(mpp3)
 DimPlot(mpp3)
 FeaturePlot(mpp3, features = c("Fcgr3"), cols = c("gray", "blue", "red"))
 Idents(mpp3) <- "seurat_clusters"
-VlnPlot(mpp3, features = c("Fcgr3"), group.by = "newclusters")
-VlnPlot(mpp3, features = c("Esam"), group.by = "newclusters")
+VlnPlot(mpp3, features = c("Fcgr3"), group.by = "newclusters", pt.size = 0) + 
+  geom_jitter(width = 0.1, size = 0.5)
+VlnPlot(mpp3, features = c("Esam"), group.by = "newclusters", pt.size = 0) + 
+  geom_jitter(width = 0.1, size = 0.5)
 
 esam <- FetchData(mpp3, vars = c("Esam"))
 esam <- subset(esam, esam$Esam > 0)
@@ -144,8 +146,10 @@ mpp3 <- AddModuleScore(mpp3, features = list(negoverlap), name = "Esam neg signa
 FeaturePlot(mpp3, 
             features = "Esam neg signature1")
 
-VlnPlot(mpp3, features = "Esam neg signature1", group.by = "newclusters")
-VlnPlot(mpp3, features = "Esam pos signature1", group.by = "newclusters")
+VlnPlot(mpp3, features = "Esam neg signature1", group.by = "newclusters", pt.size = 0) + 
+  geom_jitter(width = 0.1, size = 0.5)
+VlnPlot(mpp3, features = "Esam pos signature1", group.by = "newclusters", pt.size = 0) + 
+  geom_jitter(width = 0.1, size = 0.5)
 
 ```
 
@@ -252,5 +256,44 @@ run_gsea_seu(filteredmarkers2, "mastcellgsea.gmt", "cluster4mastcellgsea2.csv")
 
 ```{r}
 fcer <- FetchData(mpp3, vars = c("Fcer1a", "newclusters"))
+
+```
+
+```{r bubble plot}
+data <- FetchData(mpp3, vars = c(list, "newclusters"))
+
+for (i in unique(data$newclusters)) {
+  for (gene in gene_list) {
+    data[[paste0(gene, "_status")]][data$newclusters == i] <- ifelse(data[[gene]][data$newclusters == i] > 0, "pos", "neg")
+  }
+}
+
+percentage_table <- data.frame(
+  Cluster = integer(),
+  Gene = character(),
+  Percentage_Pos = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (i in unique(data$newclusters)) {
+  for (gene in gene_list) {
+    total_cells <- sum(data$newclusters == i)
+    pos_cells <- sum(data[[paste0(gene, "_status")]][data$newclusters == i] == "pos")
+    percentage_pos <- (pos_cells / total_cells) * 100
+    percentage_table <- rbind(percentage_table, data.frame(Cluster = i, Gene = gene, Percentage_Pos = percentage_pos))
+  }
+}
+
+tfplot <- ggplot(tf, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+tfplot + geom_point(size=5, shape=21) + 
+ theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.1,2.1)) + 
+  labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
+  xlim(0,5.1)
 
 ```
