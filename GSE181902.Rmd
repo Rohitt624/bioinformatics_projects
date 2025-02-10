@@ -148,8 +148,10 @@ FeaturePlot(mpp3,
 
 VlnPlot(mpp3, features = "Esam neg signature1", group.by = "newclusters", pt.size = 0) + 
   geom_jitter(width = 0.1, size = 0.5)
-VlnPlot(mpp3, features = "Esam pos signature1", group.by = "newclusters", pt.size = 0) + 
+eps1 <- VlnPlot(mpp3, features = "Esam pos signature1", group.by = "newclusters", pt.size = 0) + 
   geom_jitter(width = 0.1, size = 0.5)
+
+ggsave("eps1highres.jpeg", plot = eps1, width = 10, height = 8, dpi = 300)
 
 ```
 
@@ -260,10 +262,11 @@ fcer <- FetchData(mpp3, vars = c("Fcer1a", "newclusters"))
 ```
 
 ```{r bubble plot}
-data <- FetchData(mpp3, vars = c(list, "newclusters"))
+list <- read.csv("mastcellheatmap.csv")
+data <- FetchData(mpp3, vars = c(list$gene, "newclusters"))
 
 for (i in unique(data$newclusters)) {
-  for (gene in gene_list) {
+  for (gene in list$gene) {
     data[[paste0(gene, "_status")]][data$newclusters == i] <- ifelse(data[[gene]][data$newclusters == i] > 0, "pos", "neg")
   }
 }
@@ -276,7 +279,7 @@ percentage_table <- data.frame(
 )
 
 for (i in unique(data$newclusters)) {
-  for (gene in gene_list) {
+  for (gene in list$gene) {
     total_cells <- sum(data$newclusters == i)
     pos_cells <- sum(data[[paste0(gene, "_status")]][data$newclusters == i] == "pos")
     percentage_pos <- (pos_cells / total_cells) * 100
@@ -284,16 +287,99 @@ for (i in unique(data$newclusters)) {
   }
 }
 
-tfplot <- ggplot(tf, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-tfplot + geom_point(size=5, shape=21) + 
+average_expression_table <- data.frame(
+  Cluster = integer(),
+  Gene = character(),
+  Average_Expression = numeric(),
+  Log2_Transformed = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (i in unique(data$newclusters)) {
+  for (gene in list$gene) {
+    avg_expression <- mean(data[[gene]][data$newclusters == i])
+    log2_transformed <- log2(avg_expression + 1)
+    average_expression_table <- rbind(average_expression_table, data.frame(
+      Cluster = i,
+      Gene = gene,
+      Average_Expression = avg_expression,
+      Log2_Transformed = log2_transformed
+    ))
+  }
+}
+
+for (gene in list$gene) {
+  data[[paste0(gene, "_status")]] <- NA
+}
+
+# Loop through each unique cluster
+for (i in unique(data$newclusters)) {
+  # Loop through each gene in the gene list
+  for (gene in list$gene) {
+    # Apply the ifelse condition for each cluster and gene
+    data[[paste0(gene, "_status")]][data$newclusters == i] <- ifelse(data[[gene]][data$newclusters == i] > 0, "pos", "neg")
+  }
+}
+
+# Initialize a data frame to store the combined results
+combined_table <- data.frame(
+  Cluster = integer(),
+  Gene = character(),
+  Percentage_Pos = numeric(),
+  Average_Expression = numeric(),
+  Log2_Transformed = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Calculate the percentage of positive cells, average expression, and log2-transformed values
+for (i in unique(data$newclusters)) {
+  for (gene in list$gene) {
+    total_cells <- sum(data$newclusters == i)
+    pos_cells <- sum(data[[paste0(gene, "_status")]][data$newclusters == i] == "pos")
+    percentage_pos <- (pos_cells / total_cells) * 100
+    avg_expression <- mean(data[[gene]][data$newclusters == i])
+    log2_transformed <- log2(avg_expression + 1)
+    combined_table <- rbind(combined_table, data.frame(
+      Cluster = i,
+      Gene = gene,
+      Percentage_Pos = percentage_pos,
+      Average_Expression = avg_expression,
+      Log2_Transformed = log2_transformed
+    ))
+  }
+}
+
+sub <- subset(combined_table, combined_table$Average_Expression > 0)
+mid <- median(sub$Average_Expression)
+max(combined_table$Average_Expression)
+
+combined_table$Cluster <- factor(combined_table$Cluster, levels = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
+missing <- setdiff(list$gene, unique(combined_table$Gene))
+combined_table$Gene <- factor(combined_table$Gene, levels = list$gene)
+rev <- rev(list$gene)
+combined_table$Gene <- factor(combined_table$Gene, levels = rev)
+
+combined_table$PercentPositive <- combined_table$Percentage_Pos/15
+four <- subset(combined_table, combined_table$Cluster == 4)
+
+plot <- ggplot(combined_table, aes(x=Cluster, y=Gene))
+plot2 <- plot + geom_point(aes(size=PercentPositive, fill = Log2_Transformed), shape=21, show.legend = TRUE) + 
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
     plot.title = element_text(hjust = 0.5), 
     axis.text=element_text(color="black", face="bold")
     ) +
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.1,2.1)) + 
-  labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
-  xlim(0,5.1)
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint = 0, limits = c(0, max(combined_table$Log2_Transformed)), name = "Average Expression") + 
+  labs(x="Cluster", y="Genes", title="Mast Cell") +
+  scale_size_continuous(name = "Percent Positive", labels = c("0", "25", "50", "75", "100"), breaks = c(0, 25/15, 50/15, 75/15, 100/15)) +   guides(
+    size = guide_legend(
+      title = "Percentage Positive", 
+      override.aes = list(fill = "black")  # Fill color for the size legend
+    ))
+
+plot2
+
+ggsave("mastcellbubbleplot.png", plot2, width = 10, height = 8, dpi = 600)
 
 ```
