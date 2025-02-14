@@ -90,13 +90,22 @@ rownames(mpp3)
 ```
 
 ```{r}
-DimPlot(mpp3)
-FeaturePlot(mpp3, features = c("Fcgr3"), cols = c("gray", "blue", "red"))
+dimplot <- DimPlot(mpp3, group.by = "newclusters")
+ggsave("umap.png", dimplot, width = 10, height = 8, dpi = 600)
 Idents(mpp3) <- "seurat_clusters"
-VlnPlot(mpp3, features = c("Fcgr3"), group.by = "newclusters", pt.size = 0) + 
+
+fcgrfeat <- FeaturePlot(mpp3, features = c("Fcgr3"))
+esamfeat <- FeaturePlot(mpp3, features = c("Esam"))
+fcgr3vln <- VlnPlot(mpp3, features = c("Fcgr3"), group.by = "newclusters", pt.size = 0) + 
   geom_jitter(width = 0.1, size = 0.5)
-VlnPlot(mpp3, features = c("Esam"), group.by = "newclusters", pt.size = 0) + 
+esamvln <- VlnPlot(mpp3, features = c("Esam"), group.by = "newclusters", pt.size = 0) + 
   geom_jitter(width = 0.1, size = 0.5)
+
+ggsave("fcgr3featplot.png", fcgrfeat, width = 10, height = 8, dpi = 600)
+ggsave("esamfeatplot.png", esamfeat, width = 10, height = 8, dpi = 600)
+
+ggsave("fcgr3vlnplot.png", fcgr3vln, width = 10, height = 8, dpi = 600)
+ggsave("esamvlnplot.png", esamvln, width = 10, height = 8, dpi = 600)
 
 esam <- FetchData(mpp3, vars = c("Esam"))
 esam <- subset(esam, esam$Esam > 0)
@@ -139,19 +148,22 @@ write.csv(negoverlap, "esamnegsignature.csv")
 
 ```{r module scores}
 mpp3 <- AddModuleScore(mpp3, features = list(posoverlap), name = "Esam pos signature")
-FeaturePlot(mpp3, 
+epsfeat <- FeaturePlot(mpp3, 
             features = "Esam pos signature1")
+ggsave("eps1featplot.png", epsfeat, width = 10, height = 8, dpi = 600)
 
 mpp3 <- AddModuleScore(mpp3, features = list(negoverlap), name = "Esam neg signature")
-FeaturePlot(mpp3, 
+ensfeat <- FeaturePlot(mpp3, 
             features = "Esam neg signature1")
+ggsave("ens1featplot.png", ensfeat, width = 10, height = 8, dpi = 600)
 
-VlnPlot(mpp3, features = "Esam neg signature1", group.by = "newclusters", pt.size = 0) + 
+ens1 <- VlnPlot(mpp3, features = "Esam neg signature1", group.by = "newclusters", pt.size = 0) + 
   geom_jitter(width = 0.1, size = 0.5)
 eps1 <- VlnPlot(mpp3, features = "Esam pos signature1", group.by = "newclusters", pt.size = 0) + 
   geom_jitter(width = 0.1, size = 0.5)
 
-ggsave("eps1highres.jpeg", plot = eps1, width = 10, height = 8, dpi = 300)
+ggsave("eps1highres.png", plot = eps1, width = 10, height = 8, dpi = 600)
+ggsave("ens1vlnplothighres.png", plot = ens1, width = 10, height = 8, dpi = 600)
 
 ```
 
@@ -209,12 +221,14 @@ mpp3$newclusters <- factor(mpp3$newclusters, levels = c(1, 2, 3, 4, 5, 6, 7, 8, 
 DimPlot(mpp3, group.by = "newclusters")
 
 # Create a heatmap
-DoHeatmap(
+heatmap <- DoHeatmap(
   object = mpp3,
   features = genelists$list,
   group.by = "newclusters"
 ) + scale_fill_gradientn(colors = c("blue", "white", "red"))
+heatmap
 
+ggsave("heatmap.png", heatmap, height = 8, width = 10, dpi = 600)
 
 ```
 

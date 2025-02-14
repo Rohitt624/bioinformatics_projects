@@ -15,7 +15,11 @@ library(biomaRt)
 library(pheatmap)
 library(fgsea)
 library(patchwork)
-options(future.globals.maxSize = 4000 * 1024^2)
+library(scales)
+library(ggbreak)
+library(ggcyto)
+library(DESeq2)
+options(future.globals.maxSize = 5000 * 1024^2)
 setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HPC GSE128761")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
@@ -185,7 +189,8 @@ barchart
 
 
 ```{r}
-VlnPlot(so, features = c("Ctnnal1"), group.by = "orig.ident")
+vlnage <- VlnPlot(so, features = c("Ctnnal1"), group.by = "orig.ident")
+ggsave("ctnnal1vlnplotage.png", vlnage, height = 10, width = 8, dpi = 600)
 
 RidgePlot(so, features = c("Ctnnal1"), group.by = "orig.ident")
 
@@ -205,5 +210,121 @@ table(so$acat)
 aCat <- subset(so, subset = Ctnnal1 > 0)
 Idents(aCat) <- "orig.ident"
 degtest <- FindMarkers(aCat, ident.1 = "HPC.E16.5", ident.2 = "HPC.Adult")
+
+```
+
+```{r GFP+ signature}
+gfpsig <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/gfpposoverallsignature.csv")
+gfpsig <- gfpsig[,-1]
+
+gfppn <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/gfppospnsignature.csv")
+gfppn <- gfppn[,-1]
+
+Idents(so) <- "seurat_clusters"
+so$orig.ident <- factor(so$orig.ident, levels = c("HPC.E16.5", "HPC.P7", "HPC.P14", "HPC.Adult"))
+so <- AddModuleScore(so, features = list(gfpsig), name = "GFPpos")
+FeaturePlot(so, features = "GFPpos1")
+FeaturePlot(so, features = "GFPpos1", split.by = "orig.ident")
+VlnPlot(so, features = "GFPpos1")
+VlnPlot(so, features = "GFPpos1", split.by = "orig.ident")
+RidgePlot(so, features = "GFPpos1", group.by = "orig.ident")
+
+
+so <- AddModuleScore(so, features = list(gfppn), name = "GFPposPN")
+FeaturePlot(so, features = "GFPposPN1")
+FeaturePlot(so, features = "GFPposPN1", split.by = "orig.ident")
+VlnPlot(so, features = "GFPposPN1")
+VlnPlot(so, features = "GFPposPN1", split.by = "orig.ident")
+RidgePlot(so, features = "GFPposPN1", group.by = "orig.ident")
+Idents(so) <- "acat"
+gfpvln <- VlnPlot(so, features = "GFPposPN1", pt.size = 0) + 
+  geom_jitter(width=0.1, size=0.5)
+gfpvlnsplit <- VlnPlot(so, features = "GFPposPN1", split.by = "orig.ident")
+ggsave("gfpposvlnage.png", gfpvlnsplit, height = 10, width = 8, dpi = 600)
+ggsave("gfpposvln.png", gfpvln, height = 10, width = 8, dpi = 600)
+
+ggplot(so, aes(x=so$GFPpos1)) + 
+  geom_histogram()
+
+gfpmodule <- so$GFPpos1
+gfpmoduledf <- data.frame(gfpmodule)
+ggplot(gfpmoduledf, aes(x=gfpmodule)) + 
+  geom_histogram()
+
+```
+
+```{r acat stats exploration}
+E16 <- subset(so, orig.ident == "HPC.E16.5")
+P7 <- subset(so, orig.ident == "HPC.P7")
+P14 <- subset(so, orig.ident == "HPC.P14")
+Adult <- subset(so, orig.ident == "HPC.Adult")
+
+gfpe16 <- median(E16$GFPpos1)
+gfpp7 <- median(P7$GFPpos1)
+gfpp14 <- median(P14$GFPpos1)
+gfpadult <- median(Adult$GFPpos1)
+
+mediansignature <- data.frame(E16 = gfpe16,
+                              P7 = gfpp7, 
+                              P14 = gfpp14, 
+                              Adult = gfpadult)
+
+gfpe16 <- median(E16$GFPposPN1)
+gfpp7 <- median(P7$GFPposPN1)
+gfpp14 <- median(P14$GFPposPN1)
+gfpadult <- median(Adult$GFPposPN1)
+
+mediansignaturepn <- data.frame(E16 = gfpe16,
+                              P7 = gfpp7, 
+                              P14 = gfpp14, 
+                              Adult = gfpadult)
+acattable <- data.frame(E16 = sum(E16$acat)/length(E16$acat),
+                        P7 = sum(P7$acat)/length(P7$acat),
+                        P14 = sum(P14$acat)/length(P14$acat),
+                        Adult = sum(Adult$acat)/length(Adult$acat))
+
+acatlong <- data.frame(
+  Population = c("E16", "P7", "P14", "Adult"),
+  Proportion = c(sum(E16$acat)/length(E16$acat),
+                 sum(P7$acat)/length(P7$acat),
+                 sum(P14$acat)/length(P14$acat),
+                 sum(Adult$acat)/length(Adult$acat)))
+
+write.csv(acattable, "percentctnnal1pos.csv")
+
+E16acat <- subset(E16, acat == TRUE)
+P7acat <- subset(P7, acat == TRUE)
+P14acat <- subset(P14, acat == TRUE)
+Adultacat <- subset(Adult, acat == TRUE)
+
+ctnnal <- subset(so, acat == TRUE)
+x1 <- FetchData(E16acat, vars = c("Ctnnal1"))
+x2 <- FetchData(P7acat, vars = c("Ctnnal1"))
+x3 <- FetchData(P14acat, vars = c("Ctnnal1"))
+x4 <- FetchData(Adultacat, vars = c("Ctnnal1"))
+x1$Population <- "E16"
+x2$Population <- "P7"
+x3$Population <- "P14"
+x4$Population <- "Adult"
+xdf <- data.frame(E16 = x1$Ctnnal1,
+                  P7 = x2$Ctnnal1, 
+                  P14 = x3$Ctnnal1,
+                  Adult = x4$Ctnnal1)
+xdf <- rbind(x1, x2, x3, x4)
+
+xdf$Population <- factor(xdf$Population, levels = c("E16", "P7", "P14", "Adult"))
+boxplot <- ggplot(xdf, aes(x = Population, y = Ctnnal1, fill = Population)) + 
+  geom_boxplot()
+boxplot
+ggsave("ctnnal1boxplot.png", boxplot, height = 10, width = 8, dpi = 600)
+
+acatlong$Population <- factor(acatlong$Population, levels = c("E16", "P7", "P14", "Adult"))
+ggplot(acatlong, aes(x=Population, y=Proportion, fill = Population)) + 
+  geom_col() + 
+  labs(title = "Ctnnal1 Positive Cells") + 
+  theme_minimal() + 
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
 
 ```
