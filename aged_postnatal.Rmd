@@ -156,6 +156,16 @@ y2pos <- subset(y2, y2$log2FoldChange > 1)
 ympos <- subset(ym, ym$log2FoldChange > 1)
 ovpos_y <- Reduce(intersect, list(rownames(y2pos), rownames(ympos)))
 write.csv(ovpos_y, "youngpositiveoverlap.csv")
+
+y2neg <- subset(y2, y2$log2FoldChange < 0)
+y2neglist <- rownames(y2neg)
+ymneg <- subset(ym, ym$log2FoldChange < 0)
+ymneg <- ymneg[order(ymneg$log2FoldChange),]
+ymneglist <- rownames(ymneg)[1:39]
+pnneg <- Reduce(intersect, list(rownames(y2neg), rownames(ymneg)))
+pnneg <- unique(c(y2neglist, ymneglist))
+write.csv(pnneg, "youngnegativedeg.csv")
+
 ```
 
 
