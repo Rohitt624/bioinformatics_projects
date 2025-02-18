@@ -242,15 +242,21 @@ subset_rlog <- assay(rlog)[rownames(rlog) %in% genelist, ]
 
 conditions <- c("Y2P", "YMP", "Y2N", "YMN")
 cdsub <- cd[cd$condition %in% conditions, ]
-rlogsub <- rlog[, colnames(rlog) %in% rownames(cdsub)]
-rlogsub <- rlogsub[rownames(rlogsub) %in% genelist, ]
+cdsub$condition <- factor(cdsub$condition, levels = c("Y2P", "YMP", "Y2N", "YMN"))
+cdsub <- cdsub[order(cdsub$condition), ]
+rlogsub <- rlog[, colnames(rlog) %in% cdsub$X]
 
+
+rloggenes <- assay(rlogsub)
+rloggenes <- rloggenes[rownames(rloggenes) %in% genelist, ]
+
+rloggenes <- rloggenes[,order(cdsub$X)]
 
 # Define color palette
 color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
 
 # Create a heatmap
-heatmap <- pheatmap(rlogsub, 
+heatmap <- pheatmap(rloggenes, 
          scale = "row", 
          cluster_rows = FALSE, 
          cluster_cols = FALSE, 
@@ -259,6 +265,9 @@ heatmap <- pheatmap(rlogsub,
          show_colnames = TRUE,
          main = "Heatmap",
          treeheight_row = 0,
-         annotation_col = cdsub)
+         cellwidth = 10,
+         cellheight = 10)
+heatmap
+ggsave("pnheatmap5.png", heatmap, height = 15, width = 10, dpi = 600)
 
 ```
