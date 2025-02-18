@@ -582,8 +582,8 @@ DimPlot(so, group.by = "newclusters")
 # Create a heatmap
 heatmap <- DoHeatmap(
   object = so,
-  features = genelist,
-  group.by = "orig.ident"
+  features = gfppn,
+  group.by = "acat"
 ) + scale_fill_gradientn(colors = c("blue", "white", "red"))
 heatmap
 
