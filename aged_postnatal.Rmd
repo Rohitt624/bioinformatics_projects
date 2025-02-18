@@ -16,7 +16,7 @@ library(fgsea)
 library(biomaRt)
 library(ggVennDiagram)
 library(VennDiagram)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Aged RNA Seq")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Aged RNA Seq")
 
 EnsIDReplace2 <- function(input){
   gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
@@ -231,42 +231,34 @@ write.csv(fpkm ,"agedfpkm.csv")
 ```
 
 ```{r Heatmap of Specific Genes}
-gfppn <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/gfppospnsignature.csv")
+gfppn <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/gfppospnsignature.csv")
 gfppn <- gfppn[,-1]
-negative <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/youngnegativedeg.csv")
+negative <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/youngnegativedeg.csv")
 negative <- negative[,-1]
 genelist <- c(gfppn, negative)
 
 # Subset normalized counts to include only the genes of interest
-subset_rlog <- assay(rlog)[rownames(rlog) %in% overlap, ]
-dko_samples <- c("DKO_1", "DKO_2", "DKO_3")
-rest <- c("WT_1", "WT_2", "WT_3", "Tet2KO_1", "Tet2KO_2", "Tet2KO_3")
-row_order <- order(rowMeans(subset_rlog[, dko_samples])-rowMeans(subset_rlog[, rest]), decreasing = TRUE)
-subset_rlog <- subset_rlog[row_order, ]
-subset_rlog <- as.matrix(subset_rlog)
+subset_rlog <- assay(rlog)[rownames(rlog) %in% genelist, ]
 
-# Define the desired column order
-desired_order <- c("WT_1", "WT_2", "WT_3", "Tet2KO_1", "Tet2KO_2", "Tet2KO_3", "DKO_1", "DKO_2", "DKO_3")
+conditions <- c("Y2P", "YMP", "Y2N", "YMN")
+cdsub <- cd[cd$condition %in% conditions, ]
+rlogsub <- rlog[, colnames(rlog) %in% rownames(cdsub)]
+rlogsub <- rlogsub[rownames(rlogsub) %in% genelist, ]
 
-# Reorder the columns
-subset_rlog <- subset_rlog[, desired_order]
-
-# Extract column data (sample information) and reorder it
-col_data <- colData(dds)[desired_order, ]
 
 # Define color palette
 color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
 
 # Create a heatmap
-heatmap <- pheatmap(subset_rlog, 
+heatmap <- pheatmap(rlogsub, 
          scale = "row", 
-         clustering_distance_rows = "binary", 
+         cluster_rows = FALSE, 
          cluster_cols = FALSE, 
-         clustering_method = "complete", 
          color = color_palette,
          show_rownames = TRUE, 
          show_colnames = TRUE,
-         main = "Heatmap of AITL Genes",
-         treeheight_row = 0)
+         main = "Heatmap",
+         treeheight_row = 0,
+         annotation_col = cdsub)
 
 ```

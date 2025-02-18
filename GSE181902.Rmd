@@ -196,22 +196,11 @@ run_gsea(posnegmarkers, "reactome_go_gsea.gmt", "esamposneggsea.csv")
 
 ```{r Heatmap}
 genelists <- read.csv("heatmapgenes.csv")
-esampos <- FetchData(mpp3, vars = genelists$Esam)
-esampos$clusters <- mpp3@meta.data$seurat_clusters
-esamneg <- FetchData(mpp3, vars = genelists$Esam)
-esamneg$clusters <- mpp3@meta.data$seurat_clusters
 
-counts <- GetAssayData(mpp3, slot = "counts")
-dds <- DESeqDataSetFromMatrix(counts, mpp3@meta.data, design = ~ 1)
-vst <- varianceStabilizingTransformation(dds, blind = TRUE)
-vst <- assay(vst)
-mpp3[["vst"]] <- CreateAssayObject(counts = vst)
-
-DefaultAssay(mpp3) <- "vst"
-mpp3 <- ScaleData(mpp3, assay = "vst")
+mpp3 <- SCTransform(mpp3, assay = "RNA", new.assay.name = "SCT", variable.features.n = nrow(mpp3), verbose = TRUE)
 
 mpp3$seurat_clusters <- factor(mpp3$seurat_clusters, levels = c(0, 6, 9, 7, 8, 1, 2, 3, 4, 5))
-Idents(mpp3) <- seurat_clusters
+Idents(mpp3) <- "seurat_clusters"
 newclusters <- c(1, 6, 7, 9, 8, 10, 2, 5, 4, 3)
 clusters <- Idents(mpp3)
 names(newclusters) <- levels(clusters)
@@ -223,12 +212,31 @@ DimPlot(mpp3, group.by = "newclusters")
 # Create a heatmap
 heatmap <- DoHeatmap(
   object = mpp3,
+  assay = "SCT",
   features = genelists$list,
   group.by = "newclusters"
-) + scale_fill_gradientn(colors = c("blue", "white", "red"))
+) + scale_fill_gradientn(colors = c("blue", "white", "red"), values = c(0, 0.5, 1),
+  rescaler = function(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = TRUE)) {
+    scales::rescale_mid(x, mid = 0, to = to, from = from)
+  })
 heatmap
 
-ggsave("heatmap.png", heatmap, height = 8, width = 10, dpi = 600)
+ggsave("heatmap3.png", heatmap, height = 8, width = 10, dpi = 600)
+
+
+# Create a heatmap
+heatmap <- DoHeatmap(
+  object = so,
+  assay = "SCT",
+  features = genelist,
+  group.by = "acat"
+) + scale_fill_gradientn(colors = c("blue", "white", "red"), values = c(0, 0.5, 1),
+  rescaler = function(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = TRUE)) {
+    scales::rescale_mid(x, mid = 0, to = to, from = from)
+  })
+heatmap
+
+ggsave("hpcheatmap3.png", heatmap, height = 15, width = 10, dpi = 600)
 
 ```
 
