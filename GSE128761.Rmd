@@ -20,8 +20,8 @@ library(scales)
 library(ggbreak)
 library(ggcyto)
 library(DESeq2)
-options(future.globals.maxSize = 5000 * 1024^2)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HPC GSE128761")
+options(future.globals.maxSize = 10000 * 1024^2)
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HPC GSE128761")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -35,7 +35,7 @@ write.csv(gseadf, output_gsea)
 }
 
 EnsIDReplace2 <- function(input, output){
-  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rna <- input
   rnanames <- rownames(rna)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
@@ -71,10 +71,20 @@ rm(data)
 ```
 
 ```{r}
-DimPlot(so)
-DimPlot(adult)
+so$orig.ident <- factor(so$orig.ident, levels = c("HPC.E16.5", "HPC.P7", "HPC.P14", "HPC.Adult"))
 
-FeaturePlot(so, features = c("Ctnnal1"))
+dimacat <- DimPlot(so, group.by = "acat", cols = c("grey", "blue"))
+dimacat
+ggsave("hpcumapacat.png", dimacat, height = 8, width = 10, dpi = 600)
+
+dimplot <- DimPlot(so, group.by = "seurat_clusters")
+dimplot
+ggsave("hpcumap.png", dimplot, height = 8, width = 10, dpi = 600)
+
+dimtime <- DimPlot(so, group.by = "orig.ident")
+dimtime
+ggsave("hpcumapage.png", dimtime, height = 8, width = 10, dpi = 600)
+
 ```
 
 , group.by = c("orig.ident")
@@ -233,10 +243,14 @@ RidgePlot(so, features = "GFPpos1", group.by = "orig.ident")
 
 
 so <- AddModuleScore(so, features = list(gfppn), name = "GFPposPN")
-FeaturePlot(so, features = "GFPposPN1")
-FeaturePlot(so, features = "GFPposPN1", split.by = "orig.ident")
+pnmodfeat <-  FeaturePlot(so, features = "GFPposPN1")
+pnmodfeat
+ggsave("pngfppossigfeatureplot.png", pnmodfeat, height = 8, width = 10, dpi = 600)
+pnmodfeatage <-  FeaturePlot(so, features = "GFPposPN1", split.by = "orig.ident")
+pnmodfeatage
+ggsave("pngfppossigfeatureplotage.png", pnmodfeatage, height = 8, width = 30, dpi = 600)
 VlnPlot(so, features = "GFPposPN1")
-VlnPlot(so, features = "GFPposPN1", split.by = "orig.ident")
+VlnPlot(so, features = "GFPposPN1", group.by = "orig.ident")
 RidgePlot(so, features = "GFPposPN1", group.by = "orig.ident")
 Idents(so) <- "acat"
 gfpvln <- VlnPlot(so, features = "GFPposPN1", pt.size = 0) + 
@@ -329,8 +343,48 @@ ggplot(acatlong, aes(x=Population, y=Proportion, fill = Population)) +
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())
 
+rm(aCatadult, aCatp7, aCatp14, aCate16, aCatbar, acattable, acatlong, Adult, Adultacat, barchart, E16, E16acat, P7, P7acat, P14, P14acat, test2, test2p, testplot, vlnage)
+rm(ctnnal, gfpmoduledf, x, x1, x2, x3, x4, xdf, ydf)
+rm(boxplot, gfpvln, gfpvlnsplit, heatmap, mediansignature, mediansignaturepn)
+
 ```
 
+
+```{r Heatmap}
+negative <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/youngnegativedeg.csv")
+negative <- negative[,-1]
+genelist <- c(gfppn, negative)
+
+so <- SCTransform(so, assay = "RNA", new.assay.name = "SCT", variable.features.n = nrow(so), verbose = TRUE)
+
+# Create a heatmap
+heatmap <- DoHeatmap(
+  object = so,
+  assay = "SCT",
+  features = genelist,
+  group.by = "acat"
+) + scale_fill_gradientn(colors = c("blue", "white", "red"), values = c(0, 0.5, 1),
+  rescaler = function(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = TRUE)) {
+    scales::rescale_mid(x, mid = 0, to = to, from = from)
+  })
+heatmap
+
+ggsave("hpcheatmap3.png", heatmap, height = 15, width = 10, dpi = 600)
+
+```
+
+```{r QC}
+missing <- c("Scin", "Adcyap1r1", "Acmsd", "Myo18b", "Gm44154", "X1110032F04Rik", "Gm44954", "Zfp175", "Gm38825", "Fam241b", "Sertm2", "X5830416I19Rik", "Gucy2e", "C430002N11Rik", "Gpr15", "Pax9", "Mexis", "Igkv6.32", "Ighv1.80", "Trem6l", "Tpsb2", "Gm3360", "Adra2a", "Ccbe1", "Chsy3", "Mtss2", "Tmem217rt", "Lhfpl6")
+
+missing2 <- c("Gm44154", "X1110032F04Rik", "Gm44954", "Zfp175", "Gm38825", "Fam241b", "Sertm2", "X5830416I19Rik", "C430002N11Rik", "Mexis", "Igkv6.32", "Ighv1.80", "Trem6l", "Gm3360", "Mtss2", "Tmem217rt", "Lhfpl6")
+
+missing3 <- c("Rnf39", "Adcyap1r1", "Acmsd", "Gm44154", "Pcsk6", "X1110032F04Rik", "Gm44954", "Zfp175", "Gm38825", "Fam241b", "Sertm2", "X5830416I19Rik", "Gucy2e", "C430002N11Rik", "Gpr15", "Pax9", "Mexis", "Igkv6.32", "Ighv1.80", "Trem6l", "Gm3360", "Adra2a", "Ccbe1", "Chsy3", "Gpx8", "Amotl2", "Pls1", "Mtss2", "Tmem217rt", "Lhfpl6")
+#30 total, 9 positive and 21 negative
+
+posmissing <- Reduce(intersect, list(missing3, gfppn))
+negmissing <- Reduce(intersect, list(missing3, negative))
+
+```
 
 # HSC Dataset
 
@@ -347,8 +401,8 @@ library(scales)
 library(ggbreak)
 library(ggcyto)
 library(DESeq2)
-options(future.globals.maxSize = 5000 * 1024^2)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HSC GSE128761")
+options(future.globals.maxSize = 10000 * 1024^2)
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HSC GSE128761")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -362,7 +416,7 @@ write.csv(gseadf, output_gsea)
 }
 
 EnsIDReplace2 <- function(input, output){
-  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rna <- input
   rnanames <- rownames(rna)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
@@ -399,7 +453,7 @@ rm(data)
 
 ```{r}
 so <- HSC_joined
-rm(HSC_joined)
+rm(HSC_joined, HSC.markers)
 so$orig.ident <- factor(so$orig.ident, levels = c("HSC.E16.5", "HSC.P7", "HSC.P14", "HSC.Adult"))
 
 dimacat <- DimPlot(so, group.by = "acat", cols = c("grey", "blue"))
@@ -438,10 +492,10 @@ degtest <- FindMarkers(aCat, ident.1 = "HPC.E16.5", ident.2 = "HPC.Adult")
 ```
 
 ```{r GFP+ signature}
-gfpsig <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/gfpposoverallsignature.csv")
+gfpsig <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/gfpposoverallsignature.csv")
 gfpsig <- gfpsig[,-1]
 
-gfppn <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/gfppospnsignature.csv")
+gfppn <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/gfppospnsignature.csv")
 gfppn <- gfppn[,-1]
 
 Idents(so) <- "seurat_clusters"
@@ -556,37 +610,41 @@ ggplot(acatlong, aes(x=Population, y=Proportion, fill = Population)) +
 ```
 
 ```{r Heatmap}
-negative <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/youngnegativedeg.csv")
+negative <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/youngnegativedeg.csv")
 negative <- negative[,-1]
 genelist <- c(gfppn, negative)
 
-counts <- GetAssayData(so, slot = "counts")
-dds <- DESeqDataSetFromMatrix(counts, so@meta.data, design = ~ 1)
-vst <- varianceStabilizingTransformation(dds, blind = TRUE)
-vst <- assay(vst)
-so[["vst"]] <- CreateAssayObject(counts = vst)
 
-DefaultAssay(so) <- "vst"
-so <- ScaleData(so, assay = "vst")
+so <- SCTransform(so, assay = "RNA", new.assay.name = "SCT", variable.features.n = nrow(so), verbose = TRUE)
 
-so$seurat_clusters <- factor(so$seurat_clusters, levels = c(0, 6, 9, 7, 8, 1, 2, 3, 4, 5))
-Idents(so) <- seurat_clusters
-newclusters <- c(1, 6, 7, 9, 8, 10, 2, 5, 4, 3)
-clusters <- Idents(so)
-names(newclusters) <- levels(clusters)
-so <- RenameIdents(so, newclusters)
-so$newclusters <- Idents(so)
-so$newclusters <- factor(so$newclusters, levels = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
-DimPlot(so, group.by = "newclusters")
 
 # Create a heatmap
+
 heatmap <- DoHeatmap(
   object = so,
-  features = gfppn,
+  assay = "SCT",
+  features = genelist,
   group.by = "acat"
-) + scale_fill_gradientn(colors = c("blue", "white", "red"))
+) + scale_fill_gradientn(colors = c("blue", "white", "red"), values = c(0, 0.5, 1),
+  rescaler = function(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = TRUE)) {
+    scales::rescale_mid(x, mid = 0, to = to, from = from)
+  })
+
 heatmap
 
-ggsave("heatmap.png", heatmap, height = 8, width = 10, dpi = 600)
+ggsave("hscheatmapv2.png", heatmap, height = 15, width = 10, dpi = 600)
+
+```
+
+```{r QC}
+missing <- c("Scin", "Adcyap1r1", "Acmsd", "Myo18b", "Gm44154", "X1110032F04Rik", "Gm44954", "Zfp175", "Gm38825", "Fam241b", "Sertm2", "X5830416I19Rik", "Gucy2e", "C430002N11Rik", "Gpr15", "Pax9", "Mexis", "Igkv6.32", "Ighv1.80", "Trem6l", "Tpsb2", "Gm3360", "Adra2a", "Ccbe1", "Chsy3", "Mtss2", "Tmem217rt", "Lhfpl6")
+
+missing2 <- c("Scin", "Itgax", "Rnf39", "Adcyap1r1", "Acmsd", "Myo18b", "Gm44154", "X1110032F04Rik", "Gm44954", "Zfp175", "Gm38825", "Rab7b", "Fam241b", "Sertm2", "Ednra", "X5830416I19Rik", "Gucy2e", "C430002N11Rik", "Gpr15", "Pax9", "Mexis", "Igkv6.32", "Ighv1.80", "Trem6l", "Tpsb2", "Gm3360", "Adra2a", "Ccbe1", "Chsy3", "Mtss2", "Tmem217rt", "Lhfpl6")
+#there are 32 total missing genes, 6 from the positive and 26 from the negative
+
+posmissing <- Reduce(intersect, list(missing2, gfppn))
+negmissing <- Reduce(intersect, list(missing2, negative))
+
+
 
 ```
