@@ -239,9 +239,9 @@ genelist <- c(gfppn, negative)
 
 # Subset normalized counts to include only the genes of interest
 
-conditions <- c("Y2P", "YMP", "Y2N", "YMN", "AM")
+conditions <- c("Y2P", "YMP", "Y2N", "YMN", "AM", "A2N")
 cdsub <- cd[cd$condition %in% conditions, ]
-cdsub$condition <- factor(cdsub$condition, levels = c("Y2P", "Y2N", "YMP", "YMN", "AM"))
+cdsub$condition <- factor(cdsub$condition, levels = c("Y2P", "Y2N", "A2N", "YMP", "YMN", "AM"))
 cdsub <- cdsub[order(cdsub$condition), ]
 rlogsub <- rlog[ ,colnames(rlog) %in% cdsub$X]
 
@@ -269,6 +269,6 @@ heatmap <- pheatmap(rloggenes,
          cellwidth = 10,
          cellheight = 10)
 heatmap
-ggsave("pnheatmap6.png", heatmap, height = 15, width = 10, dpi = 600)
+ggsave("pnheatmap7.png", heatmap, height = 15, width = 10, dpi = 600)
 
 ```
