@@ -71,21 +71,16 @@ write.csv(cts, "aged_genename.csv")
 
 
 ```{r Load RNA Counts Data, warning=FALSE, message=FALSE}
-cts <- read.csv("Postnatal Compiled (Aged).csv")
-rownames(cts) <- cts$Geneid
-cts <- cts[, -1]
-EnsIDReplace2(cts)
-cts <- cts[,-13]
-write.csv(cts, "aged_genename.csv")
+cts2 <- read.csv("aged_genename.csv", row.names = 1)
 ```
 
 
 ## Differential Expression analysis
 
 ```{r DESeq}
-cd <- read.csv("agedcd.csv") #make coldata file with sample names in one column and then condition in second column
-dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~condition)
-rlog <- rlog(dds, blind=FALSE)
+cd2 <- read.csv("agedcd.csv") #make coldata file with sample names in one column and then condition in second column
+dds2 <- DESeqDataSetFromMatrix(countData = cts2, colData = cd2, design = ~condition)
+rlog2 <- rlog(dds2, blind=FALSE)
 dds <- DESeq(dds)
 rescmp <- results(dds) 
 ```
@@ -150,14 +145,19 @@ write.csv(ovpos_o, "oldpositiveoverlap.csv")
 
 ```{r Load RNA Counts Data, warning=FALSE, message=FALSE}
 cts <- read.csv("pn_genename.csv", row.names = 1)
+
+cts3 <- cbind(cts, cts2)
 ```
 
 ## Differential Expression analysis
 
 ```{r DESeq}
 cd <- read.csv("pncoldata.csv") #make coldata file with sample names in one column and then condition in second column
+cd3 <- rbind(cd, cd2)
 dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~condition)
+dds3 <- DESeqDataSetFromMatrix(countData = cts3, colData = cd3, design = ~condition)
 rlog <- rlog(dds, blind=FALSE)
+rlog3 <- rlog(dds3, blind=FALSE)
 vst <- vst(dds, blind = FALSE)
 dds <- DESeq(dds)
 rescmp <- results(dds) 
@@ -238,19 +238,20 @@ negative <- negative[,-1]
 genelist <- c(gfppn, negative)
 
 # Subset normalized counts to include only the genes of interest
-subset_rlog <- assay(rlog)[rownames(rlog) %in% genelist, ]
 
-conditions <- c("Y2P", "YMP", "Y2N", "YMN")
+conditions <- c("Y2P", "YMP", "Y2N", "YMN", "AM")
 cdsub <- cd[cd$condition %in% conditions, ]
-cdsub$condition <- factor(cdsub$condition, levels = c("Y2P", "YMP", "Y2N", "YMN"))
+cdsub$condition <- factor(cdsub$condition, levels = c("Y2P", "Y2N", "YMP", "YMN", "AM"))
 cdsub <- cdsub[order(cdsub$condition), ]
-rlogsub <- rlog[, colnames(rlog) %in% cdsub$X]
+rlogsub <- rlog[ ,colnames(rlog) %in% cdsub$X]
 
 
 rloggenes <- assay(rlogsub)
 rloggenes <- rloggenes[rownames(rloggenes) %in% genelist, ]
+rloggenes <- rloggenes[, cdsub$X]
 
-rloggenes <- rloggenes[,order(cdsub$X)]
+
+
 
 # Define color palette
 color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
@@ -268,6 +269,6 @@ heatmap <- pheatmap(rloggenes,
          cellwidth = 10,
          cellheight = 10)
 heatmap
-ggsave("pnheatmap5.png", heatmap, height = 15, width = 10, dpi = 600)
+ggsave("pnheatmap6.png", heatmap, height = 15, width = 10, dpi = 600)
 
 ```
