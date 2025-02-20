@@ -21,7 +21,7 @@ library(ggbreak)
 library(ggcyto)
 library(DESeq2)
 options(future.globals.maxSize = 10000 * 1024^2)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HPC GSE128761")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HPC GSE128761")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -356,20 +356,24 @@ negative <- negative[,-1]
 genelist <- c(gfppn, negative)
 
 so <- SCTransform(so, assay = "RNA", new.assay.name = "SCT", variable.features.n = nrow(so), verbose = TRUE)
+so$acatage <- paste(so$acat, so$orig.ident, sep = "_")
+so$acatage <- factor(so$acatage, levels = c("FALSE_HPC.E16.5", "FALSE_HPC.P7", "FALSE_HPC.P14", "FALSE_HPC.Adult", "TRUE_HPC.E16.5", "TRUE_HPC.P7", "TRUE_HPC.P14", "TRUE_HPC.Adult"))
+so$acatcluster <- paste(so$acat, so$seurat_clusters, sep = "_")
 
 # Create a heatmap
 heatmap <- DoHeatmap(
   object = so,
   assay = "SCT",
   features = genelist,
-  group.by = "acat"
+  group.by = "acatage",
+  lines.width = 20
 ) + scale_fill_gradientn(colors = c("blue", "white", "red"), values = c(0, 0.5, 1),
   rescaler = function(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = TRUE)) {
     scales::rescale_mid(x, mid = 0, to = to, from = from)
   })
 heatmap
 
-ggsave("hpcheatmap3.png", heatmap, height = 15, width = 10, dpi = 600)
+ggsave("hpcheatmap4v3.png", heatmap, height = 15, width = 15, dpi = 600)
 
 ```
 

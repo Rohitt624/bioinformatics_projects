@@ -189,15 +189,15 @@ run_gsea(dds,
          condition1 = "Y2P", 
          condition2 = "A2N", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "y2p_a1n_gsea.csv", 
-         output_deg = "y2p_a1n_deg.csv"
+         output_gsea = "y2p_a1n_gsea2.csv", 
+         output_deg = "y2p_a1n_deg2.csv"
          )
 run_gsea(dds,
          condition1 = "Y2N", 
          condition2 = "A2N", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "y2n_a1n_gsea.csv", 
-         output_deg = "y2n_a1n_deg.csv"
+         output_gsea = "y2n_a1n_gsea2.csv", 
+         output_deg = "y2n_a1n_deg2.csv"
          )
 ```
 
