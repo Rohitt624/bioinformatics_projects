@@ -189,7 +189,6 @@ write.csv(pnneg, "youngnegativedeg.csv")
 genelist <- list(Y2 = y2neglist, YM = ymneglist)
 
 ggVennDiagram(genelist, label_alpha = 0) + 
-  scale_fill_gradient(low = "white", high = "lightblue")
 
 
 
