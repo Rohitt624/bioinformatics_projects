@@ -355,16 +355,18 @@ negative <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang 
 negative <- negative[,-1]
 genelist <- c(gfppn, negative)
 
+genes <- read.csv("singlecellheatmapgenelist3.csv")
+
 so <- SCTransform(so, assay = "RNA", new.assay.name = "SCT", variable.features.n = nrow(so), verbose = TRUE)
 so$acatage <- paste(so$acat, so$orig.ident, sep = "_")
-so$acatage <- factor(so$acatage, levels = c("FALSE_HPC.E16.5", "FALSE_HPC.P7", "FALSE_HPC.P14", "FALSE_HPC.Adult", "TRUE_HPC.E16.5", "TRUE_HPC.P7", "TRUE_HPC.P14", "TRUE_HPC.Adult"))
+so$acatage <- factor(so$acatage, levels = c("FALSE_HPC.E16.5", "TRUE_HPC.E16.5", "FALSE_HPC.P7", "TRUE_HPC.P7", "FALSE_HPC.P14", "TRUE_HPC.P14", "FALSE_HPC.Adult", "TRUE_HPC.Adult"))
 so$acatcluster <- paste(so$acat, so$seurat_clusters, sep = "_")
 
 # Create a heatmap
 heatmap <- DoHeatmap(
   object = so,
   assay = "SCT",
-  features = genelist,
+  features = genes$x,
   group.by = "acatage",
   lines.width = 20
 ) + scale_fill_gradientn(colors = c("blue", "white", "red"), values = c(0, 0.5, 1),
@@ -373,7 +375,7 @@ heatmap <- DoHeatmap(
   })
 heatmap
 
-ggsave("hpcheatmap4v3.png", heatmap, height = 15, width = 15, dpi = 600)
+ggsave("hpcheatmap4v5.png", heatmap, height = 15, width = 15, dpi = 600)
 
 ```
 
@@ -499,7 +501,7 @@ degtest <- FindMarkers(aCat, ident.1 = "HPC.E16.5", ident.2 = "HPC.Adult")
 gfpsig <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/gfpposoverallsignature.csv")
 gfpsig <- gfpsig[,-1]
 
-gfppn <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/gfppospnsignature.csv")
+gfppn <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/gfppospnsignature.csv")
 gfppn <- gfppn[,-1]
 
 Idents(so) <- "seurat_clusters"
@@ -614,12 +616,17 @@ ggplot(acatlong, aes(x=Population, y=Proportion, fill = Population)) +
 ```
 
 ```{r Heatmap}
-negative <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/youngnegativedeg.csv")
+negative <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Gene Signatures/youngnegativedeg.csv")
 negative <- negative[,-1]
 genelist <- c(gfppn, negative)
 
+write.csv(genelist, "singlecellheatmapgenelist.csv")
+
+fetal <- read.csv("Fetal Signature.csv")
 
 so <- SCTransform(so, assay = "RNA", new.assay.name = "SCT", variable.features.n = nrow(so), verbose = TRUE)
+so$acatage <- paste(so$acat, so$orig.ident, sep = "_")
+so$acatage <- factor(so$acatage, levels = c("FALSE_HSC.E16.5", "TRUE_HSC.E16.5", "FALSE_HSC.P7", "TRUE_HSC.P7", "FALSE_HSC.P14", "TRUE_HSC.P14", "FALSE_HSC.Adult", "TRUE_HSC.Adult"))
 
 
 # Create a heatmap
@@ -627,8 +634,8 @@ so <- SCTransform(so, assay = "RNA", new.assay.name = "SCT", variable.features.n
 heatmap <- DoHeatmap(
   object = so,
   assay = "SCT",
-  features = genelist,
-  group.by = "acat"
+  features = fetal$X,
+  group.by = "acatage"
 ) + scale_fill_gradientn(colors = c("blue", "white", "red"), values = c(0, 0.5, 1),
   rescaler = function(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = TRUE)) {
     scales::rescale_mid(x, mid = 0, to = to, from = from)
@@ -636,7 +643,7 @@ heatmap <- DoHeatmap(
 
 heatmap
 
-ggsave("hscheatmapv2.png", heatmap, height = 15, width = 10, dpi = 600)
+ggsave("hscheatmapfetal.png", heatmap, height = 15, width = 10, dpi = 600)
 
 ```
 

@@ -247,17 +247,23 @@ negative <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhan
 negative <- negative[,-1]
 genelist <- c(gfppn, negative)
 
+genes <- read.csv("heatmapgenes.csv")
+
+fetal <- read.csv("Fetal Signature.csv")
+fetal2 <- read.csv("fetalsignature2.csv")
+
 # Subset normalized counts to include only the genes of interest
 
 conditions <- c("Y2P", "YMP", "Y2N", "YMN", "AM", "A2N")
 cdsub <- cd[cd$condition %in% conditions, ]
-cdsub$condition <- factor(cdsub$condition, levels = c("Y2P", "Y2N", "A2N", "YMP", "YMN", "AM"))
+cdsub$condition <- factor(cdsub$condition, levels = c("YMN", "YMP", "AM", "Y2N", "Y2P", "A2N"))
 cdsub <- cdsub[order(cdsub$condition), ]
 rlogsub <- rlog[ ,colnames(rlog) %in% cdsub$X]
 
 
 rloggenes <- assay(rlogsub)
-rloggenes <- rloggenes[rownames(rloggenes) %in% genelist, ]
+rloggenes <- rloggenes[rownames(rloggenes) %in% fetal2$X, ]
+rloggenes <- rloggenes[order(match(rownames(rloggenes), fetal2$X)), ]
 rloggenes <- rloggenes[, cdsub$X]
 
 
@@ -279,6 +285,6 @@ heatmap <- pheatmap(rloggenes,
          cellwidth = 10,
          cellheight = 10)
 heatmap
-ggsave("pnheatmap7.png", heatmap, height = 15, width = 10, dpi = 600)
+ggsave("pnheatmapfetal2.png", heatmap, height = 27, width = 8, dpi = 600)
 
 ```
