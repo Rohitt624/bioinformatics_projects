@@ -1,0 +1,31 @@
+---
+title: "TBK1 Project"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/TCGA Data/")
+library(readr)
+```
+
+```{r TCGA}
+tbk <- read.table("mRNA expression (FPKM).txt")
+colnames(tbk) <- tbk[1,]
+tbk <- tbk[-1,-1]
+clinical <- read_tsv("aml_tcga_gdc_clinical_data.tsv")
+
+tbk <- na.omit(tbk)
+clinical <- clinical[clinical$`Sample ID` %in% tbk$SAMPLE_ID, ]
+names(tbk)[names(tbk) == "SAMPLE_ID"] <- "Sample ID"
+merge <- merge(clinical, tbk, by = "Sample ID")
+merge <- merge[,c("Sample ID", "Overall Survival (Months)", "Overall Survival Status", "TBK1")]
+merge$`Overall Survival Status` <- ifelse(merge$`Overall Survival Status` == "1:DECEASED", 1, 0)
+merge$TBK1 <- as.numeric(merge$TBK1)
+merge$tbkstatus <- ifelse(merge$TBK1 >= median(merge$TBK1), "high", "low")
+
+write.csv(merge, "tbksurvivaltcga.csv")
+```
+
