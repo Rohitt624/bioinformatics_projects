@@ -20,7 +20,7 @@ library(ggalt)
 library(fgsea)
 library(biomaRt)
 library(GenomicFeatures)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/MPC Bulk RNA Seq")
 
 run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
   res1 <- DESeq2::results(dds, 
@@ -31,13 +31,32 @@ res1 <- subset(res1, padj < 0.1)
 rnk <- setNames(res1$log2FoldChange, rownames(res1))
 rnk <- rnk[!is.na(rnk)]
 gmt <- gmtPathways(gmt_path)
-gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 10, maxSize = 500)
 gseadf <- as.data.frame(gsea)
 list_columns <- sapply(gseadf, is.list)
 gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
 write.csv(gseadf, output_gsea)
 res1_filtered <- res1[complete.cases(res1), ]
 write.csv(res1_filtered, output_deg)
+}
+
+EnsIDReplace2 <- function(input){
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  rnanames <- rownames(input)
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+  rnaname <- character(nrow(input))
+  for (i in seq_len(nrow(input))) {
+    ensembl_id <- rownames(input)[i]
+    if (ensembl_id %in% names(id_list)) {
+      rnaname[i] <- id_list[[ensembl_id]]
+    } else{
+      rnaname[i] <- ensembl_id
+    }
+  }
+  rnaname[rnaname == ""] <- NA
+  
+  rownames(input) <- make.names(rnaname, unique = TRUE)
+  rm(gene_mapping, id_list, ensembl_id, i, rnaname)
 }
 
 ```
@@ -51,14 +70,30 @@ mpp3 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang La
 ```
 
 ```{r Load MPC Data, warning=FALSE, message=FALSE}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/MPC_Counts_Corrected.csv") #file path to Counts csv document
-cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
-cts <- cts2[, -1]
-table(duplicated(cts$Gene.name)) #check for duplicate gene names
+cts2 <- read.csv("MPC_counts.csv", row.names = 1) 
+
+gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+rnanames <- rownames(cts2)
+id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+rnaname <- character(nrow(cts2))
+for (i in seq_len(nrow(cts2))) {
+    ensembl_id <- rownames(cts2)[i]
+    if (ensembl_id %in% names(id_list)) {
+      rnaname[i] <- id_list[[ensembl_id]]
+    } else{
+      rnaname[i] <- ensembl_id
+    }
+}
+rnaname[rnaname == ""] <- NA
+  
+rownames(cts2) <- make.names(rnaname, unique = TRUE)
+rm(gene_mapping, id_list, ensembl_id, i, rnaname, rnanames)
+
+table(duplicated(rownames(cts2))) #check for duplicate gene names
 rownames(cts) <- make.names(cts2$Gene.name, unique = TRUE) #forces gene names to become unique
+
+mpc <- cts2
 rm(cts2)
-mpc <- cts
-rm(cts)
 ```
 
 ```{r Combine Batches, warning=FALSE, message=FALSE}
@@ -74,6 +109,14 @@ rm(counts1, counts2, common_genes)
 ```{r DESeq}
 cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/mpp3coldata.csv") #make coldata file with sample names in one column and then condition in second column
 dds <- DESeqDataSetFromMatrix(countData = mpp3, colData = cd, design = ~condition)
+rlog <- rlog(dds, blind=FALSE)
+dds <- DESeq(dds)
+rescmp <- results(dds) 
+```
+
+```{r DESeq mpc}
+cd <- read.csv("mpccoldata.csv") #make coldata file with sample names in one column and then condition in second column
+dds <- DESeqDataSetFromMatrix(countData = mpc, colData = cd, design = ~condition)
 rlog <- rlog(dds, blind=FALSE)
 dds <- DESeq(dds)
 rescmp <- results(dds) 
@@ -147,16 +190,16 @@ run_gsea(dds,
          condition1 = "C1", 
          condition2 = "C2", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c1c2_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c1c2_deg.csv"
+         output_gsea = "c1c2_gsea.csv", 
+         output_deg = "c1c2_deg.csv"
          )
 
 run_gsea(dds,
          condition1 = "C1", 
          condition2 = "C3", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c1c3_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c1c3_deg.csv"
+         output_gsea = "c1c3_gsea.csv", 
+         output_deg = "c1c3_deg.csv"
          )
 ```
 
@@ -165,8 +208,8 @@ run_gsea(dds,
          condition1 = "C2", 
          condition2 = "C3", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c2c3_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/c2c3_deg.csv"
+         output_gsea = "c2c3_gsea.csv", 
+         output_deg = "c2c3_deg.csv"
          )
 ```
 
@@ -175,8 +218,8 @@ run_gsea(dds,
          condition1 = "GMP", 
          condition2 = "MEP", 
          gmt_path = "reactome_go_gsea.gmt", 
-         output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/gmp_mep_gsea.csv", 
-         output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/gmp_mep_deg.csv"
+         output_gsea = "gmp_mep_gsea.csv", 
+         output_deg = "gmp_mep_deg.csv"
          )
 
 ```
@@ -188,6 +231,73 @@ run_gsea(dds,
          gmt_path = "reactome_go_gsea.gmt", 
          output_gsea = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/mpp3_gsea.csv", 
          output_deg = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MPP3 RNA Seq/Output/mpp3_deg.csv"
+         )
+
+```
+
+```{r GSEA combined}
+run_gsea(dds,
+         condition1 = "C1", 
+         condition2 = "C2", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "c1c2_gsea.csv", 
+         output_deg = "c1c2_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "C1", 
+         condition2 = "C3", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "c1c3_gsea.csv", 
+         output_deg = "c1c3_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "C2", 
+         condition2 = "C3", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "c2c3_gsea.csv", 
+         output_deg = "c2c3_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "GMP", 
+         condition2 = "MEP", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "gmp_mep_gsea.csv", 
+         output_deg = "gmp_mep_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "C3", 
+         condition2 = "MEP", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "c3_mep_gsea.csv", 
+         output_deg = "c3_mep_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "C2", 
+         condition2 = "GMP", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "c2_gmp_gsea.csv", 
+         output_deg = "c2_gmp_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "C1", 
+         condition2 = "MEP", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "c1_mep_gsea.csv", 
+         output_deg = "c1_mep_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "C1", 
+         condition2 = "GMP", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "c1_gmp_gsea.csv", 
+         output_deg = "c1_gmp_deg.csv"
          )
 
 ```
@@ -305,24 +415,6 @@ myplot + geom_point(size=5, shape=21) +
 
 # Convert to fpkm
 ```{r fpkm}
-ensembl <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
-attributes <- c("mgi_symbol", "ensembl_gene_id", "start_position", "end_position")
-gene_names <- rownames(dds)
-feature_data <- getBM(attributes = attributes, filter = "mgi_symbol", values = gene_names, mart = ensembl)
-feature_data$length <- feature_data$end_position - feature_data$start_position + 1
-
-attributes <- c("mgi_symbol", "ensembl_gene_id", "exon_chrom_start", "exon_chrom_end")
-
-exons <- getBM(attributes = attributes,
-               filters = "mgi_symbol",
-               values = gene_names,
-               mart = ensembl)
-
-exons$exon_length <- exons$exon_chrom_end - exons$exon_chrom_start + 1
-exon_lengths <- aggregate(exon_length ~ ensembl_gene_id, data = exons, sum)
-
-
-
 # Connect to Ensembl
 ensembl <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
 
