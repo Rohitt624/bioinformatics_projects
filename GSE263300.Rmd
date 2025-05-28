@@ -18,10 +18,8 @@ library(scales)
 library(ggbreak)
 library(ggcyto)
 library(DESeq2)
-library(SeuratDisk)
-library(rhdf5)
 options(future.globals.maxSize = 5000 * 1024^2)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -46,7 +44,7 @@ write.csv(gseadf, output_gsea)
 }
 
 EnsIDReplace2 <- function(input, output){
-  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rna <- input
   rnanames <- rownames(rna)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
@@ -68,32 +66,7 @@ EnsIDReplace2 <- function(input, output){
 ```
 
 ```{r load data}
-Convert("GSE263300_filtered_ad.h5ad", dest = "h5seurat", overwrite = TRUE, verbose = TRUE)
-data <- LoadH5Seurat("GSE263300_filtered_ad.h5seurat")
-
-```
-
-```{r}
-Sys.setenv(RETICULATE_PYTHON = "C:/Users/rohit/AppData/Local/Programs/Python/Python312/python.exe")
-library(reticulate)
-py_config()
-
-use_python("C:/Users/rohit/AppData/Local/Programs/Python/Python312/python.exe", required = TRUE)
-
-conda_install(envname = "r-reticulate", packages="scanpy")
-
-py_install("scanpy", python = "C:/Users/rohit/AppData/Local/Programs/Python/Python312/python.exe")
-
-```
-
-```{python}
-import scanpy as sc
-adata = sc.read_h5ad("GSE263300_filtered_ad.h5ad")
-print(adata)
-
-```
-
-```{r}
-py_list_packages()
-
+expr <- read.csv("expression_matrix.csv", row.names = 1)
+cell.meta <- read.csv("cell_metadata.csv", row.names = 1)
+so <- CreateSeuratObject(counts = expr, meta.data = cell.meta)
 ```
