@@ -69,4 +69,22 @@ EnsIDReplace2 <- function(input, output){
 expr <- read.csv("expression_matrix.csv", row.names = 1)
 cell.meta <- read.csv("cell_metadata.csv", row.names = 1)
 so <- CreateSeuratObject(counts = expr, meta.data = cell.meta)
+rm(expr, cell.meta)
+```
+
+```{r Process SO}
+so <- NormalizeData(so)
+so <- FindVariableFeatures(so)
+so <- ScaleData(so)
+so <- RunPCA(so, verbose = FALSE)
+so <- FindNeighbors(so, dims = 1:30)
+so <- FindClusters(so, resolution = 0.8, verbose = FALSE)
+so <- RunUMAP(so, dims = 1:30)
+```
+
+seuratobject rdata file has already run through this point
+
+```{r Visualize}
+DimPlot(so)
+VlnPlot(so, features = c("MAP3K7"), group.by = "dataset")
 ```
