@@ -19,7 +19,7 @@ library(ggbreak)
 library(ggcyto)
 library(DESeq2)
 options(future.globals.maxSize = 5000 * 1024^2)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -44,7 +44,7 @@ write.csv(gseadf, output_gsea)
 }
 
 EnsIDReplace2 <- function(input, output){
-  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rna <- input
   rnanames <- rownames(rna)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
@@ -76,15 +76,76 @@ rm(expr, cell.meta)
 so <- NormalizeData(so)
 so <- FindVariableFeatures(so)
 so <- ScaleData(so)
-so <- RunPCA(so, verbose = FALSE)
+so <- RunPCA(so)
 so <- FindNeighbors(so, dims = 1:30)
-so <- FindClusters(so, resolution = 0.8, verbose = FALSE)
+so <- FindClusters(so, resolution = 0.8)
 so <- RunUMAP(so, dims = 1:30)
 ```
 
 seuratobject rdata file has already run through this point
 
 ```{r Visualize}
-DimPlot(so)
-VlnPlot(so, features = c("MAP3K7"), group.by = "dataset")
+DimPlot(so, group.by = "label")
+VlnPlot(so, features = c("CD34"), group.by = "label")
+FeaturePlot(so, features = c("MAP3K7"), split.by = "dataset")
 ```
+
+```{r Cluster Identification}
+deg <- FindAllMarkers(so)
+write.csv(deg, "clustermarkers.csv")
+
+hsc <- c("AVP", "HLF", "PROM1")
+hspc <- c("CD34", "PROM1")
+gmp <- c("MPO", "ELANE", "S100A8", "S100A9")
+mep <- c("TFRC", "KLF1", "GATA1")
+mk <- c("PF4", "ITGA2B", "GP9")
+mast <- c("MITF", "KIT", "KRT1")
+eobp <- c("IL3RA", "IL5RA", "FCER1A")
+genesets <- list(hsc = hsc,
+                 hspc = hspc,
+                 gmp = gmp,
+                 mep = mep,
+                 mk = mk,
+                 mast = mast,
+                 eobp = eobp)
+
+for (name in names(genesets)) {
+  so <- AddModuleScore(so, features = list(genesets[[name]]), name = name)
+}
+
+cluster_ids <- levels(so$seurat_clusters)
+scores <- sapply(names(genesets), function(name) {
+  score_col <- paste0(name, "1")
+  tapply(so[[score_col]][,1], so$seurat_clusters, mean)
+})
+scores <- as.data.frame(scores)
+rownames(scores) <- cluster_ids
+
+pheatmap(scores,
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         scale = "row",
+         color = colorRampPalette(c("blue", "white", "red"))(100),
+         treeheight_row = 0,
+         treeheight_col = 0,
+         main = "Module Score Heatmap",
+         filename = "modulescoreheatmap.png")
+
+so$label <- NA
+so$label[so$seurat_clusters %in% c(2, 5, 14)] <- "HSC/HSPC"
+so$label[so$seurat_clusters %in% c(12, 3, 10)] <- "MEP/Erythroid"
+so$label[so$seurat_clusters %in% c(16, 18)] <- "MEP/MK"
+so$label[so$seurat_clusters %in% c(13, 15, 4, 6)] <- "EoBP"
+so$label[so$seurat_clusters %in% c(11, 19, 7)] <- "GMP"
+so$label[so$seurat_clusters %in% c(8, 17, 1, 0, 9)] <- "Mast"
+Idents(so) <- "label"
+
+FeatureScatter(so, feature1 = c("MAP3K7"), feature2 = c("RIPK1")) + 
+  scale_x_flowjo_biexp() + 
+  scale_y_flowjo_biexp()
+```
+
+
+
+
+
