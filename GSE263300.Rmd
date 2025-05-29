@@ -19,7 +19,7 @@ library(ggbreak)
 library(ggcyto)
 library(DESeq2)
 options(future.globals.maxSize = 5000 * 1024^2)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -44,7 +44,7 @@ write.csv(gseadf, output_gsea)
 }
 
 EnsIDReplace2 <- function(input, output){
-  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rna <- input
   rnanames <- rownames(rna)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
@@ -86,7 +86,7 @@ seuratobject rdata file has already run through this point
 
 ```{r Visualize}
 DimPlot(so, group.by = "label")
-VlnPlot(so, features = c("CD34"), group.by = "label")
+VlnPlot(so, features = c("TER119"), group.by = "label")
 FeaturePlot(so, features = c("MAP3K7"), split.by = "dataset")
 ```
 
@@ -145,7 +145,10 @@ FeatureScatter(so, feature1 = c("MAP3K7"), feature2 = c("RIPK1")) +
   scale_y_flowjo_biexp()
 ```
 
-
+```{r}
+ery <- subset(so, so$label == c("HSC/HSPC", "MEP/Erythroid"))
+VlnPlot(ery, features = c("MAP3K7"), split.by = "dataset")
+```
 
 
 
