@@ -145,10 +145,26 @@ FeatureScatter(so, feature1 = c("MAP3K7"), feature2 = c("RIPK1")) +
   scale_y_flowjo_biexp()
 ```
 
-```{r}
+```{r subset and recluster erythroid}
 ery <- subset(so, so$label == c("HSC/HSPC", "MEP/Erythroid"))
-VlnPlot(ery, features = c("MAP3K7"), split.by = "dataset")
+ery <- NormalizeData(ery)
+ery <- FindVariableFeatures(ery)
+ery <- ScaleData(ery)
+ery <- RunPCA(ery)
+ery <- FindNeighbors(ery, dims = 1:30)
+ery <- FindClusters(ery, resolution = 0.8)
+ery <- RunUMAP(ery, dims = 1:30)
+
+DimPlot(ery)
+erydeg <- FindAllMarkers(ery)
 ```
 
+```{r}
+Idents(ery) <- "dataset"
+sf3b1markers <- FindMarkers(ery, ident.1 = "SF3B1", ident.2 = "AAVS")
+sf3b1markers <- subset(sf3b1markers, sf3b1markers$p_val_adj < 0.1)
+run_gsea(sf3b1markers, "reactome_go_gsea.gmt", "ery_sf3b1_gsea.csv")
+write.csv(sf3b1markers, "ery_sf3b1_degs.csv")
 
+```
 
