@@ -19,7 +19,7 @@ library(VennDiagram)
 setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Aged RNA Seq")
 
 EnsIDReplace2 <- function(input){
-  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rnanames <- rownames(input)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
   rnaname <- character(nrow(input))
@@ -61,25 +61,25 @@ write.csv(res1_filtered, output_deg)
 ## Load counts matrix into a DESeqDataSet object
 
 ```{r Load RNA Counts Data, warning=FALSE, message=FALSE}
-cts <- read.csv("Postnatal Compiled (Aged).csv")
-rownames(cts) <- cts$Geneid
-cts <- cts[, -1]
-EnsIDReplace2(cts)
-cts <- cts[,-13]
-write.csv(cts, "aged_genename.csv")
+age <- read.csv("Postnatal Compiled (Aged).csv")
+rownames(age) <- cts$Geneid
+age <- age[, -1]
+EnsIDReplace2(age)
+age <- age[,-13]
+write.csv(age, "aged_genename.csv")
 ```
 
 
 ```{r Load RNA Counts Data, warning=FALSE, message=FALSE}
-cts2 <- read.csv("aged_genename.csv", row.names = 1)
+age <- read.csv("aged_genename.csv", row.names = 1)
 ```
 
 
 ## Differential Expression analysis
 
 ```{r DESeq}
-cd2 <- read.csv("agedcd.csv") #make coldata file with sample names in one column and then condition in second column
-dds2 <- DESeqDataSetFromMatrix(countData = cts2, colData = cd2, design = ~condition)
+cda <- read.csv("agedcd.csv") #make coldata file with sample names in one column and then condition in second column
+dds2 <- DESeqDataSetFromMatrix(countData = age, colData = cda, design = ~condition)
 rlog2 <- rlog(dds2, blind=FALSE)
 dds <- DESeq(dds)
 rescmp <- results(dds) 
@@ -144,7 +144,7 @@ write.csv(ovpos_o, "oldpositiveoverlap.csv")
 ## Load counts matrix into a DESeqDataSet object
 
 ```{r Load RNA Counts Data, warning=FALSE, message=FALSE}
-cts <- read.csv("pn_genename.csv", row.names = 1)
+pn <- read.csv("pn_genename.csv", row.names = 1)
 
 cts3 <- cbind(cts, cts2)
 ```
@@ -152,7 +152,7 @@ cts3 <- cbind(cts, cts2)
 ## Differential Expression analysis
 
 ```{r DESeq}
-cd <- read.csv("pncoldata.csv") #make coldata file with sample names in one column and then condition in second column
+cdpn <- read.csv("pncoldata.csv") #make coldata file with sample names in one column and then condition in second column
 cd3 <- rbind(cd, cd2)
 dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~condition)
 dds3 <- DESeqDataSetFromMatrix(countData = cts3, colData = cd3, design = ~condition)
@@ -286,5 +286,113 @@ heatmap <- pheatmap(rloggenes,
          cellheight = 10)
 heatmap
 ggsave("pnheatmapfetal2.png", heatmap, height = 27, width = 8, dpi = 600)
+
+```
+
+
+```{r HSC dds creation}
+agehsc <- age[,(13:14)]
+pnhsc <- pn[,(28:33)]
+hsc <- cbind(agehsc, pnhsc)
+
+cdahsc <- cda[(13:14),]
+cdpnhsc <- cdpn[(28:33),]
+cdhsc <- rbind(cdahsc, cdpnhsc)
+
+dds <- DESeqDataSetFromMatrix(countData = hsc, colData = cdhsc, design = ~condition)
+rlog2 <- rlog(dds, blind=FALSE)
+dds <- DESeq(dds)
+rescmp <- results(dds) 
+
+rm(age, agehsc, cd, cda, cdahsc, cdpn, cdpnhsc, cts, genelist, o2, o2pos, om, ompos, pca, pn, pnhsc, rescmp, y2, y2neg, y2pos, ym, ympos, ymneg, negative, o2gene, omgene, overlap, ovpos, ovpos_o, ovpos_y, pnneg, y2gene, y2neglist, ymgene, ymneglist)
+```
+
+```{r PCA Plot}
+pca <- plotPCA(rlog2, returnData = TRUE)
+pca$group <- factor(pca$group, levels = c("AH", "OHP", "YH"), labels = c("Adult HSCs", "Aged GFP+ HSCs", "Young GFP+ HSCs"))
+hscpca <- ggplot(pca, aes(PC1, PC2, color = group)) + 
+  geom_point(size=5) + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), # White background
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+  ) 
+
+ggsave("hscpca.png", plot = hscpca, dpi = 600)
+```
+
+```{r DEGs and GSEA}
+run_gsea(dds,
+         condition1 = "OHP", 
+         condition2 = "YH", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "oldvspn_hsc_gsea.csv", 
+         output_deg = "oldvspn_hsc_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "OHP", 
+         condition2 = "AH", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "oldhsc_gsea.csv", 
+         output_deg = "oldhsc_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "YH", 
+         condition2 = "AH", 
+         gmt_path = "reactome_go_gsea.gmt", 
+         output_gsea = "pnhsc_gsea.csv", 
+         output_deg = "pnhsc_deg.csv"
+         )
+```
+
+```{r Overlap vs AH}
+degold <- read.csv("oldhsc_deg.csv", row.names = 1)
+degpn <- read.csv("pnhsc_deg.csv", row.names = 1)
+posold <- subset(degold, degold$log2FoldChange > 1)
+pospn <- subset(degpn, degpn$log2FoldChange > 1)
+hscposov <- Reduce(intersect, list(rownames(posold), rownames(pospn)))
+write.csv(hscposov, "oldvspn_posoverlap.csv")
+genelist <- list(old = rownames(posold), pn = rownames(pospn))
+
+posvenn <- ggVennDiagram(genelist, label_alpha = 0) + 
+  scale_fill_gradient(low = "white", high = "lightblue")
+ggsave("posvenn.png", posvenn, dpi = 600)
+
+negold <- subset(degold, degold$log2FoldChange < -1)
+negpn <- subset(degpn, degpn$log2FoldChange < -1)
+hscnegov <- Reduce(intersect, list(rownames(negold), rownames(negpn)))
+write.csv(hscnegov, "oldvspn_negoverlap.csv")
+genelist <- list(old = rownames(negold), pn = rownames(negpn))
+
+negvenn <- ggVennDiagram(genelist, label_alpha = 0) + 
+  scale_fill_gradient(low = "white", high = "lightblue")
+ggsave("negvenn.png", negvenn, dpi = 600)
+
+```
+
+```{r Overlapv2}
+degold <- read.csv("oldhsc_deg.csv", row.names = 1)
+degv <- read.csv("oldvspn_hsc_deg.csv", row.names = 1)
+posold <- subset(degold, degold$log2FoldChange > 1)
+posv <- subset(degv, degv$log2FoldChange > 1)
+hscoldovpos <- Reduce(intersect, list(rownames(posold), rownames(posv)))
+write.csv(hscoldovpos, "old_posoverlap.csv")
+genelist <- list(vsAdult = rownames(posold), vsPN = rownames(posv))
+
+oldposvenn <- ggVennDiagram(genelist, label_alpha = 0) + 
+  scale_fill_gradient(low = "white", high = "lightblue")
+ggsave("oldposvenn.png", oldposvenn, dpi = 600, width = 10, height = 10)
+
+negold <- subset(degold, degold$log2FoldChange > -1)
+negv <- subset(degv, degv$log2FoldChange > -1)
+hscoldovneg <- Reduce(intersect, list(rownames(negold), rownames(negv)))
+write.csv(hscoldovneg, "old_negoverlap.csv")
+genelist <- list(vsAdult = rownames(negold), vsPN = rownames(negv))
+
+oldnegvenn <- ggVennDiagram(genelist, label_alpha = 0) + 
+  scale_fill_gradient(low = "white", high = "lightblue")
+ggsave("oldnegvenn.png", oldnegvenn, dpi = 600, width = 10, height = 10)
 
 ```
