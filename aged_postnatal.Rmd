@@ -94,13 +94,15 @@ write.csv(rescmp, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang L
 ## Generate PCA Plot
 
 ```{r PCA Plot}
-pca <- plotPCA(rlog)
-pca + geom_point(size=5) + 
+pca <- plotPCA(rlogpos)
+pcapos <- pca + geom_point(size=5) + 
   theme(
     panel.background = element_rect(fill = "white", color = "black"), # White background
     axis.text = element_blank(),
     axis.ticks = element_blank(),
   )
+
+ggsave("pcapos.png", pcapos, dpi = 600)
 
 ```
  + 
@@ -146,7 +148,8 @@ write.csv(ovpos_o, "oldpositiveoverlap.csv")
 ```{r Load RNA Counts Data, warning=FALSE, message=FALSE}
 pn <- read.csv("pn_genename.csv", row.names = 1)
 
-cts3 <- cbind(cts, cts2)
+cts3 <- cbind(age, pn)
+cd3 <- rbind(cda, cdpn)
 ```
 
 ## Differential Expression analysis
@@ -159,8 +162,16 @@ dds3 <- DESeqDataSetFromMatrix(countData = cts3, colData = cd3, design = ~condit
 rlog <- rlog(dds, blind=FALSE)
 rlog3 <- rlog(dds3, blind=FALSE)
 vst <- vst(dds, blind = FALSE)
-dds <- DESeq(dds)
-rescmp <- results(dds) 
+dds3 <- DESeq(dds3)
+rescmp <- results(dds3) 
+
+rlogpos <- subset(rlog3, rlog3$condition %in% c("A2N", "AH", "AM", "O2P", "OHP", "OMP", "Y2P", "YH", "YMP"))
+
+keep <- colData(rlog3)$condition %in% c("A2N", "AH", "AM", "O2P", "OHP", "OMP", "Y2P", "YH", "YMP")
+
+rlogpos <- rlog3[, keep]
+
+
 ```
 
 
