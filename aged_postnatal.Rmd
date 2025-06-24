@@ -157,13 +157,14 @@ cd3 <- rbind(cda, cdpn)
 ```{r DESeq}
 cdpn <- read.csv("pncoldata.csv") #make coldata file with sample names in one column and then condition in second column
 cd3 <- rbind(cd, cd2)
-dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~condition)
+dds <- DESeqDataSetFromMatrix(countData = pn, colData = cdpn, design = ~condition)
 dds3 <- DESeqDataSetFromMatrix(countData = cts3, colData = cd3, design = ~condition)
 rlog <- rlog(dds, blind=FALSE)
 rlog3 <- rlog(dds3, blind=FALSE)
 vst <- vst(dds, blind = FALSE)
+dds <- DESeq(dds)
 dds3 <- DESeq(dds3)
-rescmp <- results(dds3) 
+rescmp <- results(dds) 
 
 rlogpos <- subset(rlog3, rlog3$condition %in% c("A2N", "AH", "AM", "O2P", "OHP", "OMP", "Y2P", "YH", "YMP"))
 
@@ -406,4 +407,54 @@ oldnegvenn <- ggVennDiagram(genelist, label_alpha = 0) +
   scale_fill_gradient(low = "white", high = "lightblue")
 ggsave("oldnegvenn.png", oldnegvenn, dpi = 600, width = 10, height = 10)
 
+```
+
+```{r 6-24-25}
+run_gsea(dds,
+         condition1 = "Y2P", 
+         condition2 = "Y2N", 
+         gmt_path = "m3.gtrd.v2025.1.Mm.symbols.gmt", 
+         output_gsea = "mpp2tf_gsea.csv", 
+         output_deg = "mpp2tf_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "Y2P", 
+         condition2 = "Y2N", 
+         gmt_path = "m1.all.v2025.1.Mm.symbols.gmt", 
+         output_gsea = "mpp2chr_gsea.csv", 
+         output_deg = "mpp2chr_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "Y1P", 
+         condition2 = "Y1N", 
+         gmt_path = "m3.gtrd.v2025.1.Mm.symbols.gmt", 
+         output_gsea = "mpp1tf_gsea.csv", 
+         output_deg = "mpp1tf_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "Y1P", 
+         condition2 = "Y1N", 
+         gmt_path = "m1.all.v2025.1.Mm.symbols.gmt", 
+         output_gsea = "mpp1chr_gsea.csv", 
+         output_deg = "mpp1chr_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "YMP", 
+         condition2 = "YMN", 
+         gmt_path = "m3.gtrd.v2025.1.Mm.symbols.gmt", 
+         output_gsea = "mkptf_gsea.csv", 
+         output_deg = "mkptf_deg.csv"
+         )
+
+run_gsea(dds,
+         condition1 = "YMP", 
+         condition2 = "YMN", 
+         gmt_path = "m1.all.v2025.1.Mm.symbols.gmt", 
+         output_gsea = "mkpchr_gsea.csv", 
+         output_deg = "mkpchr_deg.csv"
+         )
 ```
