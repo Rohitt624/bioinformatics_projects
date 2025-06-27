@@ -21,7 +21,7 @@ library(ggbreak)
 library(ggcyto)
 library(DESeq2)
 options(future.globals.maxSize = 10000 * 1024^2)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HPC GSE128761")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HSC GSE128761")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -408,7 +408,7 @@ library(ggbreak)
 library(ggcyto)
 library(DESeq2)
 options(future.globals.maxSize = 10000 * 1024^2)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HSC GSE128761")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HSC GSE128761")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -462,10 +462,12 @@ so <- HSC_joined
 rm(HSC_joined, HSC.markers)
 so$orig.ident <- factor(so$orig.ident, levels = c("HSC.E16.5", "HSC.P7", "HSC.P14", "HSC.Adult"))
 
+DimPlot(so, group.by = "orig.ident")
+FeaturePlot(so, features = c("Ctnnal1"))
 dimacat <- DimPlot(so, group.by = "acat", cols = c("grey", "blue"))
 dimacat
 ggsave("hscumapacat.png", dimacat, height = 8, width = 10, dpi = 600)
-
+DimPlot(so, group.by = "orig.ident")
 dimplot <- DimPlot(so)
 ggsave("hscumap.png", dimplot, height = 8, width = 10, dpi = 600)
 
@@ -476,6 +478,116 @@ ggsave("hscumapage.png", dimtime, height = 8, width = 10, dpi = 600)
 FeaturePlot(so, features = c("Ctnnal1"))
 ```
 
+```{r trying things 06-27-2025}
+# Create a binary label for Ctnnal1 expression
+so$Ctnnal1_status <- ifelse(GetAssayData(so, assay = "RNA", slot = "data")["Ctnnal1", ] > 0, "Ctnnal1+", "Ctnnal1-")
+
+# Subset Ctnnal1+ cells from HSC.E16.5
+group1_cells <- WhichCells(so, expression = orig.ident == "HSC.E16.5" & Ctnnal1_status == "Ctnnal1+")
+
+# Subset all cells from HSC.Adult
+group2_cells <- WhichCells(so, expression = orig.ident == "HSC.Adult")
+
+# Run differential expression
+markers <- FindMarkers(so, ident.1 = group1_cells, ident.2 = group2_cells, logfc.threshold = 0.25)
+
+# View top markers
+head(markers)
+
+# Subset Ctnnal1+ cells from HSC.E16.5
+group1_cells <- WhichCells(so, expression = orig.ident == "HSC.E16.5" & Ctnnal1_status == "Ctnnal1+")
+
+# Subset Ctnnal1- cells from HSC.E16.5
+group2_cells <- WhichCells(so, expression = orig.ident == "HSC.E16.5" & Ctnnal1_status == "Ctnnal1-")
+
+# Run differential expression
+markers_ctnnal1_e16.5 <- FindMarkers(so, ident.1 = group1_cells, ident.2 = group2_cells, logfc.threshold = 0.25)
+
+# View top markers
+head(markers_ctnnal1_e16.5)
+
+# Subset Ctnnal1− cells from HSC.E16.5
+group_neg_e16 <- WhichCells(so, expression = orig.ident == "HSC.E16.5" & Ctnnal1_status == "Ctnnal1-")
+
+# Subset all cells from HSC.Adult
+group_adult <- WhichCells(so, expression = orig.ident == "HSC.Adult")
+
+# Run differential expression
+markers_adult_vs_neg <- FindMarkers(so, ident.1 = group_adult, ident.2 = group_neg_e16, logfc.threshold = 0.25)
+
+# View top markers
+head(markers_adult_vs_neg)
+
+# Create a table of Ctnnal1 status by orig.ident
+ctnnal1_table <- table(so$orig.ident, so$Ctnnal1_status)
+
+# Convert to a data frame for easier viewing or export
+ctnnal1_df <- as.data.frame(ctnnal1_table)
+
+# View the table
+print(ctnnal1_df)
+
+run_gsea(markers_ctnnal1_e16.5, "m1.all.v2025.1.Mm.symbols.gmt", "e16acatchr_gsea.csv")
+run_gsea(markers_ctnnal1_e16.5, "m3.gtrd.v2025.1.Mm.symbols.gmt", "e16acattf_gsea.csv")
+
+run_gsea(markers_neg_vs_adult, "m1.all.v2025.1.Mm.symbols.gmt", "e16negvadultchr_gsea.csv")
+run_gsea(markers_neg_vs_adult, "m3.gtrd.v2025.1.Mm.symbols.gmt", "e16negvadulttf_gsea.csv")
+
+run_gsea(markers, "m1.all.v2025.1.Mm.symbols.gmt", "e16posvadultchr_gsea.csv")
+run_gsea(markers, "m3.gtrd.v2025.1.Mm.symbols.gmt", "e16posvadulttf_gsea.csv")
+
+```
+
+```{r p14vadult}
+# Create a binary label for Ctnnal1 expression
+so$Ctnnal1_status <- ifelse(GetAssayData(so, assay = "RNA", slot = "data")["Ctnnal1", ] > 0, "Ctnnal1+", "Ctnnal1-")
+
+# Subset Ctnnal1+ cells from HSC.P14
+group1_cells <- WhichCells(so, expression = orig.ident == "HSC.P14" & Ctnnal1_status == "Ctnnal1+")
+
+# Subset all cells from HSC.Adult
+group2_cells <- WhichCells(so, expression = orig.ident == "HSC.Adult")
+
+# Run differential expression
+markers <- FindMarkers(so, ident.1 = group1_cells, ident.2 = group2_cells, logfc.threshold = 0.25)
+
+# View top markers
+head(markers)
+
+# Subset Ctnnal1+ cells from HSC.P14
+group1_cells <- WhichCells(so, expression = orig.ident == "HSC.P14" & Ctnnal1_status == "Ctnnal1+")
+
+# Subset Ctnnal1− cells from HSC.P14
+group2_cells <- WhichCells(so, expression = orig.ident == "HSC.P14" & Ctnnal1_status == "Ctnnal1-")
+
+# Run differential expression
+markers_ctnnal1_p14 <- FindMarkers(so, ident.1 = group1_cells, ident.2 = group2_cells, logfc.threshold = 0.25)
+
+# View top markers
+head(markers_ctnnal1_p14)
+
+# Subset Ctnnal1− cells from HSC.P14
+group_neg_p14 <- WhichCells(so, expression = orig.ident == "HSC.P14" & Ctnnal1_status == "Ctnnal1-")
+
+# Subset all cells from HSC.Adult
+group_adult <- WhichCells(so, expression = orig.ident == "HSC.Adult")
+
+# Run differential expression
+markers_adult_vs_neg <- FindMarkers(so, ident.1 = group_adult, ident.2 = group_neg_p14, logfc.threshold = 0.25)
+
+# View top markers
+head(markers_adult_vs_neg)
+
+run_gsea(markers_ctnnal1_p14, "m1.all.v2025.1.Mm.symbols.gmt", "p14acatchr_gsea.csv")
+run_gsea(markers_ctnnal1_p14, "m3.gtrd.v2025.1.Mm.symbols.gmt", "p14acattf_gsea.csv")
+
+run_gsea(markers_adult_vs_neg, "m1.all.v2025.1.Mm.symbols.gmt", "p14negvadultchr_gsea.csv")
+run_gsea(markers_adult_vs_neg, "m3.gtrd.v2025.1.Mm.symbols.gmt", "p14negvadulttf_gsea.csv")
+
+run_gsea(markers, "m1.all.v2025.1.Mm.symbols.gmt", "p14posvadultchr_gsea.csv")
+run_gsea(markers, "m3.gtrd.v2025.1.Mm.symbols.gmt", "p14posvadulttf_gsea.csv")
+
+```
 
 ```{r}
 vlnage <- VlnPlot(so, features = c("Ctnnal1"), group.by = "orig.ident")
