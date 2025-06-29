@@ -19,7 +19,7 @@ library(ggbreak)
 library(ggcyto)
 library(DESeq2)
 options(future.globals.maxSize = 5000 * 1024^2)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -44,7 +44,7 @@ write.csv(gseadf, output_gsea)
 }
 
 EnsIDReplace2 <- function(input, output){
-  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rna <- input
   rnanames <- rownames(rna)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
@@ -159,11 +159,34 @@ DimPlot(ery)
 erydeg <- FindAllMarkers(ery)
 ```
 
-```{r}
+```{r sf3b1 deg}
 Idents(ery) <- "dataset"
 sf3b1markers <- FindMarkers(ery, ident.1 = "SF3B1", ident.2 = "AAVS")
 sf3b1markers <- subset(sf3b1markers, sf3b1markers$p_val_adj < 0.1)
 run_gsea(sf3b1markers, "reactome_go_gsea.gmt", "ery_sf3b1_gsea.csv")
 write.csv(sf3b1markers, "ery_sf3b1_degs.csv")
 ```
+
+```{r subset and recluster erythroid}
+ery <- subset(so, so$label == c("HSC/HSPC", "MEP/Erythroid"))
+ery <- NormalizeData(ery)
+ery <- FindVariableFeatures(ery)
+ery <- ScaleData(ery)
+ery <- RunPCA(ery)
+ery <- FindNeighbors(ery, dims = 1:30)
+ery <- FindClusters(ery, resolution = 0.8)
+ery <- RunUMAP(ery, dims = 1:30)
+
+DimPlot(ery)
+erydeg <- FindAllMarkers(ery)
+```
+
+```{r sf3b1 deg}
+Idents(ery) <- "dataset"
+sf3b1markers <- FindMarkers(ery, ident.1 = "SF3B1", ident.2 = "AAVS")
+sf3b1markers <- subset(sf3b1markers, sf3b1markers$p_val_adj < 0.1)
+run_gsea(sf3b1markers, "reactome_go_gsea.gmt", "ery_sf3b1_gsea.csv")
+write.csv(sf3b1markers, "ery_sf3b1_degs.csv")
+```
+
 
