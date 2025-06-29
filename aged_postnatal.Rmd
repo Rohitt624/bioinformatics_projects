@@ -16,10 +16,11 @@ library(fgsea)
 library(biomaRt)
 library(ggVennDiagram)
 library(VennDiagram)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Aged RNA Seq")
+library(ggrepel)
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Aged RNA Seq")
 
 EnsIDReplace2 <- function(input){
-  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rnanames <- rownames(input)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
   rnaname <- character(nrow(input))
@@ -457,4 +458,117 @@ run_gsea(dds,
          output_gsea = "mkpchr_gsea.csv", 
          output_deg = "mkpchr_deg.csv"
          )
+```
+
+```{r}
+# Transpose the rlog matrix to get samples as rows
+rlog_df <- as.data.frame(t(assay(rlog3)))
+
+# Build the plot data
+plot_df <- data.frame(
+  Ctnnal1 = rlog_df$Ctnnal1,
+  Hhex = rlog_df$Hhex,
+  Sample = rownames(rlog_df)  # assumes sample names are stored here
+)
+
+ggplot(plot_df, aes(x = Ctnnal1, y = Hhex, label = Sample)) +
+  geom_point(color = "#0072B2", size = 2, alpha = 0.7) +
+  geom_text_repel(size = 3) +
+  labs(
+    title = "rlog Expression: Ctnnal1 vs Hhex (Labeled by Sample)",
+    x = "Ctnnal1 (rlog)",
+    y = "Hhex (rlog)"
+  ) +
+  theme_minimal()
+
+
+cor(plot_df$Ctnnal1, plot_df$Hhex, method = "pearson")
+```
+
+```{r}
+# Transpose so samples are rows
+raw_df <- as.data.frame(t(cts3))
+
+# Pull the genes of interest
+plot_df <- data.frame(
+  Ctnnal1 = raw_df$Ctnnal1,
+  Hmga2 = raw_df$Hmga2,
+  Sample = rownames(raw_df)
+)
+
+# Plot with raw counts (optionally log-transform for better spread)
+ggplot(plot_df, aes(x = Ctnnal1, y = Hmga2, label = Sample)) +
+  geom_point(color = "#0072B2", size = 2, alpha = 0.7) +
+  geom_text(vjust = -0.6, size = 3) +
+  labs(
+    title = "Raw Counts: Ctnnal1 vs Hmga2",
+    x = "Ctnnal1 (raw counts)",
+    y = "Hmga2 (raw counts)"
+  ) +
+  theme_minimal()
+
+cor(plot_df$Ctnnal1, plot_df$Hmga2, method = "pearson")
+
+```
+
+```{r}
+# Assume 'expr_matrix' is your normalized gene expression matrix:
+# rows = genes, columns = samples
+
+# Transpose for correlation: genes as rows, samples as columns
+expr_mat <- as.data.frame(t(hsc))
+
+# Sanity check
+if (!"Ctnnal1" %in% colnames(expr_mat)) stop("Ctnnal1 not found in dataset")
+
+# Compute correlation of all genes with Ctnnal1
+cor_vec <- apply(expr_mat, 2, function(x) cor(x, expr_mat$Ctnnal1, method = "pearson"))
+
+# Remove Ctnnal1 itself from results
+cor_vec <- cor_vec[names(cor_vec) != "Ctnnal1"]
+
+# Sort and view top positively correlated genes
+top_pos <- sort(cor_vec, decreasing = TRUE)[1:50]
+
+# Sort and view top negatively correlated genes
+top_neg <- sort(cor_vec, decreasing = FALSE)[1:50]
+
+# Combine and view
+top_correlated <- data.frame(
+  Gene = c(names(top_pos), names(top_neg)),
+  Correlation = c(top_pos, top_neg)
+)
+
+barplot(top_pos, las = 2, col = "steelblue", main = "Top Correlated Genes")
+barplot(top_neg, las = 2, col = "steelblue", main = "Lowest Correlated Genes")
+
+write.csv(top_correlated, "ctnnal1_cor_allsamples.csv")
+
+# Convert to data frame for ggplot
+top_df <- data.frame(
+  Gene = factor(names(top_pos), levels = names(top_pos)),
+  Correlation = top_pos
+)
+
+# Plot
+ggplot(top_df, aes(x = Gene, y = Correlation)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  labs(title = "Top Correlated Genes", x = "", y = "Pearson Correlation") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Convert to data frame for ggplot
+top_df <- data.frame(
+  Gene = factor(names(top_neg), levels = names(top_neg)),
+  Correlation = top_neg
+)
+
+# Plot
+ggplot(top_df, aes(x = Gene, y = Correlation)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  labs(title = "Lowest Correlated Genes", x = "", y = "Pearson Correlation") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
 ```

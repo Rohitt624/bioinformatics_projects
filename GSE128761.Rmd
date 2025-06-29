@@ -21,7 +21,7 @@ library(ggbreak)
 library(ggcyto)
 library(DESeq2)
 options(future.globals.maxSize = 10000 * 1024^2)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HSC GSE128761")
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HPC GSE128761")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -392,6 +392,137 @@ negmissing <- Reduce(intersect, list(missing3, negative))
 
 ```
 
+```{r trying things 06-29-2025}
+# Create a binary label for Ctnnal1 expression
+so$Ctnnal1_status <- ifelse(GetAssayData(so, assay = "RNA", slot = "data")["Ctnnal1", ] > 0, "Ctnnal1+", "Ctnnal1-")
+
+# Subset Ctnnal1+ cells from HPC.E16.5
+group1_cells <- WhichCells(so, expression = orig.ident == "HPC.E16.5" & Ctnnal1_status == "Ctnnal1+")
+
+# Subset all cells from hpc.Adult
+group2_cells <- WhichCells(so, expression = orig.ident == "HPC.Adult")
+
+# Run differential expression
+markers <- FindMarkers(so, ident.1 = group1_cells, ident.2 = group2_cells, logfc.threshold = 0.25)
+
+# View top markers
+head(markers)
+
+# Subset Ctnnal1+ cells from HPC.E16.5
+group1_cells <- WhichCells(so, expression = orig.ident == "HPC.E16.5" & Ctnnal1_status == "Ctnnal1+")
+
+# Subset Ctnnal1- cells from HPC.E16.5
+group2_cells <- WhichCells(so, expression = orig.ident == "HPC.E16.5" & Ctnnal1_status == "Ctnnal1-")
+
+# Run differential expression
+markers_ctnnal1_e16.5 <- FindMarkers(so, ident.1 = group1_cells, ident.2 = group2_cells, logfc.threshold = 0.25)
+
+# View top markers
+head(markers_ctnnal1_e16.5)
+
+# Subset Ctnnal1− cells from HPC.E16.5
+group_neg_e16 <- WhichCells(so, expression = orig.ident == "HPC.E16.5" & Ctnnal1_status == "Ctnnal1-")
+
+# Subset all cells from HPC.Adult
+group_adult <- WhichCells(so, expression = orig.ident == "HPC.Adult")
+
+# Run differential expression
+markers_neg_vs_adult <- FindMarkers(so, ident.1 = group_neg_e16, ident.2 = group_adult, logfc.threshold = 0.25)
+
+# View top markers
+head(markers_adult_vs_neg)
+
+# Create a table of Ctnnal1 status by orig.ident
+ctnnal1_table <- table(so$orig.ident, so$Ctnnal1_status)
+
+# Convert to a data frame for easier viewing or export
+ctnnal1_df <- as.data.frame(ctnnal1_table)
+
+# View the table
+print(ctnnal1_df)
+
+run_gsea(markers_ctnnal1_e16.5, "m1.all.v2025.1.Mm.symbols.gmt", "e16acatchr_gsea.csv")
+run_gsea(markers_ctnnal1_e16.5, "m3.gtrd.v2025.1.Mm.symbols.gmt", "e16acattf_gsea.csv")
+
+run_gsea(markers_neg_vs_adult, "m1.all.v2025.1.Mm.symbols.gmt", "e16negvadultchr_gsea.csv")
+run_gsea(markers_neg_vs_adult, "m3.gtrd.v2025.1.Mm.symbols.gmt", "e16negvadulttf_gsea.csv")
+
+run_gsea(markers, "m1.all.v2025.1.Mm.symbols.gmt", "e16posvadultchr_gsea.csv")
+run_gsea(markers, "m3.gtrd.v2025.1.Mm.symbols.gmt", "e16posvadulttf_gsea.csv")
+
+```
+
+```{r p14vadult}
+# Create a binary label for Ctnnal1 expression
+so$Ctnnal1_status <- ifelse(GetAssayData(so, assay = "RNA", slot = "data")["Ctnnal1", ] > 0, "Ctnnal1+", "Ctnnal1-")
+
+# Subset Ctnnal1+ cells from HPC.P14
+group1_cells <- WhichCells(so, expression = orig.ident == "HPC.P14" & Ctnnal1_status == "Ctnnal1+")
+
+# Subset all cells from HPC.Adult
+group2_cells <- WhichCells(so, expression = orig.ident == "HPC.Adult")
+
+# Run differential expression
+markers <- FindMarkers(so, ident.1 = group1_cells, ident.2 = group2_cells, logfc.threshold = 0.25)
+
+# View top markers
+head(markers)
+
+# Subset Ctnnal1+ cells from HPC.P14
+group1_cells <- WhichCells(so, expression = orig.ident == "HPC.P14" & Ctnnal1_status == "Ctnnal1+")
+
+# Subset Ctnnal1− cells from HPC.P14
+group2_cells <- WhichCells(so, expression = orig.ident == "HPC.P14" & Ctnnal1_status == "Ctnnal1-")
+
+# Run differential expression
+markers_ctnnal1_p14 <- FindMarkers(so, ident.1 = group1_cells, ident.2 = group2_cells, logfc.threshold = 0.25)
+
+# View top markers
+head(markers_ctnnal1_p14)
+
+# Subset Ctnnal1− cells from HPC.P14
+group_neg_p14 <- WhichCells(so, expression = orig.ident == "HPC.P14" & Ctnnal1_status == "Ctnnal1-")
+
+# Subset all cells from HPC.Adult
+group_adult <- WhichCells(so, expression = orig.ident == "HPC.Adult")
+
+# Run differential expression
+markers_neg_vs_adult <- FindMarkers(so, ident.1 = group_neg_p14, ident.2 = group_adult, logfc.threshold = 0.25)
+
+# View top markers
+head(markers_adult_vs_neg)
+
+run_gsea(markers_ctnnal1_p14, "m1.all.v2025.1.Mm.symbols.gmt", "p14acatchr_gsea.csv")
+run_gsea(markers_ctnnal1_p14, "m3.gtrd.v2025.1.Mm.symbols.gmt", "p14acattf_gsea.csv")
+
+run_gsea(markers_neg_vs_adult, "m1.all.v2025.1.Mm.symbols.gmt", "p14negvadultchr_gsea.csv")
+run_gsea(markers_neg_vs_adult, "m3.gtrd.v2025.1.Mm.symbols.gmt", "p14negvadulttf_gsea.csv")
+
+run_gsea(markers, "m1.all.v2025.1.Mm.symbols.gmt", "p14posvadultchr_gsea.csv")
+run_gsea(markers, "m3.gtrd.v2025.1.Mm.symbols.gmt", "p14posvadulttf_gsea.csv")
+
+```
+
+```{r}
+gene_of_interest <- "Ctnnal1"  # for example
+expr_matrix <- FetchData(so, vars = c(gene_of_interest, rownames(so)))
+cor_scores <- apply(expr_matrix[ , -1], 2, function(x) cor(x, expr_matrix[ , 1], method = "pearson"))
+top_correlated <- sort(cor_scores, decreasing = TRUE)[1:50]
+low_cor <- sort(cor_scores, decreasing = FALSE)[1:50]
+
+top_genes <- sort(cor_scores, decreasing = TRUE)[1:30]
+low_genes <- sort(cor_scores, decreasing = FALSE)[1:30]
+gene_names <- names(top_genes)
+expr_data <- FetchData(so, vars = gene_names)
+pheatmap(t(scale(expr_data)), cluster_rows = TRUE, cluster_cols = TRUE)
+
+barplot(top_genes, las = 2, col = "steelblue", main = "Top Correlated Genes")
+barplot(low_genes, las = 2, col = "steelblue", main = "Lowest Correlated Genes")
+
+FeatureScatter(so, feature1 = "Ctnnal1", feature2 = "Mllt3")
+
+```
+
 # HSC Dataset
 
 ```{r libraries, results='hide'}
@@ -408,7 +539,7 @@ library(ggbreak)
 library(ggcyto)
 library(DESeq2)
 options(future.globals.maxSize = 10000 * 1024^2)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HSC GSE128761")
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/HSC GSE128761")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -588,6 +719,84 @@ run_gsea(markers, "m1.all.v2025.1.Mm.symbols.gmt", "p14posvadultchr_gsea.csv")
 run_gsea(markers, "m3.gtrd.v2025.1.Mm.symbols.gmt", "p14posvadulttf_gsea.csv")
 
 ```
+
+```{r}
+gene_of_interest <- "Ctnnal1"  # for example
+expr_matrix <- FetchData(so, vars = c(gene_of_interest, rownames(so)))
+cor_scores <- apply(expr_matrix[ , -1], 2, function(x) cor(x, expr_matrix[ , 1], method = "pearson"))
+top_correlated <- sort(cor_scores, decreasing = TRUE)[1:50]
+low_cor <- sort(cor_scores, decreasing = FALSE)[1:50]
+
+top_genes <- sort(cor_scores, decreasing = TRUE)[1:30]
+low_genes <- sort(cor_scores, decreasing = FALSE)[1:30]
+gene_names <- names(top_genes)
+expr_data <- FetchData(so, vars = gene_names)
+pheatmap(t(scale(expr_data)), cluster_rows = TRUE, cluster_cols = TRUE)
+
+barplot(top_genes, las = 2, col = "steelblue", main = "Top Correlated Genes")
+barplot(low_genes, las = 2, col = "steelblue", main = "Lowest Correlated Genes")
+
+
+FeatureScatter(so, feature1 = "Ctnnal1", feature2 = "Hmga2")
+
+```
+
+```{r}
+# Ensure factor levels are ordered
+so$orig.ident <- factor(so$orig.ident, levels = c("HSC.E16.5", "HSC.P7", "HSC.P14", "HSC.Adult"))
+
+# Subset to just the identities of interest
+hsc_subset <- subset(so, subset = orig.ident %in% levels(so$orig.ident))
+
+# Define Ctnnal1 expression status (expression > 0)
+hsc_subset$Ctnnal1_status <- ifelse(FetchData(hsc_subset, "Ctnnal1")[,1] > 0, "Ctnnal1+", "Ctnnal1-")
+
+# Combine orig.ident and status for stratification
+hsc_subset$Identity_Status <- paste(hsc_subset$orig.ident, hsc_subset$Ctnnal1_status, sep = "_")
+Idents(hsc_subset) <- hsc_subset$Identity_Status
+
+# Run PCA (make sure you've scaled data beforehand)
+hsc_subset <- RunPCA(hsc_subset, features = VariableFeatures(hsc_subset))
+
+# Plot PCA with split identities
+DimPlot(hsc_subset, reduction = "pca", group.by = "Identity_Status", pt.size = 1) +
+  ggtitle("PCA: Ctnnal1+ vs - within HSC Developmental Stages") +
+  theme(axis.title = element_text(size = 12), plot.title = element_text(hjust = 0.5))
+
+
+```
+
+```{r}
+goi <- c("Ctnnal1", "Hmga2", "Hhex", "Mllt3")
+soe16 <- subset(so, so$orig.ident == "HSC.E16.5")
+sop7 <- subset(so, so$orig.ident == "HSC.P7")
+sop14 <- subset(so, so$orig.ident == "HSC.P14")
+soadult <- subset(so, so$orig.ident == "HSC.Adult")
+data <- FetchData(soadult, vars = goi)
+datafil <- data[data$Ctnnal1 > 0, ]
+datafil <- datafil[datafil$Hmga2 > 0, ]
+datafil <- datafil[datafil$Hhex > 0, ]
+datafil <- datafil[datafil$Mllt3 > 0, ]
+
+cor_vec <- sapply(colnames(data)[-1], function(gene) {
+  cor(data$Ctnnal1, data[[gene]], method = "pearson")
+})
+
+ggplot(data, aes(x = Ctnnal1, y = Hmga2)) +
+  geom_point() +
+  labs(
+    title = "Ctnnal1 vs Hmga2 Adult",
+    x = "Ctnnal1 (raw counts)",
+    y = "Hmga2 (raw counts)"
+  ) +
+  theme_minimal()
+
+barplot(cor_vec, las = 2, col = "steelblue", main = "Correlation with Ctnnal1 Adult")
+
+
+FeatureScatter(datafil, feature1 = "Ctnnal1", feature2 = "Hhex")
+```
+
 
 ```{r}
 vlnage <- VlnPlot(so, features = c("Ctnnal1"), group.by = "orig.ident")
