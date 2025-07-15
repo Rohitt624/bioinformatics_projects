@@ -17,10 +17,10 @@ library(biomaRt)
 library(ggVennDiagram)
 library(VennDiagram)
 library(ggrepel)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Aged RNA Seq")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Aged RNA Seq")
 
 EnsIDReplace2 <- function(input){
-  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rnanames <- rownames(input)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
   rnaname <- character(nrow(input))
@@ -492,18 +492,18 @@ raw_df <- as.data.frame(t(cts3))
 # Pull the genes of interest
 plot_df <- data.frame(
   Ctnnal1 = raw_df$Ctnnal1,
-  Hmga2 = raw_df$Hmga2,
+  Bex4 = raw_df$Bex4,
   Sample = rownames(raw_df)
 )
 
 # Plot with raw counts (optionally log-transform for better spread)
-ggplot(plot_df, aes(x = Ctnnal1, y = Hmga2, label = Sample)) +
+ggplot(plot_df, aes(x = Ctnnal1, y = Bex4, label = Sample)) +
   geom_point(color = "#0072B2", size = 2, alpha = 0.7) +
   geom_text(vjust = -0.6, size = 3) +
   labs(
-    title = "Raw Counts: Ctnnal1 vs Hmga2",
+    title = "Raw Counts: Ctnnal1 vs Bex4",
     x = "Ctnnal1 (raw counts)",
-    y = "Hmga2 (raw counts)"
+    y = "Bex4 (raw counts)"
   ) +
   theme_minimal()
 
@@ -516,7 +516,7 @@ cor(plot_df$Ctnnal1, plot_df$Hmga2, method = "pearson")
 # rows = genes, columns = samples
 
 # Transpose for correlation: genes as rows, samples as columns
-expr_mat <- as.data.frame(t(hsc))
+expr_mat <- as.data.frame(t(cts3))
 
 # Sanity check
 if (!"Ctnnal1" %in% colnames(expr_mat)) stop("Ctnnal1 not found in dataset")
