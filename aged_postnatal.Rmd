@@ -572,3 +572,140 @@ ggplot(top_df, aes(x = Gene, y = Correlation)) +
 
 
 ```
+
+```{r 8/22/2025}
+# ==============================
+# Bulk RNA-seq DESeq2 analysis
+# ==============================
+
+# Load packages
+library(DESeq2)
+library(tidyverse)
+library(pheatmap)
+library(matrixStats)  # for rowVars
+
+# ---- Load metadata ----
+coldata_raw <- read.csv("combinedcoldata.csv")
+
+# ---- Parse sample names into tidy metadata ----
+coldata <- coldata_raw %>%
+  rowwise() %>%
+  mutate(
+    # Age
+    age = case_when(
+      grepl("^Old", X) ~ "Old",
+      grepl("^Y", X) ~ "Postnatal",
+      grepl("^A", X) ~ "Adult",
+      TRUE ~ NA_character_
+    ),
+    
+    # Cell type
+    celltype = case_when(
+      grepl("HSC", X, ignore.case = TRUE, fixed=TRUE) ~ "HSC",
+      grepl("MPP1", X, ignore.case = TRUE, fixed=TRUE) ~ "MPP1",
+      grepl("MPP2", X, ignore.case = TRUE, fixed=TRUE) ~ "MPP2",
+      grepl("MKP", X, ignore.case = TRUE, fixed=TRUE) ~ "MkP",
+      grepl("H", X) ~ "HSC",
+      grepl("1", X) ~ "MPP1",
+      grepl("2", X) ~ "MPP2",
+      grepl("M", X, ignore.case = TRUE) ~ "MkP",
+      TRUE ~ NA_character_
+    ),
+    
+    # GFP
+    GFP = case_when(
+      # Old samples
+      grepl("POS", X, ignore.case = TRUE) ~ "POS",
+      grepl("NEG", X, ignore.case = TRUE) ~ "NEG",
+      # Y samples
+      grepl("^Y.*P", X) ~ "POS",
+      grepl("^Y.*N", X) ~ "NEG",
+      # A samples → all NEG
+      grepl("^A", X) ~ "NEG",
+      TRUE ~ NA_character_
+    ),
+    
+    # Replicate
+    replicate = sub(".*[_-](\\d+)$", "\\1", X)
+  ) %>%
+  ungroup()
+
+# Keep only complete metadata
+coldata <- coldata %>% filter(!is.na(age) & !is.na(celltype) & !is.na(GFP))
+
+# Standardize sample names to match counts file (replace "-" with "." for old samples)
+rownames(coldata) <- gsub("-", ".", coldata$X)
+
+# ---- Load counts ----
+counts <- read.csv("combinedcounts.csv", row.names = 1)
+
+# Align counts and metadata
+common_samples <- intersect(rownames(coldata), colnames(counts))
+coldata <- coldata[common_samples, ]
+counts <- counts[, common_samples]
+
+# ---- Build DESeq2 dataset ----
+dds <- DESeqDataSetFromMatrix(
+  countData = counts,
+  colData = coldata,
+  design = ~ age + celltype + GFP
+)
+
+# Prefilter low counts
+dds <- dds[rowSums(counts(dds)) > 10, ]
+
+# Run DESeq2
+dds <- DESeq(dds)
+
+# ---- PCA ----
+vsd <- vst(dds)
+pcaData <- plotPCA(vsd, intgroup = c("age","celltype","GFP"), returnData = TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+# Save PCA as object
+pca <- ggplot(pcaData, aes(PC1, PC2, color=age, shape=celltype, alpha=GFP)) +
+  geom_point(size=3) +
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")) +
+  theme_bw()
+pca
+
+# ---- Heatmap of top variable genes ----
+topVarGenes <- head(order(rowVars(assay(vsd)), decreasing=TRUE), 500)
+
+heatmap <- pheatmap(
+  assay(vsd)[topVarGenes, ],
+  cluster_rows=TRUE,
+  show_rownames=FALSE,
+  cluster_cols=TRUE,
+  annotation_col=as.data.frame(coldata),
+  silent = TRUE
+)
+heatmap
+
+# ---- Key contrasts for HSC GFP+ ----
+hsc_gfp_pos <- coldata$celltype == "HSC" & coldata$GFP == "POS"
+
+res_postnatal_vs_adult <- results(dds,
+    contrast = c("age","Postnatal","Adult"),
+    subset = hsc_gfp_pos
+)
+
+res_old_vs_adult <- results(dds,
+    contrast = c("age","Old","Adult"),
+    subset = hsc_gfp_pos
+)
+
+res_old_vs_postnatal <- results(dds,
+    contrast = c("age","Old","Postnatal"),
+    subset = hsc_gfp_pos
+)
+
+# ---- Save results ----
+write.csv(as.data.frame(res_postnatal_vs_adult), "res_postnatal_vs_adult.csv")
+write.csv(as.data.frame(res_old_vs_adult), "res_old_vs_adult.csv")
+write.csv(as.data.frame(res_old_vs_postnatal), "res_old_vs_postnatal.csv")
+
+```
+
+
