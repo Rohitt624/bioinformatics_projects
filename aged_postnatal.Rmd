@@ -574,16 +574,6 @@ ggplot(top_df, aes(x = Gene, y = Correlation)) +
 ```
 
 ```{r 8/22/2025}
-# ==============================
-# Bulk RNA-seq DESeq2 analysis
-# ==============================
-
-# Load packages
-library(DESeq2)
-library(tidyverse)
-library(pheatmap)
-library(matrixStats)  # for rowVars
-
 # ---- Load metadata ----
 coldata_raw <- read.csv("combinedcoldata.csv")
 
@@ -620,6 +610,7 @@ coldata <- coldata_raw %>%
       # Y samples
       grepl("^Y.*P", X) ~ "POS",
       grepl("^Y.*N", X) ~ "NEG",
+      grepl("YH", X) ~ "POS",
       # A samples → all NEG
       grepl("^A", X) ~ "NEG",
       TRUE ~ NA_character_
@@ -663,42 +654,56 @@ pcaData <- plotPCA(vsd, intgroup = c("age","celltype","GFP"), returnData = TRUE)
 percentVar <- round(100 * attr(pcaData, "percentVar"))
 
 # Save PCA as object
-pca <- ggplot(pcaData, aes(PC1, PC2, color=age, shape=celltype, alpha=GFP)) +
+pca <- ggplot(pcaData, aes(PC1, PC2, color=age, shape=celltype, alpha=ifelse(celltype == "HSC", 1, 0.4))) +
   geom_point(size=3) +
-  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
-  ylab(paste0("PC2: ",percentVar[2],"% variance")) +
-  theme_bw()
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  theme_bw() + 
+  guides(alpha = "none")
 pca
 
 # ---- Heatmap of top variable genes ----
-topVarGenes <- head(order(rowVars(assay(vsd)), decreasing=TRUE), 500)
+# Get variance per gene
+geneVars <- rowVars(assay(vsd))
 
+# Drop NAs
+geneVars <- geneVars[!is.na(geneVars)]
+
+# Select top 500 variable genes (or fewer if not enough)
+topVarGenes <- head(order(geneVars, decreasing = TRUE), 500)
+
+# Check sample alignment before plotting
+stopifnot(all(colnames(assay(vsd)) == rownames(coldata)))
+
+# Make heatmap
 heatmap <- pheatmap(
   assay(vsd)[topVarGenes, ],
-  cluster_rows=TRUE,
-  show_rownames=FALSE,
-  cluster_cols=TRUE,
-  annotation_col=as.data.frame(coldata),
+  cluster_rows = TRUE,
+  show_rownames = FALSE,
+  cluster_cols = TRUE,
+  annotation_col = coldata,
   silent = TRUE
 )
-heatmap
 
 # ---- Key contrasts for HSC GFP+ ----
-hsc_gfp_pos <- coldata$celltype == "HSC" & coldata$GFP == "POS"
+# Subset to HSC & GFP+
+hscsamples <- rownames(coldata[coldata$celltype == "HSC", ])
 
-res_postnatal_vs_adult <- results(dds,
-    contrast = c("age","Postnatal","Adult"),
-    subset = hsc_gfp_pos
+dds_hsc_gfp_pos <- dds[, hscsamples]
+
+dds_hsc_gfp_pos <- DESeq(dds_hsc_gfp_pos)
+
+# Now run contrast
+res_postnatal_vs_adult <- results(
+  dds_hsc_gfp_pos,
+  contrast = c("age", "Postnatal", "Adult")
+)
+res_old_vs_adult <- results(dds_hsc_gfp_pos,
+    contrast = c("age","Old","Adult")
 )
 
-res_old_vs_adult <- results(dds,
-    contrast = c("age","Old","Adult"),
-    subset = hsc_gfp_pos
-)
-
-res_old_vs_postnatal <- results(dds,
+res_old_vs_postnatal <- results(dds_hsc_gfp_pos,
     contrast = c("age","Old","Postnatal"),
-    subset = hsc_gfp_pos
 )
 
 # ---- Save results ----
