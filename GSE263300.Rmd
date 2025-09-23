@@ -19,13 +19,13 @@ library(ggbreak)
 library(ggcyto)
 library(DESeq2)
 options(future.globals.maxSize = 5000 * 1024^2)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
 rnk <- rnk[!is.na(rnk)]
 gmt <- gmtPathways(gmt_path)
-gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 10, maxSize = 500)
 gseadf <- as.data.frame(gsea)
 list_columns <- sapply(gseadf, is.list)
 gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
@@ -85,10 +85,94 @@ so <- RunUMAP(so, dims = 1:30)
 seuratobject rdata file has already run through this point
 
 ```{r Visualize}
-DimPlot(so, group.by = "label")
-VlnPlot(so, features = c("TER119"), group.by = "label")
-FeaturePlot(so, features = c("MAP3K7"), split.by = "dataset")
+DimPlot(ery, group.by = "label")
+VlnPlot(ery, features = c("CD44"), split.by = "dataset")
+VlnPlot(so, features = c("MAP3K7"), split.by = "dataset")
+
+DoHeatmap(
+  ery, 
+  features = c("SLAMF1", "ENG", "TFRC", "ITGA2B"), 
+  group.by = "seurat_clusters", 
+  split.by = "dataset"
+)
+
+# Create a new metadata column with combined identity
+ery$cluster_dataset <- paste0("Cluster", ery$seurat_clusters, "_", ery$dataset)
+
+# Now use that column name in AverageExpression
+avg_exp <- AverageExpression(
+  ery,
+  features = c("SLAMF1", "ENG", "TFRC", "ITGA2B, CD44"),
+  group.by = "cluster_dataset"
+)$RNA
+
+# Convert to a tidy dataframe
+library(tibble)
+library(tidyr)
+avg_exp_df <- avg_exp %>%
+  t() %>%
+  as.data.frame() %>%
+  rownames_to_column("cluster_dataset") %>%
+  separate(cluster_dataset, into = c("cluster", "dataset"), sep = "_")
+
+head(avg_exp_df)
+
+heatmap_df <- avg_exp_df %>%
+  pivot_longer(
+    cols = c("SLAMF1", "ENG", "TFRC", "ITGA2B"),
+    names_to = "gene",
+    values_to = "avg_expression"
+  )
+
+# Rescale expression within each gene (0–1 per gene)
+heatmap_df <- heatmap_df %>%
+  group_by(gene) %>%
+  mutate(scaled_expression = scales::rescale(avg_expression)) %>%
+  ungroup()
+
+# Heatmap with independent scales per gene
+ggplot(heatmap_df, aes(x = cluster, y = dataset, fill = scaled_expression)) +
+  geom_tile(color = "white") +
+  facet_wrap(~gene, scales = "free_x") +
+  scale_fill_gradient(low = "white", high = "red") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+
+# Define genes of interest
+genes <- c("SLAMF1", "ENG", "TFRC", "ITGA2B")
+
+# Create cluster-dataset identifier
+so$cluster_dataset <- paste0("Cluster", so$seurat_clusters, "_", so$dataset)
+
+# Get average expression per cluster-dataset
+avg_exp <- AverageExpression(
+  so,
+  features = genes,
+  group.by = "cluster_dataset"
+)$RNA
+
+# Make sure rows = cluster-dataset, cols = genes
+scores <- as.data.frame(t(avg_exp))
+
+# pheatmap
+pheatmap(scores,
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         scale = "row",   # normalize within each gene (row)
+         color = colorRampPalette(c("blue", "white", "red"))(100),
+         treeheight_row = 0,
+         treeheight_col = 0,
+         main = "Average Expression Heatmap",
+         filename = "avg_expression_heatmap.png")
 ```
+
+SLAMF1 = CD150
+ENG = CD105
+TFRC = CD71
+
 
 ```{r Cluster Identification}
 deg <- FindAllMarkers(so)
@@ -146,7 +230,7 @@ FeatureScatter(so, feature1 = c("MAP3K7"), feature2 = c("RIPK1")) +
 ```
 
 ```{r subset and recluster erythroid}
-ery <- subset(so, so$label == c("HSC/HSPC", "MEP/Erythroid"))
+ery <- subset(so, so$label == c("MEP/Erythroid"))
 ery <- NormalizeData(ery)
 ery <- FindVariableFeatures(ery)
 ery <- ScaleData(ery)
@@ -155,16 +239,41 @@ ery <- FindNeighbors(ery, dims = 1:30)
 ery <- FindClusters(ery, resolution = 0.8)
 ery <- RunUMAP(ery, dims = 1:30)
 
-DimPlot(ery)
+DimPlot(ery, split.by = "dataset")
+
+Idents(ery) <- "dataset"
+erymarkers <- FindMarkers(ery, ident.1 = "SF3B1", ident.2 = "AAVS")
+
+hsc <- subset(so, so$label == c("HSC/HSPC"))
+hsc <- NormalizeData(hsc)
+hsc <- FindVariableFeatures(hsc)
+hsc <- ScaleData(hsc)
+hsc <- RunPCA(hsc)
+hsc <- FindNeighbors(hsc, dims = 1:30)
+hsc <- FindClusters(hsc, resolution = 0.8)
+hsc <- RunUMAP(hsc, dims = 1:30)
+
+DimPlot(hsc, split.by = "label")
+
+Idents(hsc) <- "dataset"
+hscmarkers <- FindMarkers(hsc, ident.1 = "SF3B1", ident.2 = "AAVS")
+
+write.csv(erymarkers, "sf3b1_ery_deg.csv")
+write.csv(hscmarkers, "sf3b1_hsc_deg.csv")
+
+Idents(ery) <- "seurat_clusters"
 erydeg <- FindAllMarkers(ery)
+Idents(hsc) <- "seurat_clusters"
+hscdeg <- FindAllMarkers(hsc)
+
+write.csv(erydeg, "clustermarker_ery.csv")
+write.csv(hscdeg, "clustermarker_hsc.csv")
 ```
 
 ```{r sf3b1 deg}
-Idents(ery) <- "dataset"
-sf3b1markers <- FindMarkers(ery, ident.1 = "SF3B1", ident.2 = "AAVS")
-sf3b1markers <- subset(sf3b1markers, sf3b1markers$p_val_adj < 0.1)
-run_gsea(sf3b1markers, "reactome_go_gsea.gmt", "ery_sf3b1_gsea.csv")
-write.csv(sf3b1markers, "ery_sf3b1_degs.csv")
+run_gsea(hscmarkers, "reactome_go_gsea.gmt", "hsc_sf3b1_gsea.csv")
+run_gsea(erymarkers, "reactome_go_gsea.gmt", "ery_sf3b1_gsea.csv")
+
 ```
 
 ```{r subset and recluster erythroid}
