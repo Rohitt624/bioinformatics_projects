@@ -19,7 +19,7 @@ library(ggbreak)
 library(ggcyto)
 library(DESeq2)
 options(future.globals.maxSize = 5000 * 1024^2)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -86,8 +86,9 @@ seuratobject rdata file has already run through this point
 
 ```{r Visualize}
 DimPlot(ery, group.by = "label")
-VlnPlot(ery, features = c("CD44"), split.by = "dataset")
+VlnPlot(ery, features = c("ENG"))
 VlnPlot(so, features = c("MAP3K7"), split.by = "dataset")
+RidgePlot(ery, features = c("ENG"))
 
 DoHeatmap(
   ery, 
@@ -141,18 +142,51 @@ ggplot(heatmap_df, aes(x = cluster, y = dataset, fill = scaled_expression)) +
     panel.grid = element_blank()
   )
 
+DefaultAssay(ery) <- "RNA"
+Idents(ery) <- "seurat_clusters"
 # Define genes of interest
-genes <- c("SLAMF1", "ENG", "TFRC", "ITGA2B")
+genes <- c("GATA1", "SLAMF1", "ENG", "TFRC", "HBB", "ITGA2B")
 
 # Create cluster-dataset identifier
-so$cluster_dataset <- paste0("Cluster", so$seurat_clusters, "_", so$dataset)
+ery$cluster_dataset <- paste0("Cluster", ery$seurat_clusters, "_", ery$dataset)
 
-# Get average expression per cluster-dataset
-avg_exp <- AverageExpression(
-  so,
-  features = genes,
-  group.by = "cluster_dataset"
-)$RNA
+# get the unique labels that actually exist
+labs <- unique(ery$cluster_dataset)
+
+# extract the cluster numbers for sorting
+clust_num <- as.numeric(sub("Cluster([0-9]+).*", "\\1", labs))
+
+# extract condition (_AAVS or _SF3B1)
+cond <- sub(".*(_AAVS|_SF3B1)", "\\1", labs)
+
+# order: first by cluster number, then by condition
+ord <- order(clust_num, cond)
+
+# reassign factor with correct order
+ery$cluster_dataset <- factor(ery$cluster_dataset, levels = labs[ord])
+
+expr_data <- FetchData(
+  ery,
+  vars = c("seurat_clusters", genes)
+)
+
+# 2. Average expression per cluster_dataset
+avg_expr <- expr_data %>%
+  group_by(seurat_clusters) %>%
+  summarise(across(all_of(genes), mean))
+
+# convert to matrix with cluster_dataset as rownames
+mat <- as.matrix(avg_expr[,-1])
+rownames(mat) <- avg_expr$seurat_clusters
+
+# 3. Plot heatmap
+pheatmap(mat,
+         cluster_rows = FALSE,   # keep your manual ordering
+         cluster_cols = FALSE,    # cluster genes if you like
+         scale = "column",
+         color = colorRampPalette(c("blue", "white", "red"))(100),
+         treeheight_row = 0,
+         treeheight_col = 0)          # optional: normalize per gene
 
 # Make sure rows = cluster-dataset, cols = genes
 scores <- as.data.frame(t(avg_exp))
@@ -167,6 +201,26 @@ pheatmap(scores,
          treeheight_col = 0,
          main = "Average Expression Heatmap",
          filename = "avg_expression_heatmap.png")
+
+
+
+cluster_ids <- levels(so$seurat_clusters)
+scores <- sapply(names(genesets), function(name) {
+  score_col <- paste0(name, "1")
+  tapply(so[[score_col]][,1], so$seurat_clusters, mean)
+})
+scores <- as.data.frame(scores)
+rownames(scores) <- cluster_ids
+
+pheatmap(scores,
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         scale = "row",
+         color = colorRampPalette(c("blue", "white", "red"))(100),
+         treeheight_row = 0,
+         treeheight_col = 0,
+         main = "Module Score Heatmap",
+         filename = "modulescoreheatmap.png")
 ```
 
 SLAMF1 = CD150
@@ -238,6 +292,21 @@ ery <- RunPCA(ery)
 ery <- FindNeighbors(ery, dims = 1:30)
 ery <- FindClusters(ery, resolution = 0.8)
 ery <- RunUMAP(ery, dims = 1:30)
+
+# 1. Run SCTransform and create a new assay (e.g. "sct")
+ery <- SCTransform(
+  ery,
+  assay = "RNA",         # or whichever assay holds raw counts
+  new.assay.name = "sct",
+  vars.to.regress = NULL,  # add regressors if needed
+  verbose = FALSE
+)
+
+# 2. Switch default assay to "sct"
+DefaultAssay(ery) <- "sct"
+
+# 3. Fetch normalized expression for your genes
+expr_data <- FetchData(ery, vars = c("cluster_dataset", genes))
 
 DimPlot(ery, split.by = "dataset")
 
