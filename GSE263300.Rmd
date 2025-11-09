@@ -85,142 +85,12 @@ so <- RunUMAP(so, dims = 1:30)
 seuratobject rdata file has already run through this point
 
 ```{r Visualize}
-DimPlot(ery, group.by = "label")
-VlnPlot(ery, features = c("ENG"))
-VlnPlot(so, features = c("MAP3K7"), split.by = "dataset")
-RidgePlot(ery, features = c("ENG"))
+umap <- DimPlot(so, group.by = "seurat_clusters")
+ggsave("umap_cluster.png", plot = umap, dpi = 600)
 
-DoHeatmap(
-  ery, 
-  features = c("SLAMF1", "ENG", "TFRC", "ITGA2B"), 
-  group.by = "seurat_clusters", 
-  split.by = "dataset"
-)
-
-# Create a new metadata column with combined identity
-ery$cluster_dataset <- paste0("Cluster", ery$seurat_clusters, "_", ery$dataset)
-
-# Now use that column name in AverageExpression
-avg_exp <- AverageExpression(
-  ery,
-  features = c("SLAMF1", "ENG", "TFRC", "ITGA2B, CD44"),
-  group.by = "cluster_dataset"
-)$RNA
-
-# Convert to a tidy dataframe
-library(tibble)
-library(tidyr)
-avg_exp_df <- avg_exp %>%
-  t() %>%
-  as.data.frame() %>%
-  rownames_to_column("cluster_dataset") %>%
-  separate(cluster_dataset, into = c("cluster", "dataset"), sep = "_")
-
-head(avg_exp_df)
-
-heatmap_df <- avg_exp_df %>%
-  pivot_longer(
-    cols = c("SLAMF1", "ENG", "TFRC", "ITGA2B"),
-    names_to = "gene",
-    values_to = "avg_expression"
-  )
-
-# Rescale expression within each gene (0–1 per gene)
-heatmap_df <- heatmap_df %>%
-  group_by(gene) %>%
-  mutate(scaled_expression = scales::rescale(avg_expression)) %>%
-  ungroup()
-
-# Heatmap with independent scales per gene
-ggplot(heatmap_df, aes(x = cluster, y = dataset, fill = scaled_expression)) +
-  geom_tile(color = "white") +
-  facet_wrap(~gene, scales = "free_x") +
-  scale_fill_gradient(low = "white", high = "red") +
-  theme_minimal() +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    panel.grid = element_blank()
-  )
-
-DefaultAssay(ery) <- "RNA"
-Idents(ery) <- "seurat_clusters"
-# Define genes of interest
-genes <- c("GATA1", "SLAMF1", "ENG", "TFRC", "HBB", "ITGA2B")
-
-# Create cluster-dataset identifier
-ery$cluster_dataset <- paste0("Cluster", ery$seurat_clusters, "_", ery$dataset)
-
-# get the unique labels that actually exist
-labs <- unique(ery$cluster_dataset)
-
-# extract the cluster numbers for sorting
-clust_num <- as.numeric(sub("Cluster([0-9]+).*", "\\1", labs))
-
-# extract condition (_AAVS or _SF3B1)
-cond <- sub(".*(_AAVS|_SF3B1)", "\\1", labs)
-
-# order: first by cluster number, then by condition
-ord <- order(clust_num, cond)
-
-# reassign factor with correct order
-ery$cluster_dataset <- factor(ery$cluster_dataset, levels = labs[ord])
-
-expr_data <- FetchData(
-  ery,
-  vars = c("seurat_clusters", genes)
-)
-
-# 2. Average expression per cluster_dataset
-avg_expr <- expr_data %>%
-  group_by(seurat_clusters) %>%
-  summarise(across(all_of(genes), mean))
-
-# convert to matrix with cluster_dataset as rownames
-mat <- as.matrix(avg_expr[,-1])
-rownames(mat) <- avg_expr$seurat_clusters
-
-# 3. Plot heatmap
-pheatmap(mat,
-         cluster_rows = FALSE,   # keep your manual ordering
-         cluster_cols = FALSE,    # cluster genes if you like
-         scale = "column",
-         color = colorRampPalette(c("blue", "white", "red"))(100),
-         treeheight_row = 0,
-         treeheight_col = 0)          # optional: normalize per gene
-
-# Make sure rows = cluster-dataset, cols = genes
-scores <- as.data.frame(t(avg_exp))
-
-# pheatmap
-pheatmap(scores,
-         cluster_rows = TRUE,
-         cluster_cols = TRUE,
-         scale = "row",   # normalize within each gene (row)
-         color = colorRampPalette(c("blue", "white", "red"))(100),
-         treeheight_row = 0,
-         treeheight_col = 0,
-         main = "Average Expression Heatmap",
-         filename = "avg_expression_heatmap.png")
-
-
-
-cluster_ids <- levels(so$seurat_clusters)
-scores <- sapply(names(genesets), function(name) {
-  score_col <- paste0(name, "1")
-  tapply(so[[score_col]][,1], so$seurat_clusters, mean)
-})
-scores <- as.data.frame(scores)
-rownames(scores) <- cluster_ids
-
-pheatmap(scores,
-         cluster_rows = TRUE,
-         cluster_cols = TRUE,
-         scale = "row",
-         color = colorRampPalette(c("blue", "white", "red"))(100),
-         treeheight_row = 0,
-         treeheight_col = 0,
-         main = "Module Score Heatmap",
-         filename = "modulescoreheatmap.png")
+umap_label <- DimPlot(so, group.by = "label")
+umap_label
+ggsave("umap_label.png", plot = umap_label, dpi = 600)
 ```
 
 SLAMF1 = CD150
@@ -246,6 +116,8 @@ genesets <- list(hsc = hsc,
                  mk = mk,
                  mast = mast,
                  eobp = eobp)
+
+write.csv(genesets, "celltypelabels.csv")
 
 for (name in names(genesets)) {
   so <- AddModuleScore(so, features = list(genesets[[name]]), name = name)
@@ -281,6 +153,25 @@ Idents(so) <- "label"
 FeatureScatter(so, feature1 = c("MAP3K7"), feature2 = c("RIPK1")) + 
   scale_x_flowjo_biexp() + 
   scale_y_flowjo_biexp()
+
+# Step 1: create a combined grouping factor
+so$group <- paste(so$label, so$dataset, sep = "_")
+
+# Step 2: run pseudobulk expression for MAP3K7
+tak1 <- PseudobulkExpression(
+  so,
+  assay = "RNA",
+  group.by = "group",
+  features = "MAP3K7"
+)
+
+# Step 3: convert to a tidy table with cluster and dataset split out
+expr_table <- data.frame(
+  cluster = sapply(strsplit(rownames(tak1), "_"), `[`, 1),
+  dataset = sapply(strsplit(rownames(tak1), "_"), `[`, 2),
+  expression = tak1[, "MAP3K7"]
+)
+write.csv(tak1, "tak1_expr.csv")
 ```
 
 ```{r subset and recluster erythroid}
@@ -313,6 +204,7 @@ DimPlot(ery, split.by = "dataset")
 Idents(ery) <- "dataset"
 erymarkers <- FindMarkers(ery, ident.1 = "SF3B1", ident.2 = "AAVS")
 
+
 hsc <- subset(so, so$label == c("HSC/HSPC"))
 hsc <- NormalizeData(hsc)
 hsc <- FindVariableFeatures(hsc)
@@ -331,33 +223,141 @@ write.csv(erymarkers, "sf3b1_ery_deg.csv")
 write.csv(hscmarkers, "sf3b1_hsc_deg.csv")
 
 Idents(ery) <- "seurat_clusters"
+ery$splitcluster <- paste(ery$seurat_clusters, ery$dataset, sep = "_")
+Idents(ery) <- "splitcluster"
 erydeg <- FindAllMarkers(ery)
 Idents(hsc) <- "seurat_clusters"
+hsc$splitcluster <- paste(hsc$seurat_clusters, hsc$dataset, sep = "_")
+Idents(hsc) <- "splitcluster"
 hscdeg <- FindAllMarkers(hsc)
 
 write.csv(erydeg, "clustermarker_ery.csv")
 write.csv(hscdeg, "clustermarker_hsc.csv")
+
+Idents(ery) <- "seurat_clusters"
+erycluster <- FindAllMarkers(ery)
+Idents(hsc) <- "seurat_clusters"
+hsccluster <- FindAllMarkers(hsc)
 ```
 
 ```{r sf3b1 deg}
-run_gsea(hscmarkers, "reactome_go_gsea.gmt", "hsc_sf3b1_gsea.csv")
-run_gsea(erymarkers, "reactome_go_gsea.gmt", "ery_sf3b1_gsea.csv")
+# Add -log10 adjusted p-value
+erymarkers$neglog10p <- -log10(erymarkers$p_val_adj)
+
+# Volcano plot
+eryvol <- ggplot(erymarkers, aes(x = avg_log2FC, y = neglog10p)) +
+  geom_point(color = "gray") +
+  geom_point(data = erymarkers["MAP3K7", , drop = FALSE],
+             aes(x = avg_log2FC, y = neglog10p),
+             color = "red", size = 3) +
+  geom_text(data = erymarkers["MAP3K7", , drop = FALSE],
+            aes(x = avg_log2FC, y = neglog10p, label = "MAP3K7"),
+            vjust = -1, color = "red") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "blue") +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "green") +
+  labs(title = "Erythroid SF3B1 vs AAVS",
+       x = "Log2 Fold Change", y = "-Log10 Adjusted P-value")
+
+ggsave("ery_tak1_volcano.png", plot = eryvol, dpi = 600)
+
+# Add -log10 adjusted p-value
+hscmarkers$neglog10p <- -log10(hscmarkers$p_val_adj)
+
+# Volcano plot
+hscvol <- ggplot(hscmarkers, aes(x = avg_log2FC, y = neglog10p)) +
+  geom_point(color = "gray") +
+  geom_point(data = hscmarkers["MAP3K7", , drop = FALSE],
+             aes(x = avg_log2FC, y = neglog10p),
+             color = "red", size = 3) +
+  geom_text(data = hscmarkers["MAP3K7", , drop = FALSE],
+            aes(x = avg_log2FC, y = neglog10p, label = "MAP3K7"),
+            vjust = -1, color = "red") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "blue") +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "green") +
+  labs(title = "HSC/HSPC SF3B1 vs AAVS",
+       x = "Log2 Fold Change", y = "-Log10 Adjusted P-value")
+
+ggsave("hsc_tak1_volcano.png", plot = hscvol, dpi = 600)
 
 ```
 
-```{r subset and recluster erythroid}
-ery <- subset(so, so$label == c("HSC/HSPC", "MEP/Erythroid"))
-ery <- NormalizeData(ery)
-ery <- FindVariableFeatures(ery)
-ery <- ScaleData(ery)
-ery <- RunPCA(ery)
-ery <- FindNeighbors(ery, dims = 1:30)
-ery <- FindClusters(ery, resolution = 0.8)
-ery <- RunUMAP(ery, dims = 1:30)
+```{r label erythroid}
+erymarker <- read.csv("ErythroidMarkers.csv")
 
-DimPlot(ery)
-erydeg <- FindAllMarkers(ery)
+genesets <- list(BFU_E = erymarker$BFUE,
+                 CFU_E = erymarker$CFUE,
+                 ProE = erymarker$ProE,
+                 BasoE = erymarker$BasoE,
+                 PolyE = erymarker$PolyE,
+                 OrthoE = erymarker$OrthoE)
+
+for (name in names(genesets)) {
+  ery <- AddModuleScore(ery, features = list(genesets[[name]]), name = name)
+}
+
+cluster_ids <- levels(ery$seurat_clusters)
+scores <- sapply(names(genesets), function(name) {
+  score_col <- paste0(name, "1")
+  tapply(ery[[score_col]][,1], ery$seurat_clusters, mean)
+})
+scores <- as.data.frame(scores)
+rownames(scores) <- cluster_ids
+
+ery <- SCTransform(
+  ery,
+  assay = "RNA",         # or whichever assay holds raw counts
+  new.assay.name = "sct",
+  vars.to.regress = NULL,  # add regressors if needed
+  verbose = FALSE
+)
+
+# 2. Switch default assay to "sct"
+DefaultAssay(ery) <- "RNA"
+
+RidgePlot(ery, features = "CFU_E1")
+
+pheatmap(scores,
+         cluster_rows = TRUE,
+         cluster_cols = FALSE,
+         scale = "row",
+         color = colorRampPalette(c("blue", "white", "red"))(100),
+         treeheight_row = 0,
+         treeheight_col = 0,
+         main = "Module Score Heatmap",
+         filename = "modulescoreheatmap_ery2.png")
+
+FeaturePlot(ery, features = "ProE1")
+
 ```
+
+```{r label erythroid in hspc}
+
+for (name in names(genesets)) {
+  hsc <- AddModuleScore(hsc, features = list(genesets[[name]]), name = name)
+}
+
+cluster_ids <- levels(hsc$seurat_clusters)
+scores <- sapply(names(genesets), function(name) {
+  score_col <- paste0(name, "1")
+  tapply(hsc[[score_col]][,1], hsc$seurat_clusters, mean)
+})
+scores <- as.data.frame(scores)
+rownames(scores) <- cluster_ids
+
+pheatmap(scores,
+         cluster_rows = TRUE,
+         cluster_cols = FALSE,
+         scale = "column",
+         color = colorRampPalette(c("blue", "white", "red"))(100),
+         treeheight_row = 0,
+         treeheight_col = 0,
+         main = "Module Score Heatmap",
+         filename = "modulescoreheatmap_hsc2.png")
+
+
+
+```
+
 
 ```{r sf3b1 deg}
 Idents(ery) <- "dataset"
@@ -367,4 +367,19 @@ run_gsea(sf3b1markers, "reactome_go_gsea.gmt", "ery_sf3b1_gsea.csv")
 write.csv(sf3b1markers, "ery_sf3b1_degs.csv")
 ```
 
+```{r DEG dot plot}
 
+
+degplot <- ggplot(tf, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+degplot + geom_point(size=5, shape=21) + 
+ theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.1,2.1)) + 
+  labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
+  xlim(0,5.1)
+
+```
