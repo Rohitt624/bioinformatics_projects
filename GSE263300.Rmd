@@ -18,8 +18,9 @@ library(scales)
 library(ggbreak)
 library(ggcyto)
 library(DESeq2)
+library(ggrepel)
 options(future.globals.maxSize = 5000 * 1024^2)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -44,7 +45,7 @@ write.csv(gseadf, output_gsea)
 }
 
 EnsIDReplace2 <- function(input, output){
-  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rna <- input
   rnanames <- rownames(rna)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
@@ -102,14 +103,14 @@ TFRC = CD71
 deg <- FindAllMarkers(so)
 write.csv(deg, "clustermarkers.csv")
 
-hsc <- c("AVP", "HLF", "PROM1")
+hsc_genes <- c("AVP", "HLF", "PROM1")
 hspc <- c("CD34", "PROM1")
 gmp <- c("MPO", "ELANE", "S100A8", "S100A9")
 mep <- c("TFRC", "KLF1", "GATA1")
 mk <- c("PF4", "ITGA2B", "GP9")
 mast <- c("MITF", "KIT", "KRT1")
 eobp <- c("IL3RA", "IL5RA", "FCER1A")
-genesets <- list(hsc = hsc,
+genesets <- list(hsc = hsc_genes,
                  hspc = hspc,
                  gmp = gmp,
                  mep = mep,
@@ -202,7 +203,7 @@ expr_data <- FetchData(ery, vars = c("cluster_dataset", genes))
 DimPlot(ery, split.by = "dataset")
 
 Idents(ery) <- "dataset"
-erymarkers <- FindMarkers(ery, ident.1 = "SF3B1", ident.2 = "AAVS")
+erymarkers <- FindMarkers(ery, ident.1 = "SF3B1", ident.2 = "AAVS", logfc.threshold = 0)
 
 
 hsc <- subset(so, so$label == c("HSC/HSPC"))
@@ -217,7 +218,7 @@ hsc <- RunUMAP(hsc, dims = 1:30)
 DimPlot(hsc, split.by = "label")
 
 Idents(hsc) <- "dataset"
-hscmarkers <- FindMarkers(hsc, ident.1 = "SF3B1", ident.2 = "AAVS")
+hscmarkers <- FindMarkers(hsc, ident.1 = "SF3B1", ident.2 = "AAVS", logfc.threshold = 0)
 
 write.csv(erymarkers, "sf3b1_ery_deg.csv")
 write.csv(hscmarkers, "sf3b1_hsc_deg.csv")
@@ -240,56 +241,110 @@ Idents(hsc) <- "seurat_clusters"
 hsccluster <- FindAllMarkers(hsc)
 ```
 
+```{r}
+Idents(ery) <- "dataset"
+erymarkers <- FindMarkers(ery, ident.1 = "SF3B1", ident.2 = "AAVS", logfc.threshold = 0)
+
+Idents(hsc) <- "dataset"
+hscmarkers <- FindMarkers(hsc, ident.1 = "SF3B1", ident.2 = "AAVS", logfc.threshold = 0)
+
+Idents(so) <- "dataset"
+so_sf3b1markers <- FindMarkers(so, ident.1 = "SF3B1", ident.2 = "AAVS", logfc.threshold = 0)
+
+```
+
+
 ```{r sf3b1 deg}
+
+# Add -log10 adjusted p-value
+so_sf3b1markers$neglog10p <- -log10(so_sf3b1markers$p_val_adj)
+
+# 1. Define your genes of interest in a vector
+genes_to_highlight <- c("MAP3K7", "ABCB7", "TMEM14C", "UBA1")
+
+highlight_data <- so_sf3b1markers[rownames(so_sf3b1markers) %in% genes_to_highlight, , drop = FALSE]
+
+sovol <- ggplot(so_sf3b1markers, aes(x = avg_log2FC, y = neglog10p)) +
+  geom_point(color = "gray") +
+  geom_point(data = highlight_data,
+             aes(x = avg_log2FC, y = neglog10p),
+             color = "red", size = 3) +
+  geom_text_repel(data = highlight_data,
+                  aes(x = avg_log2FC, y = neglog10p, 
+                      label = rownames(highlight_data)),
+                  vjust = -1, color = "red",
+                  max.overlaps = Inf) + 
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "blue") +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "green") +
+  labs(title = "SF3B1 vs AAVS",
+       x = "Log2 Fold Change", y = "-Log10 Adjusted P-value") +  
+  theme_minimal()
+sovol
+
+ggsave("so_volcano.png", plot = sovol, dpi = 600)
+
 # Add -log10 adjusted p-value
 erymarkers$neglog10p <- -log10(erymarkers$p_val_adj)
+
+ery_highlight_data <- erymarkers[rownames(erymarkers) %in% genes_to_highlight, , drop = FALSE]
 
 # Volcano plot
 eryvol <- ggplot(erymarkers, aes(x = avg_log2FC, y = neglog10p)) +
   geom_point(color = "gray") +
-  geom_point(data = erymarkers["MAP3K7", , drop = FALSE],
+  geom_point(data = ery_highlight_data,
              aes(x = avg_log2FC, y = neglog10p),
              color = "red", size = 3) +
-  geom_text(data = erymarkers["MAP3K7", , drop = FALSE],
-            aes(x = avg_log2FC, y = neglog10p, label = "MAP3K7"),
-            vjust = -1, color = "red") +
+  geom_text_repel(data = ery_highlight_data,
+                  aes(x = avg_log2FC, y = neglog10p, 
+                      label = rownames(ery_highlight_data)),
+                  vjust = -1, color = "red",
+                  max.overlaps = Inf) +
   geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "blue") +
   geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "green") +
   labs(title = "Erythroid SF3B1 vs AAVS",
-       x = "Log2 Fold Change", y = "-Log10 Adjusted P-value")
+       x = "Log2 Fold Change", y = "-Log10 Adjusted P-value") + 
+  theme_minimal()
 
-ggsave("ery_tak1_volcano.png", plot = eryvol, dpi = 600)
+eryvol
+
+ggsave("ery_volcano.png", plot = eryvol, dpi = 600)
 
 # Add -log10 adjusted p-value
 hscmarkers$neglog10p <- -log10(hscmarkers$p_val_adj)
+hsc_highlight_data <- hscmarkers[rownames(hscmarkers) %in% genes_to_highlight, , drop = FALSE]
 
 # Volcano plot
 hscvol <- ggplot(hscmarkers, aes(x = avg_log2FC, y = neglog10p)) +
   geom_point(color = "gray") +
-  geom_point(data = hscmarkers["MAP3K7", , drop = FALSE],
+  # Use the safe 'hsc_highlight_data' subset
+  geom_point(data = hsc_highlight_data,
              aes(x = avg_log2FC, y = neglog10p),
              color = "red", size = 3) +
-  geom_text(data = hscmarkers["MAP3K7", , drop = FALSE],
-            aes(x = avg_log2FC, y = neglog10p, label = "MAP3K7"),
-            vjust = -1, color = "red") +
+  # Upgraded from geom_text to geom_text_repel for consistency
+  geom_text_repel(data = hsc_highlight_data,
+                  aes(x = avg_log2FC, y = neglog10p, 
+                      label = rownames(hsc_highlight_data)),
+                  vjust = -1, color = "red",
+                  max.overlaps = Inf) +
   geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "blue") +
   geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "green") +
   labs(title = "HSC/HSPC SF3B1 vs AAVS",
-       x = "Log2 Fold Change", y = "-Log10 Adjusted P-value")
+       x = "Log2 Fold Change", y = "-Log10 Adjusted P-value") + 
+  theme_minimal()
 
-ggsave("hsc_tak1_volcano.png", plot = hscvol, dpi = 600)
+hscvol
+
+ggsave("hsc_volcano.png", plot = hscvol, dpi = 600)
 
 ```
 
 ```{r label erythroid}
-erymarker <- read.csv("ErythroidMarkers.csv")
+erymarker <- read.csv("ErythroidProgenitorMarkers.csv")
 
-genesets <- list(BFU_E = erymarker$BFUE,
-                 CFU_E = erymarker$CFUE,
-                 ProE = erymarker$ProE,
-                 BasoE = erymarker$BasoE,
-                 PolyE = erymarker$PolyE,
-                 OrthoE = erymarker$OrthoE)
+genesets <- list(MEP = erymarker$MEP,
+                 BFU_E = erymarker$BFU_E,
+                 CFU_E = erymarker$CFU_E,
+                 ProE = erymarker$ProE)
 
 for (name in names(genesets)) {
   ery <- AddModuleScore(ery, features = list(genesets[[name]]), name = name)
@@ -303,28 +358,19 @@ scores <- sapply(names(genesets), function(name) {
 scores <- as.data.frame(scores)
 rownames(scores) <- cluster_ids
 
-ery <- SCTransform(
-  ery,
-  assay = "RNA",         # or whichever assay holds raw counts
-  new.assay.name = "sct",
-  vars.to.regress = NULL,  # add regressors if needed
-  verbose = FALSE
-)
-
-# 2. Switch default assay to "sct"
-DefaultAssay(ery) <- "RNA"
-
 RidgePlot(ery, features = "CFU_E1")
 
-pheatmap(scores,
+ery_hm <- heatmap(scores,
          cluster_rows = TRUE,
          cluster_cols = FALSE,
          scale = "row",
          color = colorRampPalette(c("blue", "white", "red"))(100),
          treeheight_row = 0,
          treeheight_col = 0,
-         main = "Module Score Heatmap",
-         filename = "modulescoreheatmap_ery2.png")
+         main = "Erythroid Module Score Heatmap")
+ery_hm
+
+ggsave("erymodulescore.png", plot = ery_hm, dpi = 600)
 
 FeaturePlot(ery, features = "ProE1")
 
