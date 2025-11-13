@@ -23,7 +23,7 @@ library(Matrix)
 library(DESeq2)
 library(MAST)
 options(future.globals.maxSize = 5000 * 1024^2)
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -48,7 +48,7 @@ write.csv(gseadf, output_gsea)
 }
 
 EnsIDReplace2 <- function(input, output){
-  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rna <- input
   rnanames <- rownames(rna)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
@@ -328,7 +328,7 @@ eryvol <- ggplot(ery_sf3b1, aes(x = avg_log2FC, y = neglog10p)) +
 
 eryvol
 
-ggsave("ery_volcano.png", plot = eryvol, dpi = 600)
+ggsave("ery_volcano2.png", plot = eryvol, dpi = 600)
 
 # Add -log10 adjusted p-value
 hsc_sf3b1$neglog10p <- -log10(hsc_sf3b1$p_val_adj)
@@ -355,18 +355,23 @@ hscvol <- ggplot(hsc_sf3b1, aes(x = avg_log2FC, y = neglog10p)) +
 
 hscvol
 
-ggsave("hsc_volcano.png", plot = hscvol, dpi = 600)
+ggsave("hsc_volcano2.png", plot = hscvol, dpi = 600)
 
 ```
 
 ```{r TAK1 FC}
+mk_sf3b1$neglog10p <- -log10(mk_sf3b1$p_val_adj)
+gmp_sf3b1$neglog10p <- -log10(gmp_sf3b1$p_val_adj)
+mast_sf3b1$neglog10p <- -log10(mast_sf3b1$p_val_adj)
+eobp_sf3b1$neglog10p <- -log10(eobp_sf3b1$p_val_adj)
+
 a <- so_sf3b1markers["MAP3K7", ]
 b <- ery_sf3b1["MAP3K7", ]
 c <- hsc_sf3b1["MAP3K7", ]
-d <- mk_sf3b1["MAP3K7",]
+d <- mk_sf3b1["MAP3K7", ]
 e <- gmp_sf3b1["MAP3K7", ]
 f <- mast_sf3b1["MAP3K7", ]
-g <- eobp_sf3b1["MAP3K7",]
+g <- eobp_sf3b1["MAP3K7", ]
 MAP3K7 <- rbind(a, b, c, d, e, f, g)
 rownames(MAP3K7) <- c("CD34+", "MEP/Erythroid", "HSC/HSPC", "MEP/Mk", "GMP", "Mast", "EoBP")
 
@@ -380,12 +385,12 @@ tak1 <- ggplot(MAP3K7, aes(y=2^(avg_log2FC), x=rownames(MAP3K7), fill = -log10(p
     plot.title = element_text(hjust = 0.5), 
     axis.text=element_text(color="black", face="bold")
     ) + 
-  scale_y_continuous(limits = c(0, 1.0)) + 
+  scale_y_continuous(limits = c(0, 1.05)) + 
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint = -log10(0.05) ) + 
   labs(x="Celltype", y="Fold Change", title="Change in TAK1 Expression") 
 tak1
 
-ggsave("tak1fc.png", tak1, dpi = 600)
+ggsave("tak1fc2.png", tak1, dpi = 600)
 
 a <- so_sf3b1markers["GATA1", ]
 b <- ery_sf3b1["GATA1", ]
@@ -408,10 +413,13 @@ gata1 <- ggplot(GATA1, aes(y=2^(avg_log2FC), x=rownames(GATA1), fill = -log10(p_
     plot.title = element_text(hjust = 0.5), 
     axis.text=element_text(color="black", face="bold")
     ) + 
-  scale_y_continuous(limits = c(0, 1.2)) + 
+  scale_y_continuous(limits = c(0, 1.5)) + 
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint = 1 , limits = c(0, 25)) + 
   labs(x="Celltype", y="Fold Change", title="Change in GATA1 Expression") 
 gata1
+
+ggsave("gata1fc2.png", gata1, dpi = 600)
+
 ```
 
 
@@ -438,7 +446,7 @@ rownames(scores) <- cluster_ids
 ery_hm <- pheatmap(scores,
          cluster_rows = TRUE,
          cluster_cols = FALSE,
-         scale = "column",
+         scale = "row",
          color = colorRampPalette(c("blue", "white", "red"))(100),
          treeheight_row = 0,
          treeheight_col = 0,
@@ -449,6 +457,7 @@ ery_hm
 ggsave("erymodulescore.png", plot = ery_hm, dpi = 600, width = 5, height = 6)
 
 Idents(ery) <- "seurat_clusters"
+DimPlot(ery)
 VlnPlot(ery, features = "MEP1")
 
 ery$erylabel <- NA
@@ -544,6 +553,36 @@ gata1_ery <- ggplot(GATA1_ery, aes(y=2^(avg_log2FC), x=celltype, fill = -log10(p
 gata1_ery
 
 ggsave("gata1eryfc.png", gata1_ery, dpi = 600)
+
+
+m <- mep_sf3b1["TFRC", ]
+b <- bfue_sf3b1["TFRC", ]
+c <- cfue_sf3b1["TFRC", ]
+p <- proe_sf3b1["TFRC",]
+TFRC_ery <- rbind(m, b, c, p)
+rownames(TFRC_ery) <- c("MEP", "BFU-E", "CFU-E", "ProE")
+TFRC_ery$celltype <- rownames(TFRC_ery)
+TFRC_ery$celltype <- factor(
+  TFRC_ery$celltype,
+  levels = c("MEP", "BFU-E", "CFU-E", "ProE", "Misc")
+)
+
+cd71_ery <- ggplot(TFRC_ery, aes(y=2^(avg_log2FC), x=celltype, fill = -log10(p_val_adj))) + 
+  geom_col(width = 0.5, color = "black") + 
+  geom_hline(yintercept = 0, color = "black", linewidth = 1) + 
+  geom_hline(yintercept = 1, color = "black", linetype = "dashed", linewidth = 1) + 
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) + 
+  scale_y_continuous(limits = c(0, 1.05)) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint = -log10(0.05), limits = c(0, 2.6)) + 
+  labs(x="Celltype", y="Fold Change", title="Change in CD71 Expression") 
+cd71_ery
+
+ggsave("cd71eryfc.png", cd71_ery, dpi = 600)
 
 ```
 
