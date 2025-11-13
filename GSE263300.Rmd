@@ -19,8 +19,11 @@ library(ggbreak)
 library(ggcyto)
 library(DESeq2)
 library(ggrepel)
+library(Matrix)
+library(DESeq2)
+library(MAST)
 options(future.globals.maxSize = 5000 * 1024^2)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE263300/")
 
 run_gsea <- function(markers, gmt_path, output_gsea) {
 rnk <- setNames(markers$avg_log2FC, rownames(markers))
@@ -45,7 +48,7 @@ write.csv(gseadf, output_gsea)
 }
 
 EnsIDReplace2 <- function(input, output){
-  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
   rna <- input
   rnanames <- rownames(rna)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
@@ -243,13 +246,31 @@ hsccluster <- FindAllMarkers(hsc)
 
 ```{r}
 Idents(ery) <- "dataset"
-erymarkers <- FindMarkers(ery, ident.1 = "SF3B1", ident.2 = "AAVS", logfc.threshold = 0)
+erymarkers <- FindMarkers(ery, ident.1 = "SF3B1", ident.2 = "AAVS", test.use = "MAST", 
+                         latent.vars = c("nCount_RNA", "pct_counts_mt"), logfc.threshold = 0)
 
 Idents(hsc) <- "dataset"
-hscmarkers <- FindMarkers(hsc, ident.1 = "SF3B1", ident.2 = "AAVS", logfc.threshold = 0)
+hscmarkers <- FindMarkers(hsc, ident.1 = "SF3B1", ident.2 = "AAVS", test.use = "MAST", 
+                         latent.vars = c("nCount_RNA", "pct_counts_mt"), logfc.threshold = 0)
 
 Idents(so) <- "dataset"
-so_sf3b1markers <- FindMarkers(so, ident.1 = "SF3B1", ident.2 = "AAVS", logfc.threshold = 0)
+so_sf3b1markers <- FindMarkers(so, ident.1 = "SF3B1", ident.2 = "AAVS", test.use = "MAST", 
+                         latent.vars = c("nCount_RNA", "pct_counts_mt"), logfc.threshold = 0)
+
+Idents(so) <- "group"
+hsc_sf3b1 <- FindMarkers(so, ident.1 = "HSC/HSPC_SF3B1", ident.2 = "HSC/HSPC_AAVS", test.use = "MAST", 
+                         latent.vars = c("nCount_RNA", "pct_counts_mt"), logfc.threshold = 0)
+ery_sf3b1 <- FindMarkers(so, ident.1 = "MEP/Erythroid_SF3B1", ident.2 = "MEP/Erythroid_AAVS", test.use = "MAST", 
+                         latent.vars = c("nCount_RNA", "pct_counts_mt"), logfc.threshold = 0)
+mk_sf3b1 <- FindMarkers(so, ident.1 = "MEP/MK_SF3B1", ident.2 = "MEP/MK_AAVS", test.use = "MAST", 
+                         latent.vars = c("nCount_RNA", "pct_counts_mt"), logfc.threshold = 0)
+gmp_sf3b1 <- FindMarkers(so, ident.1 = "GMP_SF3B1", ident.2 = "GMP_AAVS", test.use = "MAST", 
+                         latent.vars = c("nCount_RNA", "pct_counts_mt"), logfc.threshold = 0)
+mast_sf3b1 <- FindMarkers(so, ident.1 = "Mast_SF3B1", ident.2 = "Mast_AAVS", test.use = "MAST", 
+                         latent.vars = c("nCount_RNA", "pct_counts_mt"), logfc.threshold = 0)
+eobp_sf3b1 <- FindMarkers(so, ident.1 = "EoBP_SF3B1", ident.2 = "EoBP_AAVS", test.use = "MAST", 
+                         latent.vars = c("nCount_RNA", "pct_counts_mt"), logfc.threshold = 0)
+
 
 ```
 
@@ -284,12 +305,12 @@ sovol
 ggsave("so_volcano.png", plot = sovol, dpi = 600)
 
 # Add -log10 adjusted p-value
-erymarkers$neglog10p <- -log10(erymarkers$p_val_adj)
+ery_sf3b1$neglog10p <- -log10(ery_sf3b1$p_val_adj)
 
-ery_highlight_data <- erymarkers[rownames(erymarkers) %in% genes_to_highlight, , drop = FALSE]
+ery_highlight_data <- ery_sf3b1[rownames(ery_sf3b1) %in% genes_to_highlight, , drop = FALSE]
 
 # Volcano plot
-eryvol <- ggplot(erymarkers, aes(x = avg_log2FC, y = neglog10p)) +
+eryvol <- ggplot(ery_sf3b1, aes(x = avg_log2FC, y = neglog10p)) +
   geom_point(color = "gray") +
   geom_point(data = ery_highlight_data,
              aes(x = avg_log2FC, y = neglog10p),
@@ -310,11 +331,11 @@ eryvol
 ggsave("ery_volcano.png", plot = eryvol, dpi = 600)
 
 # Add -log10 adjusted p-value
-hscmarkers$neglog10p <- -log10(hscmarkers$p_val_adj)
-hsc_highlight_data <- hscmarkers[rownames(hscmarkers) %in% genes_to_highlight, , drop = FALSE]
+hsc_sf3b1$neglog10p <- -log10(hsc_sf3b1$p_val_adj)
+hsc_highlight_data <- hsc_sf3b1[rownames(hsc_sf3b1) %in% genes_to_highlight, , drop = FALSE]
 
 # Volcano plot
-hscvol <- ggplot(hscmarkers, aes(x = avg_log2FC, y = neglog10p)) +
+hscvol <- ggplot(hsc_sf3b1, aes(x = avg_log2FC, y = neglog10p)) +
   geom_point(color = "gray") +
   # Use the safe 'hsc_highlight_data' subset
   geom_point(data = hsc_highlight_data,
@@ -338,6 +359,62 @@ ggsave("hsc_volcano.png", plot = hscvol, dpi = 600)
 
 ```
 
+```{r TAK1 FC}
+a <- so_sf3b1markers["MAP3K7", ]
+b <- ery_sf3b1["MAP3K7", ]
+c <- hsc_sf3b1["MAP3K7", ]
+d <- mk_sf3b1["MAP3K7",]
+e <- gmp_sf3b1["MAP3K7", ]
+f <- mast_sf3b1["MAP3K7", ]
+g <- eobp_sf3b1["MAP3K7",]
+MAP3K7 <- rbind(a, b, c, d, e, f, g)
+rownames(MAP3K7) <- c("CD34+", "MEP/Erythroid", "HSC/HSPC", "MEP/Mk", "GMP", "Mast", "EoBP")
+
+tak1 <- ggplot(MAP3K7, aes(y=2^(avg_log2FC), x=rownames(MAP3K7), fill = -log10(p_val_adj))) + 
+  geom_col(width = 0.5, color = "black") + 
+  geom_hline(yintercept = 0, color = "black", linewidth = 1) + 
+  geom_hline(yintercept = 1, color = "black", linetype = "dashed", linewidth = 1) + 
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) + 
+  scale_y_continuous(limits = c(0, 1.0)) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint = -log10(0.05) ) + 
+  labs(x="Celltype", y="Fold Change", title="Change in TAK1 Expression") 
+tak1
+
+ggsave("tak1fc.png", tak1, dpi = 600)
+
+a <- so_sf3b1markers["GATA1", ]
+b <- ery_sf3b1["GATA1", ]
+c <- hsc_sf3b1["GATA1", ]
+d <- mk_sf3b1["GATA1",]
+e <- gmp_sf3b1["GATA1", ]
+f <- mast_sf3b1["GATA1", ]
+g <- eobp_sf3b1["GATA1",]
+GATA1 <- rbind(a, b, c, d, e, f, g)
+rownames(GATA1) <- c("CD34+", "MEP/Erythroid", "HSC/HSPC", "MEP/Mk", "GMP", "Mast", "EoBP")
+
+
+gata1 <- ggplot(GATA1, aes(y=2^(avg_log2FC), x=rownames(GATA1), fill = -log10(p_val_adj))) + 
+  geom_col(width = 0.5, color = "black") + 
+  geom_hline(yintercept = 0, color = "black", linewidth = 1) + 
+  geom_hline(yintercept = 1, color = "black", linetype = "dashed", linewidth = 1) + 
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) + 
+  scale_y_continuous(limits = c(0, 1.2)) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint = 1 , limits = c(0, 25)) + 
+  labs(x="Celltype", y="Fold Change", title="Change in GATA1 Expression") 
+gata1
+```
+
+
 ```{r label erythroid}
 erymarker <- read.csv("ErythroidProgenitorMarkers.csv")
 
@@ -358,25 +435,122 @@ scores <- sapply(names(genesets), function(name) {
 scores <- as.data.frame(scores)
 rownames(scores) <- cluster_ids
 
-RidgePlot(ery, features = "CFU_E1")
-
-ery_hm <- heatmap(scores,
+ery_hm <- pheatmap(scores,
          cluster_rows = TRUE,
          cluster_cols = FALSE,
-         scale = "row",
+         scale = "column",
          color = colorRampPalette(c("blue", "white", "red"))(100),
          treeheight_row = 0,
          treeheight_col = 0,
          main = "Erythroid Module Score Heatmap")
+
 ery_hm
 
-ggsave("erymodulescore.png", plot = ery_hm, dpi = 600)
+ggsave("erymodulescore.png", plot = ery_hm, dpi = 600, width = 5, height = 6)
 
-FeaturePlot(ery, features = "ProE1")
+Idents(ery) <- "seurat_clusters"
+VlnPlot(ery, features = "MEP1")
+
+ery$erylabel <- NA
+ery$erylabel[ery$seurat_clusters %in% c(4, 5, 9, 11)] <- "MEP"
+ery$erylabel[ery$seurat_clusters %in% c(0, 2, 10)] <- "BFU_E"
+ery$erylabel[ery$seurat_clusters %in% c(6, 7)] <- "CFU_E"
+ery$erylabel[ery$seurat_clusters %in% c(1, 3)] <- "ProE"
+ery$erylabel[ery$seurat_clusters %in% c(8)] <- "Misc"
+Idents(ery) <- "erylabel"
+ery$erylabel <- factor(ery$erylabel,
+                       levels = c("MEP", "BFU_E", "CFU_E", "ProE", "Misc"))
+ery_label <- DimPlot(ery, group.by = "erylabel")
+ggsave("erylabelumap.png", plot = ery_label, dpi = 600)
+
+VlnPlot(ery, features = c("MAP3K7"), split.by = "dataset")
+```
+
+```{r erythroid tak1}
+
+ery$group2 <- paste(ery$erylabel, ery$dataset, sep = "_")
+Idents(ery) <- "group2"
+erycluster_sf3b1_markers <- FindAllMarkers(ery, logfc.threshold = 0)
+Idents(ery) <- "erylabel"
+
+Idents(ery) <- "group2"
+mep_sf3b1 <- FindMarkers(ery, ident.1 = "MEP_SF3B1", ident.2 = "MEP_AAVS", test.use = "MAST", 
+                         latent.vars = c("nCount_RNA", "pct_counts_mt"), logfc.threshold = 0)
+bfue_sf3b1 <- FindMarkers(ery, ident.1 = "BFU_E_SF3B1", ident.2 = "BFU_E_AAVS", test.use = "MAST", 
+                         latent.vars = c("nCount_RNA", "pct_counts_mt"), logfc.threshold = 0)
+cfue_sf3b1 <- FindMarkers(ery, ident.1 = "CFU_E_SF3B1", ident.2 = "CFU_E_AAVS", test.use = "MAST", 
+                         latent.vars = c("nCount_RNA", "pct_counts_mt"), logfc.threshold = 0)
+proe_sf3b1 <- FindMarkers(ery, ident.1 = "ProE_SF3B1", ident.2 = "ProE_AAVS", test.use = "MAST", 
+                         latent.vars = c("nCount_RNA", "pct_counts_mt"), logfc.threshold = 0)
+
+m <- mep_sf3b1["MAP3K7", ]
+b <- bfue_sf3b1["MAP3K7", ]
+c <- cfue_sf3b1["MAP3K7", ]
+p <- proe_sf3b1["MAP3K7",]
+MAP3K7_ery <- rbind(m, b, c, p)
+rownames(MAP3K7_ery) <- c("MEP", "BFU-E", "CFU-E", "ProE")
+MAP3K7_ery$celltype <- rownames(MAP3K7_ery)
+MAP3K7_ery$celltype <- factor(
+  MAP3K7_ery$celltype,
+  levels = c("MEP", "BFU-E", "CFU-E", "ProE", "Misc")
+)
+
+tak1_ery <- ggplot(MAP3K7_ery, aes(y=2^(avg_log2FC), x=celltype, fill = -log10(p_val_adj))) + 
+  geom_col(width = 0.5, color = "black") + 
+  geom_hline(yintercept = 0, color = "black", linewidth = 1) + 
+  geom_hline(yintercept = 1, color = "black", linetype = "dashed", linewidth = 1) + 
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) + 
+  scale_y_continuous(limits = c(0, 1.2)) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint = -log10(0.05), limits = c(0, 2) ) + 
+  labs(x="Celltype", y="Fold Change", title="Change in TAK1 Expression") 
+tak1_ery
+
+ggsave("tak1eryfc.png", tak1_ery, dpi = 600)
+
+Idents(ery) <- "group2"
+ery$group2 <- factor(ery$group2, levels = c("MEP_AAVS", "MEP_SF3B1", "BFU_E_AAVS", "BFU_E_SF3B1", "CFU_E_AAVS", "CFU_E_SF3B1", "ProE_AAVS", "ProE_SF3B1", "Misc_AAVS", "Misc_SF3B1"))
+VlnPlot(ery, features = c("GATA1"))
+
+m <- mep_sf3b1["GATA1", ]
+b <- bfue_sf3b1["GATA1", ]
+c <- cfue_sf3b1["GATA1", ]
+p <- proe_sf3b1["GATA1",]
+GATA1_ery <- rbind(m, b, c, p)
+rownames(GATA1_ery) <- c("MEP", "BFU-E", "CFU-E", "ProE")
+GATA1_ery$celltype <- rownames(GATA1_ery)
+GATA1_ery$celltype <- factor(
+  GATA1_ery$celltype,
+  levels = c("MEP", "BFU-E", "CFU-E", "ProE", "Misc")
+)
+
+gata1_ery <- ggplot(GATA1_ery, aes(y=2^(avg_log2FC), x=celltype, fill = -log10(p_val_adj))) + 
+  geom_col(width = 0.5, color = "black") + 
+  geom_hline(yintercept = 0, color = "black", linewidth = 1) + 
+  geom_hline(yintercept = 1, color = "black", linetype = "dashed", linewidth = 1) + 
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) + 
+  scale_y_continuous(limits = c(0, 1.5)) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint = -log10(0.05)) + 
+  labs(x="Celltype", y="Fold Change", title="Change in GATA1 Expression") 
+gata1_ery
+
+ggsave("gata1eryfc.png", gata1_ery, dpi = 600)
 
 ```
 
 ```{r label erythroid in hspc}
+Idents(hsc) <- "seurat_clusters"
+hscallmarker <- FindAllMarkers(hsc)
+
 
 for (name in names(genesets)) {
   hsc <- AddModuleScore(hsc, features = list(genesets[[name]]), name = name)
@@ -428,4 +602,11 @@ degplot + geom_point(size=5, shape=21) +
   labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
   xlim(0,5.1)
 
+```
+
+
+```{r cleanup}
+rm(avg_exp, avg_exp_df, avg_expr, b, c, counts, e, expr_data, expr_table, gsea, gseadf, h, heatmap_df, m, p, pb, s, umap, umap_label, tak1, tak1_ery, sovol, ery_hm, eryvol, gata1, gata1_ery, hscvol, mat, clust_num, cluster_ids, clusters, cond, eobp, genes, genes_to_highlight, gmp, hsc_genes, hspc, labs, list_columns, mast, mep, mk, name, ord, rnk)
+
+rm(so, ery, hsc)
 ```
