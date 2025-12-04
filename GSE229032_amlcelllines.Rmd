@@ -106,9 +106,10 @@ rm(cts)
 ```
 
 ```{r load into matrix}
+aml <- read.csv("aml_genename.csv", row.names = 1)
 cd <- read.csv("amlcoldata.csv")
 dds <- DESeqDataSetFromMatrix(countData = aml, colData = cd, design = ~condition)
-rlog2 <- rlog(dds, blind=FALSE)
+vst <- vst(dds, blind=FALSE)
 dds <- DESeq(dds)
 rescmp <- results(dds) 
 
@@ -118,23 +119,23 @@ rescmp <- results(dds)
 #genelist only
 genelist <- c("TBK1", "RIPK1", "IRF3", "IRF7", "IFNA", "IFNB1")
 
-rlog_subset <- rlog2[rownames(rlog2) %in% genelist, ]
-rlog_subset <- as.matrix(rlog_subset)
-mode(rlog_subset) <- "numeric"
+
+mat <- assay(vst)
+vst_subset <- mat[rownames(mat) %in% genelist, ]
 
 #genelist and cell line
 cell_lines <- c("MOLM13", "MM6", "THP1", "HL60", "U937")
-cell_lines <- grep("MOLM13|MM6|THP1|HL60|U937", colnames(rlog), value = TRUE)
-rlog_subset <- rlog2[rownames(rlog2) %in% genelist,
-                         colnames(rlog2) %in% cell_lines]
-rlog_subset <- as.matrix(rlog_subset)
-mode(rlog_subset) <- "numeric"
+cell_lines <- grep("MOLM13|MM6|THP1|HL60|U937", colnames(vst), value = TRUE)
+vst_subset <- vst[rownames(vst) %in% genelist,
+                         colnames(vst) %in% cell_lines]
+vst_subset <- as.matrix(vst_subset)
+mode(vst_subset) <- "numeric"
 
 # Define color palette
 color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
 
 # Create a heatmap
-heatmap <- pheatmap(rlog_subset, 
+heatmap <- pheatmap(vst_subset, 
          scale = "row", 
          cluster_rows = FALSE, 
          cluster_cols = FALSE, 
