@@ -1,0 +1,151 @@
+---
+title: "GSE229032_AMLCellLine"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r packages}
+library(tidyverse)
+library(DESeq2)
+library(rnaseqGene)
+library(pheatmap)
+library(ggalt)
+library(fgsea)
+library(biomaRt)
+library(ggVennDiagram)
+library(VennDiagram)
+library(ggrepel)
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/GSE229032/")
+
+EnsIDReplace2 <- function(input){
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv")
+  rnanames <- rownames(input)
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+  rnaname <- character(nrow(input))
+  for (i in seq_len(nrow(input))) {
+    ensembl_id <- rownames(input)[i]
+    if (ensembl_id %in% names(id_list)) {
+      rnaname[i] <- id_list[[ensembl_id]]
+    } else{
+      rnaname[i] <- ensembl_id
+    }
+  }
+  rnaname[rnaname == ""] <- NA
+  
+  rownames(input) <- make.names(rnaname, unique = TRUE)
+  rm(gene_mapping, id_list, ensembl_id, i, rnaname)
+}
+
+run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
+  res1 <- DESeq2::results(dds, 
+                       contrast = c("condition", condition1, condition2),
+                       independentFiltering = TRUE,
+                       alpha = 0.1)
+res1 <- subset(res1, padj < 0.1)
+rnk <- setNames(res1$log2FoldChange, rownames(res1))
+rnk <- rnk[!is.na(rnk)]
+gmt <- gmtPathways(gmt_path)
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gseadf <- as.data.frame(gsea)
+list_columns <- sapply(gseadf, is.list)
+gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
+write.csv(gseadf, output_gsea)
+res1_filtered <- res1[complete.cases(res1), ]
+write.csv(res1_filtered, output_deg)
+}
+```
+
+```{r}
+# Connect to Ensembl BioMart for human genes
+ensembl <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+
+# Retrieve Ensembl gene IDs and HGNC symbols
+gene_mapping <- getBM(
+  attributes = c("ensembl_gene_id", "hgnc_symbol"),
+  mart = ensembl
+)
+
+# Rename columns to match your function's expectations
+colnames(gene_mapping) <- c("gene_id", "gene_name")
+
+# Save to CSV
+write.csv(gene_mapping, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv", row.names = FALSE)
+
+```
+
+
+
+```{r load dataset and ID replace}
+cts <- read.csv("GSE229032_AML_Samples_RNASeq_Processed_counts_corrected.csv", row.names = 1)
+rownames(cts) <- cts$Geneid
+EnsIDReplace2(cts)
+gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv")
+rnanames <- rownames(cts)
+id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+rnaname <- character(nrow(cts))
+for (i in seq_len(nrow(cts))) {
+    ensembl_id <- rownames(cts)[i]
+    if (ensembl_id %in% names(id_list)) {
+      rnaname[i] <- id_list[[ensembl_id]]
+    } else{
+      rnaname[i] <- ensembl_id
+    }
+  }
+rnaname[rnaname == ""] <- NA
+  
+rownames(cts) <- make.names(rnaname, unique = TRUE)
+rm(gene_mapping, id_list, ensembl_id, i, rnaname)
+write.csv(cts, "aml_genename.csv")
+aml <- cts
+rm(cts)
+```
+
+```{r load into matrix}
+cd <- read.csv("amlcoldata.csv")
+dds <- DESeqDataSetFromMatrix(countData = aml, colData = cd, design = ~condition)
+rlog2 <- rlog(dds, blind=FALSE)
+dds <- DESeq(dds)
+rescmp <- results(dds) 
+
+```
+
+```{r Heatmap of Specific Genes}
+#genelist only
+genelist <- c("TBK1", "RIPK1", "IRF3", "IRF7", "IFNA", "IFNB1")
+
+rlog_subset <- rlog2[rownames(rlog2) %in% genelist, ]
+rlog_subset <- as.matrix(rlog_subset)
+mode(rlog_subset) <- "numeric"
+
+#genelist and cell line
+cell_lines <- c("MOLM13", "MM6", "THP1", "HL60", "U937")
+cell_lines <- grep("MOLM13|MM6|THP1|HL60|U937", colnames(rlog), value = TRUE)
+rlog_subset <- rlog2[rownames(rlog2) %in% genelist,
+                         colnames(rlog2) %in% cell_lines]
+rlog_subset <- as.matrix(rlog_subset)
+mode(rlog_subset) <- "numeric"
+
+# Define color palette
+color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
+
+# Create a heatmap
+heatmap <- pheatmap(rlog_subset, 
+         scale = "row", 
+         cluster_rows = FALSE, 
+         cluster_cols = FALSE, 
+         color = color_palette,
+         show_rownames = TRUE, 
+         show_colnames = TRUE,
+         main = "Heatmap",
+         treeheight_row = 0,
+         cellwidth = 10,
+         cellheight = 10)
+heatmap
+ggsave("pnheatmapfetal2.png", heatmap, height = 27, width = 8, dpi = 600)
+
+```
