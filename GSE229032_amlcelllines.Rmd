@@ -5,9 +5,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 
 ```{r packages}
 library(tidyverse)
@@ -107,36 +104,40 @@ rm(cts)
 
 ```{r load into matrix}
 aml <- read.csv("aml_genename.csv", row.names = 1)
-cd <- read.csv("amlcoldata.csv")
+cd <- read.csv("amlcoldata.csv", row.names = 1)
 dds <- DESeqDataSetFromMatrix(countData = aml, colData = cd, design = ~condition)
-vst <- vst(dds, blind=FALSE)
 dds <- DESeq(dds)
+vst <- vst(dds, blind=FALSE)
 rescmp <- results(dds) 
 
 ```
 
 ```{r Heatmap of Specific Genes}
 #genelist only
-genelist <- c("TBK1", "RIPK1", "IRF3", "IRF7", "IFNA", "IFNB1")
+genelist <- c("TBK1", "RIPK1", "MAP3K7")
 
 
 mat <- assay(vst)
 vst_subset <- mat[rownames(mat) %in% genelist, ]
 
 #genelist and cell line
-cell_lines <- c("MOLM13", "MM6", "THP1", "HL60", "U937")
-cell_lines <- grep("MOLM13|MM6|THP1|HL60|U937", colnames(vst), value = TRUE)
-vst_subset <- vst[rownames(vst) %in% genelist,
-                         colnames(vst) %in% cell_lines]
-vst_subset <- as.matrix(vst_subset)
-mode(vst_subset) <- "numeric"
+cell_lines <- c("MOLM13", "HL60", "MONOMAC6", "ML2", "THP1", "U937")
+cell_lines <- grep("MOLM13|MONOMAC6|ML2|THP1|U937", colnames(vst), value = TRUE)
+vst_subset <- mat[rownames(mat) %in% genelist,
+                         colnames(mat) %in% cell_lines]
+tbk1_vals <- vst_subset["MAP3K7", ]
+ordered_cols <- names(sort(tbk1_vals, decreasing = TRUE))
+vst_subset_ordered <- vst_subset[, ordered_cols]
+vst_subset_ordered <- t(vst_subset_ordered)
+
+vst_subset <- assay(vst)[genelist, colnames(vst) %in% cell_lines]
 
 # Define color palette
 color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
 
 # Create a heatmap
-heatmap <- pheatmap(vst_subset, 
-         scale = "row", 
+heatmap <- pheatmap(vst_subset_ordered, 
+         scale = "column", 
          cluster_rows = FALSE, 
          cluster_cols = FALSE, 
          color = color_palette,
@@ -144,9 +145,46 @@ heatmap <- pheatmap(vst_subset,
          show_colnames = TRUE,
          main = "Heatmap",
          treeheight_row = 0,
-         cellwidth = 10,
+         cellwidth = 30,
          cellheight = 10)
 heatmap
-ggsave("pnheatmapfetal2.png", heatmap, height = 27, width = 8, dpi = 600)
+ggsave("tak1order_full.png", width = 3, height = 12, heatmap, dpi = 600)
+
+```
+
+```{r}
+library(tidyverse)
+
+# Extract VST values for your genes and cell lines
+vst_subset <- assay(vst)[genelist, colnames(vst) %in% cell_lines]
+
+# Convert to long format for ggplot
+df <- vst_subset %>%
+  as.data.frame() %>%
+  rownames_to_column("gene") %>%
+  pivot_longer(-gene, names_to = "cell_line", values_to = "expression")
+
+tbk1_plot <- df %>%
+  filter(gene == "TBK1") %>%
+  ggplot(aes(x = cell_line, y = expression, fill = cell_line)) +
+  geom_col(width = 0.7) +
+  theme_bw(base_size = 16) +
+  labs(title = "TBK1 Expression Across AML Cell Lines",
+       x = "Cell Line",
+       y = "VST Expression") +
+  theme(legend.position = "none")
+tbk1_plot
+
+ripk1_plot <- df %>%
+  filter(gene == "RIPK1") %>%
+  ggplot(aes(x = cell_line, y = expression, fill = cell_line)) +
+  geom_col(width = 0.7) +
+  theme_bw(base_size = 16) +
+  labs(title = "RIPK1 Expression Across AML Cell Lines",
+       x = "Cell Line",
+       y = "VST Expression") +
+  theme(legend.position = "none")
+ripk1_plot
+
 
 ```
