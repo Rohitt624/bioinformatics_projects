@@ -125,7 +125,7 @@ cell_lines <- c("MOLM13", "HL60", "MONOMAC6", "ML2", "THP1", "U937")
 cell_lines <- grep("MOLM13|MONOMAC6|ML2|THP1|U937", colnames(vst), value = TRUE)
 vst_subset <- mat[rownames(mat) %in% genelist,
                          colnames(mat) %in% cell_lines]
-tbk1_vals <- vst_subset["MAP3K7", ]
+tbk1_vals <- vst_subset["TBK1", ]
 ordered_cols <- names(sort(tbk1_vals, decreasing = TRUE))
 vst_subset_ordered <- vst_subset[, ordered_cols]
 vst_subset_ordered <- t(vst_subset_ordered)
@@ -137,7 +137,6 @@ color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
 
 # Create a heatmap
 heatmap <- pheatmap(vst_subset_ordered, 
-         scale = "column", 
          cluster_rows = FALSE, 
          cluster_cols = FALSE, 
          color = color_palette,
@@ -146,9 +145,9 @@ heatmap <- pheatmap(vst_subset_ordered,
          main = "Heatmap",
          treeheight_row = 0,
          cellwidth = 30,
-         cellheight = 10)
+         cellheight = 30)
 heatmap
-ggsave("tak1order_full.png", width = 3, height = 12, heatmap, dpi = 600)
+ggsave("tbk1_noscale.png", width = 3, height = 5, heatmap, dpi = 600)
 
 ```
 
