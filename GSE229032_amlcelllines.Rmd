@@ -112,6 +112,231 @@ rescmp <- results(dds)
 
 ```
 
+```{r subset patients}
+patients <- c("P1006",	"P1021",	"P1044",	"P1065",	"P109",	"P1257",	"P1266",	"P1304",	"P1313",	"P1316",	"P1321",	"P1343",	"P1356",	"P1361",	"P136",	"P218",	"P801",	"P850",	"P933",	"P934",	"P998",	"PBL10261",	"PBL10278",	"PPBL10173",	"PPBL8426",	"PPBL9542",	"PPBL9785")
+dds_patients <- dds[, colnames(dds) %in% patients] 
+vst_mat <- assay(vst(dds_patients)) 
+```
+
+```{r order by tbk1}
+tbk1_vec <- vst_mat["TBK1", ]
+
+norm <- counts(dds_patients, normalized = TRUE) 
+tbk1_vec <- norm["TBK1", ]
+
+df <- data.frame( sample = names(tbk1_vec), tbk1 = as.numeric(tbk1_vec) ) 
+df_ordered <- df %>% arrange(tbk1)
+
+tbk1plot <- ggplot(df_ordered, aes(x = reorder(sample, tbk1), y = tbk1)) + 
+  geom_col(fill = "steelblue") + 
+  labs(title = "TBK1 Expression in Patient Samples", x = "Sample", y = "TBK1 Expression (normalized counts)") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+tbk1plot
+
+ggsave("tbk1_patientsamples.png", dpi = 600)
+
+q1 <- quantile(df_ordered$tbk1, 0.25) 
+q3 <- quantile(df_ordered$tbk1, 0.75) 
+bottom_quartile <- df_ordered %>% filter(tbk1 <= q1) 
+top_quartile <- df_ordered %>% filter(tbk1 >= q3)
+
+# Create a vector of sample names
+top_samples <- top_quartile$sample
+bottom_samples <- bottom_quartile$sample
+
+# Initialize group column
+dds_patients$TBK1_group <- NA
+
+dds_patients$TBK1_group[colnames(dds_patients) %in% top_samples] <- "Top"
+dds_patients$TBK1_group[colnames(dds_patients) %in% bottom_samples] <- "Bottom"
+
+# Drop middle samples
+dds_q <- dds_patients[, !is.na(dds_patients$TBK1_group)]
+
+dds_q$TBK1_group <- factor(dds_q$TBK1_group, levels = c("Bottom", "Top"))
+
+design(dds_q) <- ~ TBK1_group
+dds_q$TBK1_group <- droplevels(dds_q$TBK1_group)
+dds_q$TBK1_group <- factor(dds_q$TBK1_group, levels = c("Bottom", "Top"))
+model.matrix(design(dds_q), colData(dds_q))
+
+dds_q <- DESeq(dds_q)
+
+res_tbk1 <- results(dds_q, contrast = c("TBK1_group", "Top", "Bottom"))
+res_tbk1 <- res_tbk1[order(res_tbk1$padj), ]
+head(res_tbk1)
+```
+
+```{r gsea}
+rnk <- res_tbk1$log2FoldChange*(1-res_tbk1$padj)
+names(rnk) <- rownames(res_tbk1)
+rnk <- rnk[!is.na(rnk)]
+gmt <- gmtPathways("humangseapathways.gmt")
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gseadf <- as.data.frame(gsea)
+list_columns <- sapply(gseadf, is.list)
+gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
+write.csv(gseadf, "tbk1_gsea_newrnk.csv")
+gseadf_subset <- subset(gseadf, padj < 0.25)
+write.csv(gseadf_subset, "tbk1gseafiltered.csv")
+res1_filtered <- res_tbk1[complete.cases(res_tbk1), ]
+write.csv(res1_filtered, "tbk1_deg.csv")
+
+rnk <- res_tbk1$log2FoldChange*(1-res_tbk1$padj)
+names(rnk) <- rownames(res_tbk1)
+rnk <- rnk[!is.na(rnk)]
+gmt <- gmtPathways("LSC.gmt")
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gseadf <- as.data.frame(gsea)
+list_columns <- sapply(gseadf, is.list)
+gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
+write.csv(gseadf, "lsc_gsea_.csv")
+gseadf_subset <- subset(gseadf, padj < 0.25)
+write.csv(gseadf_subset, "lscgseafiltered.csv")
+
+```
+
+```{r gsea plot}
+tf <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/finaltfolldtv2.csv")
+tfplot <- ggplot(tf, aes(x=-log10(padj), y=reorder(NAME, -log10(padj)), fill = NES))
+tfplot + geom_point(size=5, shape=21) + 
+ theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.1,2.1)) + 
+  labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
+  xlim(0,5.1)
+
+cc <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/finalcellcycledtv2.csv")
+ccplot <- ggplot(cc, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+ccplot + geom_point(size=5, shape=21) +  
+ theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.2,2.2)) + 
+  labs(x="-log(FDR q-value)", y="Genesets", title="Cell Cycle & Proliferation Genesets") +
+  xlim(0,5.1)
+
+my <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/finalmyeloiddtv2.csv")
+myplot <- ggplot(my, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
+myplot + geom_point(size=5, shape=21) +  
+ theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.0,2.0)) + 
+  labs(x="-log(FDR q-value)", y="Genesets", title="Myeloid Genesets") +
+  xlim(0,5.1)
+```
+
+```{r tbk1 tak1 regression}
+vst_mat <- assay(vst(dds_patients))
+norm_counts <- counts(dds_patients, normalized = TRUE)
+
+df_scatter <- data.frame(
+  sample = colnames(norm_counts),
+  TBK1 = as.numeric(norm_counts["TBK1", ]),
+  MAP3K7 = as.numeric(norm_counts["MAP3K7", ])
+)
+
+fit <- lm(MAP3K7 ~ TBK1, data = df_scatter)
+
+intercept <- coef(fit)[1]
+slope <- coef(fit)[2]
+
+r2 <- summary(fit)$r.squared
+pval <- summary(fit)$coefficients[2, 4]
+
+label_text <- paste0(
+  "R² = ", round(r2, 3), 
+  "\nP = ", signif(pval, 3)
+)
+
+scatter <- ggplot(df_scatter, aes(x = TBK1, y = MAP3K7)) +
+  geom_point(size = 3, color = "steelblue") +
+  geom_abline(intercept = intercept, slope = slope, color = "darkred", size = 1) +
+  annotate("text", 
+           x = min(df_scatter$TBK1), 
+           y = max(df_scatter$MAP3K7), 
+           label = label_text, 
+           hjust = 0, vjust = 1, size = 5) +
+  labs(
+    title = "TBK1 vs MAP3K7 Expression (Patient Samples)",
+    x = "TBK1 Expression (VST)",
+    y = "MAP3K7 Expression (VST)"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.title = element_text(size = 12)
+  )
+
+ggsave("tbk1tak1scatter.png", scatter, dpi = 600)
+
+```
+
+```{r tbk1 tak1 regression no outlier}
+norm_counts <- counts(dds_patients, normalized = TRUE)
+
+df_scatter <- data.frame(
+  sample = colnames(norm_counts),
+  TBK1 = as.numeric(norm_counts["TBK1", ]),
+  MAP3K7 = as.numeric(norm_counts["MAP3K7", ])
+)
+
+Q1 <- quantile(df_scatter$TBK1, 0.25)
+Q3 <- quantile(df_scatter$TBK1, 0.75)
+IQR <- Q3 - Q1
+
+upper_cutoff <- Q3 + 1.5 * IQR
+
+df_no_outlier <- df_scatter %>% filter(TBK1 <= upper_cutoff)
+
+fit2 <- lm(MAP3K7 ~ TBK1, data = df_no_outlier)
+
+intercept2 <- coef(fit2)[1]
+slope2 <- coef(fit2)[2]
+
+r2_2 <- summary(fit2)$r.squared
+pval_2 <- summary(fit2)$coefficients[2, 4]
+
+label_text2 <- paste0(
+  "R² = ", round(r2_2, 3),
+  "\nP = ", signif(pval_2, 3)
+)
+
+ggplot(df_no_outlier, aes(x = TBK1, y = MAP3K7)) +
+  geom_point(size = 3, color = "steelblue") +
+  geom_abline(intercept = intercept2, slope = slope2, color = "darkred", size = 1) +
+  annotate(
+    "text",
+    x = min(df_no_outlier$TBK1),
+    y = max(df_no_outlier$MAP3K7),
+    label = label_text2,
+    hjust = 0, vjust = 1, size = 5
+  ) +
+  labs(
+    title = "TBK1 vs MAP3K7 (Outlier Removed)",
+    x = "TBK1 (normalized counts)",
+    y = "MAP3K7 (normalized counts)"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.title = element_text(size = 12)
+  )
+
+```
+
 ```{r Heatmap of Specific Genes}
 #genelist only
 genelist <- c("TBK1", "RIPK1", "MAP3K7")
