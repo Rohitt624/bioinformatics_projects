@@ -20,11 +20,12 @@ library(jsonlite)
 library(stringr)
 library(fs)
 library(dplyr)
+library(GSVA)
 
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/")
 
 EnsIDReplace2 <- function(input){
-  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv")
+  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv")
   rnanames <- rownames(input)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
   rnaname <- character(nrow(input))
@@ -63,10 +64,10 @@ write.csv(res1_filtered, output_deg)
 
 ```{r rename files}
 # Path to your combined metadata file
-meta_file <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/metadata.cart.2025-12-19.json"
+meta_file <- "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/metadata.cart.2025-12-19.json"
 
 # Path to the folder containing all the UUID subfolders
-download_dir <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/downloads/"
+download_dir <- "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/downloads/"
 
 # Load metadata
 meta <- fromJSON(meta_file)
@@ -100,9 +101,7 @@ for (i in seq_len(nrow(mapping))) {
 ```
 
 ```{r merge into one counts matrix}
-library(tidyverse)
-
-tsv_dir <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/downloads/"
+tsv_dir <- "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/downloads/"
 files <- list.files(tsv_dir, pattern = "\\.tsv$", full.names = TRUE)
 
 read_unstranded <- function(f) {
@@ -250,3 +249,177 @@ write.csv(gseadf_subset, "lscgseafiltered.csv")
 
 ```
 
+```{r volcano plot}
+
+res_df <- as.data.frame(res_Q4_vs_Q1)
+
+res_df <- data.frame(
+  gene = rownames(res_Q4_vs_Q1),
+  log2FoldChange = as.numeric(res_Q4_vs_Q1$log2FoldChange),
+  padj = as.numeric(res_Q4_vs_Q1$padj),
+  pvalue = as.numeric(res_Q4_vs_Q1$pvalue),
+  stat = as.numeric(res_Q4_vs_Q1$stat),
+  stringsAsFactors = FALSE
+)
+
+str(res_df)
+
+
+res_df <- res_df %>%
+  mutate(
+    sig = case_when(
+      padj <= 0.1 & log2FoldChange >= 1  ~ "Up",
+      padj <= 0.1 & log2FoldChange <= -1 ~ "Down",
+      TRUE ~ "NS"
+    )
+  )
+
+top10_up <- res_df %>%
+  filter(sig == "Up") %>%
+  arrange(pvalue) %>%
+  head(10)
+
+top10_down <- res_df %>%
+  filter(sig == "Down") %>%
+  arrange(pvalue) %>%
+  head(10)
+
+leading_edge <- bind_rows(top10_up, top10_down)
+
+
+
+
+volcano <- ggplot(res_df, aes(x = log2FoldChange, y = -log10(padj))) +
+  geom_point(aes(color = sig), alpha = 0.8, size = 1.8) +
+  scale_color_manual(
+    values = c(
+      "Up" = "red",
+      "Down" = "blue",
+      "NS" = "gray70"
+    )
+  ) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
+  geom_hline(yintercept = -log10(0.1), linetype = "dashed", color = "black") +
+  labs(
+    title = "TBK1 High vs Low",
+    x = "log2 Fold Change",
+    y = "-log10 Adjusted p-value",
+    color = "Direction"
+  ) +
+  theme_bw(base_size = 12) + 
+  geom_text_repel(
+    data = leading_edge,
+    aes(label = gene), 
+    size = 3, 
+    max.overlaps = Inf, 
+    box.padding = 0.4, 
+    point.padding = 0.2, 
+    segment.color = "gray50")
+
+volcano
+
+ggsave("volcano_tbk1.png", volcano, dpi = 600)
+
+```
+
+```{r broad correlations}
+# Use apply over rows, return a list of results
+cor_list <- apply(norm, 1, function(gene_expr) {
+  test <- cor.test(gene_expr, tbk1_vec,
+                   method = "spearman",
+                   use = "pairwise.complete.obs")
+  data.frame(cor = test$estimate,
+             pval = test$p.value)
+})
+
+# Bind results into a single data frame
+cor_df <- do.call(rbind, cor_list)
+
+# Add gene names
+cor_df$gene <- rownames(norm)
+
+# Reorder columns
+cor_df <- cor_df[, c("gene", "cor", "pval")]
+
+cor_df$padj <- p.adjust(cor_df$pval, method = "BH")
+
+head(cor_df, 20)
+
+rnk <- cor_df$cor*(1-cor_df$padj)
+names(rnk) <- rownames(cor_df)
+rnk <- rnk[!is.na(rnk)]
+
+gmt <- gmtPathways("humangseapathways.gmt")
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gseadf <- as.data.frame(gsea)
+list_columns <- sapply(gseadf, is.list)
+gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
+write.csv(gseadf, "tbk1_gsea_cor.csv")
+gseadf_subset <- subset(gseadf, padj < 0.25)
+write.csv(gseadf_subset, "tbk1corgseafiltered.csv")
+
+```
+
+```{r gsva}
+vst_mat <- assay(vst)
+gsvaPar <- gsvaParam(vst_mat, gmt,"gsva")
+res_gsva <- gsva(gsvaPar, verbose = TRUE)
+
+cor_list <- apply(res_gsva, 1, function(gsva_scores) {
+  test <- cor.test(gsva_scores, tbk1_vec,
+                   method = "spearman",
+                   use = "pairwise.complete.obs")
+  data.frame(cor = test$estimate,
+             pval = test$p.value)
+})
+
+# Combine into a single data frame
+cor_df <- do.call(rbind, cor_list)
+
+# Add gene set names
+cor_df$geneset <- rownames(res_gsva)
+
+# Reorder columns
+cor_df <- cor_df[, c("geneset", "cor", "pval")]
+
+# Adjust p-values for multiple testing (optional but recommended)
+cor_df$padj <- p.adjust(cor_df$pval, method = "BH")
+
+# Inspect results
+head(cor_df)
+
+
+write.csv(cor_df, "tbk1_gsva_cor.csv")
+cordf_subset <- subset(cor_df, pval < 0.1)
+write.csv(cordf_subset, "tbk1corgsvafiltered.csv")
+```
+
+```{r overlap}
+tg_norm <- read.csv("tbk1gseafiltered.csv", row.names = 2)
+tg_cor <- read.csv("tbk1corgseafiltered.csv", row.names = 2)
+tgsva_cor <- read.csv("tbk1corgsvafiltered.csv", row.names = 1)
+
+# Positive overlap: NES > 0 and correlation > 0
+pos_enriched <- rownames(tg_norm)[tg_norm$NES > 0]
+pos_enriched2 <- rownames(tg_cor)[tg_cor$NES > 0]
+pos_correlated <- rownames(tgsva_cor)[tgsva_cor$cor > 0]
+pos_overlap <- Reduce(intersect, list(pos_enriched, pos_enriched2, pos_correlated))
+
+# Negative overlap: NES < 0 and correlation < 0
+neg_enriched <- rownames(tg_norm)[tg_norm$NES < 0]
+neg_enriched2 <- rownames(tg_cor)[tg_cor$NES < 0]
+neg_correlated <- rownames(tgsva_cor)[tgsva_cor$cor < 0]
+neg_overlap <- intersect(neg_enriched, neg_correlated)
+neg_overlap <- Reduce(intersect, list(neg_enriched, neg_enriched2, neg_correlated))
+
+
+# Inspect results
+cat("Positive overlap pathways:\n")
+print(pos_overlap)
+
+cat("\nNegative overlap pathways:\n")
+print(neg_overlap)
+
+write.csv(pos_overlap, "pos_overlap.csv")
+write.csv(neg_overlap, "neg_overlap.csv")
+```
