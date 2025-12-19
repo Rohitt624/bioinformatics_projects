@@ -168,6 +168,79 @@ res_tbk1 <- res_tbk1[order(res_tbk1$padj), ]
 head(res_tbk1)
 ```
 
+```{r volcano plot}
+
+res_df <- as.data.frame(res_tbk1)
+
+res_df <- data.frame(
+  gene = rownames(res_tbk1),
+  log2FoldChange = as.numeric(res_tbk1$log2FoldChange),
+  padj = as.numeric(res_tbk1$padj),
+  pvalue = as.numeric(res_tbk1$pvalue),
+  stat = as.numeric(res_tbk1$stat),
+  stringsAsFactors = FALSE
+)
+
+str(res_df)
+
+
+res_df <- res_df %>%
+  mutate(
+    sig = case_when(
+      padj <= 0.1 & log2FoldChange >= 1  ~ "Up",
+      padj <= 0.1 & log2FoldChange <= -1 ~ "Down",
+      TRUE ~ "NS"
+    )
+  )
+
+top10_up <- res_df %>%
+  filter(sig == "Up") %>%
+  arrange(pvalue) %>%
+  head(10)
+
+top10_down <- res_df %>%
+  filter(sig == "Down") %>%
+  arrange(pvalue) %>%
+  head(10)
+
+leading_edge <- bind_rows(top10_up, top10_down)
+
+
+
+
+volcano <- ggplot(res_df, aes(x = log2FoldChange, y = -log10(padj))) +
+  geom_point(aes(color = sig), alpha = 0.8, size = 1.8) +
+  scale_color_manual(
+    values = c(
+      "Up" = "red",
+      "Down" = "blue",
+      "NS" = "gray70"
+    )
+  ) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
+  geom_hline(yintercept = -log10(0.1), linetype = "dashed", color = "black") +
+  labs(
+    title = "TBK1 High vs Low",
+    x = "log2 Fold Change",
+    y = "-log10 Adjusted p-value",
+    color = "Direction"
+  ) +
+  theme_bw(base_size = 12) + 
+  geom_text_repel(
+    data = leading_edge,
+    aes(label = gene), 
+    size = 3, 
+    max.overlaps = Inf, 
+    box.padding = 0.4, 
+    point.padding = 0.2, 
+    segment.color = "gray50")
+
+volcano
+
+ggsave("volcano_tbk1.png", volcano, dpi = 600)
+
+```
+
 ```{r gsea}
 rnk <- res_tbk1$log2FoldChange*(1-res_tbk1$padj)
 names(rnk) <- rownames(res_tbk1)
@@ -198,44 +271,68 @@ write.csv(gseadf_subset, "lscgseafiltered.csv")
 ```
 
 ```{r gsea plot}
-tf <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/finaltfolldtv2.csv")
-tfplot <- ggplot(tf, aes(x=-log10(padj), y=reorder(NAME, -log10(padj)), fill = NES))
-tfplot + geom_point(size=5, shape=21) + 
- theme(
+inflammation <- read.csv("inflammation_pathways.csv")
+infplot <- ggplot(inflammation, aes(x=NES, y=reorder(pathway, NES), fill = padj)) +
+  geom_col(color = "black") + 
+  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
     plot.title = element_text(hjust = 0.5), 
     axis.text=element_text(color="black", face="bold")
     ) +
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.1,2.1)) + 
-  labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
-  xlim(0,5.1)
+  scale_fill_gradient2(low="red", mid="white", high="blue", midpoint= 0.25, limits=c(0, 0.5)) + 
+  labs(x="Normalized Enrichment Score", y="Genesets", title="Inflammation Pathways") +
+  geom_vline(xintercept = 0, linetype = "solid", color = "black", size = 1)
+infplot
+  
 
-cc <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/finalcellcycledtv2.csv")
-ccplot <- ggplot(cc, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-ccplot + geom_point(size=5, shape=21) +  
- theme(
+celldeath <- read.csv("celldeath_pathways.csv")
+cdplot <- ggplot(celldeath,  aes(x=NES, y=reorder(pathway, NES), fill = padj)) +
+  geom_col(color = "black") + 
+  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
     plot.title = element_text(hjust = 0.5), 
     axis.text=element_text(color="black", face="bold")
     ) +
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.2,2.2)) + 
-  labs(x="-log(FDR q-value)", y="Genesets", title="Cell Cycle & Proliferation Genesets") +
-  xlim(0,5.1)
+  scale_fill_gradient2(low="red", mid="white", high="blue", midpoint= 0.25, limits=c(0, 0.5)) + 
+  labs(x="Normalized Enrichment Score", y="Genesets", title="Cell Death Pathways") +
+  geom_vline(xintercept = 0, linetype = "solid", color = "black", size = 1)
+cdplot
 
-my <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/finalmyeloiddtv2.csv")
-myplot <- ggplot(my, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-myplot + geom_point(size=5, shape=21) +  
- theme(
+autophagy <- read.csv("autophagy_lipid_pathways.csv")
+aplplot <- ggplot(autophagy, aes(x=NES, y=reorder(pathway, NES), fill = padj)) +
+  geom_col(color = "black") + 
+  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
     plot.title = element_text(hjust = 0.5), 
     axis.text=element_text(color="black", face="bold")
     ) +
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.0,2.0)) + 
-  labs(x="-log(FDR q-value)", y="Genesets", title="Myeloid Genesets") +
-  xlim(0,5.1)
+  scale_fill_gradient2(low="red", mid="white", high="blue", midpoint= 0.25, limits=c(0, 0.5)) + 
+  labs(x="Normalized Enrichment Score", y="Genesets", title="Lipid Metabolism/Autophagy Pathways") +
+  geom_vline(xintercept = 0, linetype = "solid", color = "black", size = 1)
+aplplot
+
+nfkb <- read.csv("nfkb_stemness_pathways.csv")
+nfkbplot <- ggplot(nfkb, aes(x=NES, y=reorder(pathway, NES), fill = padj)) +
+  geom_col(color = "black") + 
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="red", mid="white", high="blue", midpoint= 0.25, limits=c(0, 0.5)) + 
+  labs(x="Normalized Enrichment Score", y="Genesets", title="NF-κB/Stemness Pathways") +
+  geom_vline(xintercept = 0, linetype = "solid", color = "black", size = 1)
+nfkbplot
+
+ggsave("inflammationgsea2.png", infplot, dpi = 600)
+ggsave("celldeathgsea2.png", cdplot, dpi = 600)
+ggsave("mitochondriagsea2.png", aplplot, dpi = 600)
+ggsave("nfkbgsea2.png", nfkbplot, dpi = 600)
+
 ```
 
 ```{r tbk1 tak1 regression}
@@ -334,6 +431,75 @@ ggplot(df_no_outlier, aes(x = TBK1, y = MAP3K7)) +
     plot.title = element_text(size = 14, face = "bold"),
     axis.title = element_text(size = 12)
   )
+
+```
+
+```{r broad correlations}
+# Extract TBK1 vector
+tbk1_vec <- as.numeric(norm["TBK1", ])
+
+# Compute correlation for every gene
+cor_df <- apply(norm, 1, function(gene_expr) {
+  cor(gene_expr, tbk1_vec, method = "spearman", use = "pairwise.complete.obs")
+})
+
+# Convert to data frame
+cor_df <- data.frame(
+  gene = rownames(norm),
+  spearman_cor = cor_df
+)
+
+# Rank by absolute correlation
+cor_df <- cor_df %>% arrange(desc(abs(spearman_cor)))
+
+head(cor_df, 20)
+
+```
+
+```{r tbk1 regression}
+vst_mat <- assay(vst(dds_patients))
+norm_counts <- counts(dds_patients, normalized = TRUE)
+
+df_scatter <- data.frame(
+  sample = colnames(norm_counts),
+  TBK1 = as.numeric(norm_counts["TBK1", ]),
+  RIPK1 = as.numeric(norm_counts["RIPK1", ])
+)
+
+fit <- lm(RIPK1 ~ TBK1, data = df_scatter)
+
+intercept <- coef(fit)[1]
+slope <- coef(fit)[2]
+
+r2 <- summary(fit)$r.squared
+pval <- summary(fit)$coefficients[2, 4]
+
+label_text <- paste0(
+  "R² = ", round(r2, 3), 
+  "\nP = ", signif(pval, 3)
+)
+
+scatter <- ggplot(df_scatter, aes(x = TBK1, y = RIPK1)) +
+  geom_point(size = 3, color = "steelblue") +
+  geom_abline(intercept = intercept, slope = slope, color = "darkred", size = 1) +
+  annotate("text", 
+           x = min(df_scatter$TBK1), 
+           y = max(df_scatter$RIPK1), 
+           label = label_text, 
+           hjust = 0, vjust = 1, size = 5) +
+  labs(
+    title = "TBK1 vs RIPK1 Expression (Patient Samples)",
+    x = "TBK1 Expression (VST)",
+    y = "RIPK1 Expression (VST)"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.title = element_text(size = 12)
+  )
+scatter
+
+ggsave("tbk1ripk1scatter.png", scatter, dpi = 600)
 
 ```
 
