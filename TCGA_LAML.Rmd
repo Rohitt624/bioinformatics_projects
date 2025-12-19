@@ -1,0 +1,252 @@
+---
+title: "TCGA-LAML"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r packages}
+library(tidyverse)
+library(DESeq2)
+library(rnaseqGene)
+library(pheatmap)
+library(ggalt)
+library(fgsea)
+library(biomaRt)
+library(ggVennDiagram)
+library(VennDiagram)
+library(ggrepel)
+library(jsonlite)
+library(stringr)
+library(fs)
+library(dplyr)
+
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/")
+
+EnsIDReplace2 <- function(input){
+  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv")
+  rnanames <- rownames(input)
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+  rnaname <- character(nrow(input))
+  for (i in seq_len(nrow(input))) {
+    ensembl_id <- rownames(input)[i]
+    if (ensembl_id %in% names(id_list)) {
+      rnaname[i] <- id_list[[ensembl_id]]
+    } else{
+      rnaname[i] <- ensembl_id
+    }
+  }
+  rnaname[rnaname == ""] <- NA
+  
+  rownames(input) <- make.names(rnaname, unique = TRUE)
+  rm(gene_mapping, id_list, ensembl_id, i, rnaname)
+}
+
+run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
+  res1 <- DESeq2::results(dds, 
+                       contrast = c("condition", condition1, condition2),
+                       independentFiltering = TRUE,
+                       alpha = 0.1)
+res1 <- subset(res1, padj < 0.1)
+rnk <- setNames(res1$log2FoldChange, rownames(res1))
+rnk <- rnk[!is.na(rnk)]
+gmt <- gmtPathways(gmt_path)
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gseadf <- as.data.frame(gsea)
+list_columns <- sapply(gseadf, is.list)
+gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
+write.csv(gseadf, output_gsea)
+res1_filtered <- res1[complete.cases(res1), ]
+write.csv(res1_filtered, output_deg)
+}
+```
+
+```{r rename files}
+# Path to your combined metadata file
+meta_file <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/metadata.cart.2025-12-19.json"
+
+# Path to the folder containing all the UUID subfolders
+download_dir <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/downloads/"
+
+# Load metadata
+meta <- fromJSON(meta_file)
+
+# Build mapping: file_name → TCGA barcode
+mapping <- tibble(
+  file_name = meta$file_name,
+  barcode   = sapply(meta$associated_entities, function(x) x$entity_submitter_id[1])
+)
+
+# Rename files inside UUID folders
+for (i in seq_len(nrow(mapping))) {
+  
+  fname   <- mapping$file_name[i]
+  barcode <- mapping$barcode[i]
+  
+  # Find the file recursively
+  old_path <- dir(download_dir, pattern = paste0("^", fname, "$"),
+                  recursive = TRUE, full.names = TRUE)
+  
+  if (length(old_path) == 1) {
+    new_path <- file.path(dirname(old_path), paste0(barcode, ".tsv"))
+    file_move(old_path, new_path)
+    message("Renamed: ", fname, " → ", barcode)
+  } else {
+    message("Could not find file: ", fname)
+  }
+}
+
+
+```
+
+```{r merge into one counts matrix}
+library(tidyverse)
+
+tsv_dir <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/downloads/"
+files <- list.files(tsv_dir, pattern = "\\.tsv$", full.names = TRUE)
+
+read_unstranded <- function(f) {
+  sample_id <- basename(f) |> str_remove("\\.tsv$")
+  
+  df <- read_tsv(
+    f,
+    comment = "#",
+    col_types = cols(),
+    progress = FALSE
+  ) |> as_tibble()
+  
+  df <- df |> filter(!is.na(gene_name))
+  
+  df |>
+    dplyr::select(gene_name, unstranded) |>
+    dplyr::mutate(sample = sample_id)
+}
+
+# Read all files
+long_df <- purrr::map_df(files, read_unstranded)
+
+# Fix duplicates by summing counts
+long_df_fixed <- long_df |>
+  dplyr::group_by(gene_name, sample) |>
+  dplyr::summarise(unstranded = sum(unstranded), .groups = "drop")
+
+# Pivot to wide matrix
+count_matrix <- long_df_fixed |>
+  tidyr::pivot_wider(
+    names_from = sample,
+    values_from = unstranded
+  ) |>
+  dplyr::arrange(gene_name)
+
+# Write to CSV
+write.csv(count_matrix, "tcga_laml_counts.csv", row.names = FALSE)
+```
+
+
+```{r load data}
+aml <- read.csv("tcga_laml_counts.csv", row.names = 1)
+cd <- read.csv("coldata.csv")
+dds <- DESeqDataSetFromMatrix(countData = aml, colData = cd, design = ~condition)
+```
+
+```{r order by tbk1}
+dds <- estimateSizeFactors(dds)
+norm <- counts(dds, normalized = TRUE) 
+tbk1_vec <- norm["TBK1", ]
+
+df <- data.frame( sample = names(tbk1_vec), tbk1 = as.numeric(tbk1_vec) ) 
+df_ordered <- df %>% arrange(tbk1)
+
+tbk1plot <- ggplot(df_ordered, aes(x = reorder(sample, tbk1), y = tbk1)) + 
+  geom_col(fill = "steelblue") + 
+  labs(title = "TBK1 Expression in TCGA-LAML", x = "Sample", y = "TBK1 Expression (normalized counts)") + 
+  theme_bw() + 
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+tbk1plot
+
+ggsave("tbk1_patientsamples.png", dpi = 600)
+
+
+df <- data.frame(
+  sample = names(tbk1_vec),
+  tbk1 = as.numeric(tbk1_vec)
+)
+
+# Order by TBK1 expression
+df_ordered <- df %>% arrange(tbk1)
+
+# Compute quartile cutpoints (values)
+qs <- quantile(df_ordered$tbk1, probs = c(0.25, 0.5, 0.75))
+
+# Compute the *index positions* where quartiles occur
+q1_pos <- sum(df_ordered$tbk1 <= qs[1])
+q2_pos <- sum(df_ordered$tbk1 <= qs[2])
+q3_pos <- sum(df_ordered$tbk1 <= qs[3])
+
+df <- data.frame(
+  sample = names(tbk1_vec),
+  tbk1 = as.numeric(tbk1_vec)
+)
+
+# Order by TBK1 expression
+df_ordered <- df %>% arrange(tbk1)
+
+# Assign quartiles (Q1 = lowest, Q4 = highest)
+df_ordered$quartile <- cut(
+  df_ordered$tbk1,
+  breaks = quantile(df_ordered$tbk1, probs = seq(0, 1, 0.25)),
+  include.lowest = TRUE,
+  labels = c("Q1", "Q2", "Q3", "Q4")
+)
+
+colData <- df_ordered %>%
+  dplyr::select(sample, quartile) %>%
+  mutate(quartile = factor(quartile, levels = c("Q1", "Q2", "Q3", "Q4")))
+
+rownames(colData) <- colData$sample
+aml <- aml[, rownames(colData)]
+
+dds <- DESeqDataSetFromMatrix(
+  countData = aml,
+  colData = colData,
+  design = ~ quartile
+)
+
+dds <- DESeq(dds)
+vst <- vst(dds, blind=FALSE)
+rescmp <- results(dds)
+res_Q4_vs_Q1 <- results(dds, contrast = c("quartile", "Q4", "Q1"))
+
+
+```
+
+```{r gsea}
+rnk <- res_Q4_vs_Q1$log2FoldChange*(1-res_Q4_vs_Q1$padj)
+names(rnk) <- rownames(res_Q4_vs_Q1)
+rnk <- rnk[!is.na(rnk)]
+gmt <- gmtPathways("humangseapathways.gmt")
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gseadf <- as.data.frame(gsea)
+list_columns <- sapply(gseadf, is.list)
+gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
+write.csv(gseadf, "tbk1_gsea_newrnk.csv")
+gseadf_subset <- subset(gseadf, padj < 0.25)
+write.csv(gseadf_subset, "tbk1gseafiltered.csv")
+res1_filtered <- res_Q4_vs_Q1[complete.cases(res_Q4_vs_Q1), ]
+write.csv(res1_filtered, "tbk1_deg.csv")
+
+rnk <- res_Q4_vs_Q1$log2FoldChange*(1-res_Q4_vs_Q1$padj)
+names(rnk) <- rownames(res_Q4_vs_Q1)
+rnk <- rnk[!is.na(rnk)]
+gmt <- gmtPathways("LSC.gmt")
+gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
+gseadf <- as.data.frame(gsea)
+list_columns <- sapply(gseadf, is.list)
+gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
+write.csv(gseadf, "lsc_gsea_.csv")
+gseadf_subset <- subset(gseadf, padj < 0.25)
+write.csv(gseadf_subset, "lscgseafiltered.csv")
+
+```
+
