@@ -221,7 +221,7 @@ res_Q4_vs_Q1 <- results(dds, contrast = c("quartile", "Q4", "Q1"))
 ```
 
 ```{r gsea}
-rnk <- res_Q4_vs_Q1$log2FoldChange*(1-res_Q4_vs_Q1$padj)
+rnk <- res_Q4_vs_Q1$log2FoldChange
 names(rnk) <- rownames(res_Q4_vs_Q1)
 rnk <- rnk[!is.na(rnk)]
 gmt <- gmtPathways("humangseapathways.gmt")
@@ -235,7 +235,7 @@ write.csv(gseadf_subset, "tbk1gseafiltered.csv")
 res1_filtered <- res_Q4_vs_Q1[complete.cases(res_Q4_vs_Q1), ]
 write.csv(res1_filtered, "tbk1_deg.csv")
 
-rnk <- res_Q4_vs_Q1$log2FoldChange*(1-res_Q4_vs_Q1$padj)
+rnk <- res_Q4_vs_Q1$log2FoldChange
 names(rnk) <- rownames(res_Q4_vs_Q1)
 rnk <- rnk[!is.na(rnk)]
 gmt <- gmtPathways("LSC.gmt")
@@ -345,7 +345,9 @@ cor_df$padj <- p.adjust(cor_df$pval, method = "BH")
 
 head(cor_df, 20)
 
-rnk <- cor_df$cor*(1-cor_df$padj)
+write.csv(cor_df, "tbk1_correlation.csv")
+
+rnk <- cor_df$cor
 names(rnk) <- rownames(cor_df)
 rnk <- rnk[!is.na(rnk)]
 
@@ -361,8 +363,7 @@ write.csv(gseadf_subset, "tbk1corgseafiltered.csv")
 ```
 
 ```{r gsva}
-vst_mat <- assay(vst)
-gsvaPar <- gsvaParam(vst_mat, gmt,"gsva")
+gsvaPar <- gsvaParam(norm, gmt,"gsva")
 res_gsva <- gsva(gsvaPar, verbose = TRUE)
 
 cor_list <- apply(res_gsva, 1, function(gsva_scores) {
@@ -403,14 +404,13 @@ tgsva_cor <- read.csv("tbk1corgsvafiltered.csv", row.names = 1)
 pos_enriched <- rownames(tg_norm)[tg_norm$NES > 0]
 pos_enriched2 <- rownames(tg_cor)[tg_cor$NES > 0]
 pos_correlated <- rownames(tgsva_cor)[tgsva_cor$cor > 0]
-pos_overlap <- Reduce(intersect, list(pos_enriched, pos_enriched2, pos_correlated))
+pos_overlap <- Reduce(intersect, list(pos_enriched2, pos_correlated))
 
 # Negative overlap: NES < 0 and correlation < 0
 neg_enriched <- rownames(tg_norm)[tg_norm$NES < 0]
 neg_enriched2 <- rownames(tg_cor)[tg_cor$NES < 0]
 neg_correlated <- rownames(tgsva_cor)[tgsva_cor$cor < 0]
-neg_overlap <- intersect(neg_enriched, neg_correlated)
-neg_overlap <- Reduce(intersect, list(neg_enriched, neg_enriched2, neg_correlated))
+neg_overlap <- Reduce(intersect, list(neg_enriched2, neg_correlated))
 
 
 # Inspect results
