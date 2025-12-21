@@ -22,10 +22,10 @@ library(fs)
 library(dplyr)
 library(GSVA)
 
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/")
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/")
 
 EnsIDReplace2 <- function(input){
-  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv")
+  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv")
   rnanames <- rownames(input)
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
   rnaname <- character(nrow(input))
@@ -64,10 +64,10 @@ write.csv(res1_filtered, output_deg)
 
 ```{r rename files}
 # Path to your combined metadata file
-meta_file <- "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/metadata.cart.2025-12-19.json"
+meta_file <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/metadata.cart.2025-12-19.json"
 
 # Path to the folder containing all the UUID subfolders
-download_dir <- "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/downloads/"
+download_dir <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/downloads/"
 
 # Load metadata
 meta <- fromJSON(meta_file)
@@ -101,7 +101,7 @@ for (i in seq_len(nrow(mapping))) {
 ```
 
 ```{r merge into one counts matrix}
-tsv_dir <- "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/downloads/"
+tsv_dir <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/downloads/"
 files <- list.files(tsv_dir, pattern = "\\.tsv$", full.names = TRUE)
 
 read_unstranded <- function(f) {
@@ -164,7 +164,7 @@ tbk1plot <- ggplot(df_ordered, aes(x = reorder(sample, tbk1), y = tbk1)) +
         axis.ticks.x = element_blank())
 tbk1plot
 
-ggsave("tbk1_patientsamples.png", dpi = 600)
+ggsave("tbk1_patientsamples_thirds.png", dpi = 600)
 
 
 df <- data.frame(
@@ -176,12 +176,11 @@ df <- data.frame(
 df_ordered <- df %>% arrange(tbk1)
 
 # Compute quartile cutpoints (values)
-qs <- quantile(df_ordered$tbk1, probs = c(0.25, 0.5, 0.75))
+qs <- quantile(df_ordered$tbk1, probs = c(0.33, 0.67))
 
 # Compute the *index positions* where quartiles occur
 q1_pos <- sum(df_ordered$tbk1 <= qs[1])
 q2_pos <- sum(df_ordered$tbk1 <= qs[2])
-q3_pos <- sum(df_ordered$tbk1 <= qs[3])
 
 df <- data.frame(
   sample = names(tbk1_vec),
@@ -194,14 +193,14 @@ df_ordered <- df %>% arrange(tbk1)
 # Assign quartiles (Q1 = lowest, Q4 = highest)
 df_ordered$quartile <- cut(
   df_ordered$tbk1,
-  breaks = quantile(df_ordered$tbk1, probs = seq(0, 1, 0.25)),
+  breaks = quantile(df_ordered$tbk1, probs = seq(0, 1, 1/3)),
   include.lowest = TRUE,
-  labels = c("Q1", "Q2", "Q3", "Q4")
+  labels = c("Q1", "Q2", "Q3")
 )
 
 colData <- df_ordered %>%
   dplyr::select(sample, quartile) %>%
-  mutate(quartile = factor(quartile, levels = c("Q1", "Q2", "Q3", "Q4")))
+  mutate(quartile = factor(quartile, levels = c("Q1", "Q2", "Q3")))
 
 rownames(colData) <- colData$sample
 aml <- aml[, rownames(colData)]
@@ -215,7 +214,7 @@ dds <- DESeqDataSetFromMatrix(
 dds <- DESeq(dds)
 vst <- vst(dds, blind=FALSE)
 rescmp <- results(dds)
-res_Q4_vs_Q1 <- results(dds, contrast = c("quartile", "Q4", "Q1"))
+res_Q4_vs_Q1 <- results(dds, contrast = c("quartile", "Q3", "Q1"))
 
 
 ```
@@ -229,11 +228,11 @@ gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
 gseadf <- as.data.frame(gsea)
 list_columns <- sapply(gseadf, is.list)
 gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
-write.csv(gseadf, "tbk1_gsea_newrnk.csv")
+write.csv(gseadf, "tbk1_gsea_newrnk_third.csv")
 gseadf_subset <- subset(gseadf, padj < 0.25)
-write.csv(gseadf_subset, "tbk1gseafiltered.csv")
+write.csv(gseadf_subset, "tbk1gseafiltered_third.csv")
 res1_filtered <- res_Q4_vs_Q1[complete.cases(res_Q4_vs_Q1), ]
-write.csv(res1_filtered, "tbk1_deg.csv")
+write.csv(res1_filtered, "tbk1_deg_third.csv")
 
 rnk <- res_Q4_vs_Q1$log2FoldChange
 names(rnk) <- rownames(res_Q4_vs_Q1)
@@ -243,9 +242,9 @@ gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
 gseadf <- as.data.frame(gsea)
 list_columns <- sapply(gseadf, is.list)
 gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
-write.csv(gseadf, "lsc_gsea_.csv")
+write.csv(gseadf, "lsc_gsea_third.csv")
 gseadf_subset <- subset(gseadf, padj < 0.25)
-write.csv(gseadf_subset, "lscgseafiltered.csv")
+write.csv(gseadf_subset, "lscgseafiltered_third.csv")
 
 ```
 
@@ -268,8 +267,8 @@ str(res_df)
 res_df <- res_df %>%
   mutate(
     sig = case_when(
-      padj <= 0.1 & log2FoldChange >= 1  ~ "Up",
-      padj <= 0.1 & log2FoldChange <= -1 ~ "Down",
+      padj <= 0.1 & log2FoldChange >0  ~ "Up",
+      padj <= 0.1 & log2FoldChange <0 ~ "Down",
       TRUE ~ "NS"
     )
   )
@@ -298,7 +297,6 @@ volcano <- ggplot(res_df, aes(x = log2FoldChange, y = -log10(padj))) +
       "NS" = "gray70"
     )
   ) +
-  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
   geom_hline(yintercept = -log10(0.1), linetype = "dashed", color = "black") +
   labs(
     title = "TBK1 High vs Low",
@@ -341,8 +339,6 @@ cor_df$gene <- rownames(norm)
 # Reorder columns
 cor_df <- cor_df[, c("gene", "cor", "pval")]
 
-cor_df$padj <- p.adjust(cor_df$pval, method = "BH")
-
 head(cor_df, 20)
 
 write.csv(cor_df, "tbk1_correlation.csv")
@@ -360,6 +356,62 @@ write.csv(gseadf, "tbk1_gsea_cor.csv")
 gseadf_subset <- subset(gseadf, padj < 0.25)
 write.csv(gseadf_subset, "tbk1corgseafiltered.csv")
 
+```
+
+```{r plot correlations}
+cor_df <- cor_df %>%
+  mutate(
+    sig = case_when(
+      cor > 0  ~ "Up",
+      cor < 0 ~ "Down",
+      TRUE ~ "NS"
+    )
+  )
+
+top10_up <- cor_df %>%
+  filter(sig == "Up") %>%
+  arrange(-cor) %>%
+  head(11)
+
+top10_down <- cor_df %>%
+  filter(sig == "Down") %>%
+  arrange(cor) %>%
+  head(10)
+
+leading_edge <- bind_rows(top10_up, top10_down)
+
+scatter <- ggplot(cor_df, aes(x = -log10(pval), y = cor)) +
+  geom_point(size = 3) + 
+  scale_color_manual(
+    values = c(
+      "Up" = "red",
+      "Down" = "blue",
+      "NS" = "gray70"
+    )
+  ) +
+  labs(
+    title = "Correlation with TBK1",
+    x = "-log(pval)",
+    y = "Spearman Correlation"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.title = element_text(size = 12)
+  ) + 
+  geom_text_repel(
+    data = leading_edge,
+    aes(label = gene), 
+    size = 3, 
+    max.overlaps = Inf, 
+    box.padding = 0.6, 
+    point.padding = 0.4, 
+    segment.color = "gray50", 
+    force = 2)
+  
+scatter
+
+ggsave("genecorrelationscatter.png", scatter, dpi = 600)
 ```
 
 ```{r gsva}
@@ -383,9 +435,6 @@ cor_df$geneset <- rownames(res_gsva)
 # Reorder columns
 cor_df <- cor_df[, c("geneset", "cor", "pval")]
 
-# Adjust p-values for multiple testing (optional but recommended)
-cor_df$padj <- p.adjust(cor_df$pval, method = "BH")
-
 # Inspect results
 head(cor_df)
 
@@ -393,6 +442,75 @@ head(cor_df)
 write.csv(cor_df, "tbk1_gsva_cor.csv")
 cordf_subset <- subset(cor_df, pval < 0.1)
 write.csv(cordf_subset, "tbk1corgsvafiltered.csv")
+```
+
+```{r gsva fab adjusted}
+sample_ids <- gsub("\\.", "-", colnames(norm))        # convert to TCGA format
+patient_ids <- substr(sample_ids, 1, 12)              # TCGA patient barcode
+
+fab_lookup <- clinical[, c("cases.submitter_id", "diagnoses.fab_morphology_code")]
+colnames(fab_lookup) <- c("patient_id", "FAB")
+
+fab_vector <- fab_lookup$FAB[ match(patient_ids, fab_lookup$patient_id) ]
+fab_factor <- factor(fab_vector)
+
+cor_list_adj <- apply(res_gsva, 1, function(gsva_scores) {
+  
+  df_tmp <- data.frame(
+    gsva = gsva_scores,
+    tbk1 = tbk1_vec,
+    fab  = fab_factor
+  )
+  
+  fit <- lm(gsva ~ tbk1 + fab, data = df_tmp)
+  
+  tbk1_coef <- summary(fit)$coefficients["tbk1", "Estimate"]
+  tbk1_pval <- summary(fit)$coefficients["tbk1", "Pr(>|t|)"]
+  
+  data.frame(
+    coef = tbk1_coef,
+    pval = tbk1_pval
+  )
+})
+
+cor_list_adj <- apply(res_gsva, 1, function(gsva_scores) {
+  
+  df_tmp <- data.frame(
+    gsva = gsva_scores,
+    tbk1 = tbk1_vec,
+    fab  = fab_factor
+  )
+  
+  # Full model
+  fit_full <- lm(gsva ~ tbk1 + fab, data = df_tmp)
+  
+  # Reduced model (FAB only)
+  fit_red  <- lm(gsva ~ fab, data = df_tmp)
+  
+  # Extract TBK1 coefficient and p-value
+  tbk1_coef <- summary(fit_full)$coefficients["tbk1", "Estimate"]
+  tbk1_pval <- summary(fit_full)$coefficients["tbk1", "Pr(>|t|)"]
+  
+  # Compute partial R^2 for TBK1
+  rss_full <- sum(residuals(fit_full)^2)
+  rss_red  <- sum(residuals(fit_red)^2)
+  r2_partial <- (rss_red - rss_full) / rss_red
+  
+  data.frame(
+    coef = tbk1_coef,
+    pval = tbk1_pval,
+    r2   = r2_partial
+  )
+})
+
+cor_df_adj <- do.call(rbind, cor_list_adj)
+cor_df_adj$geneset <- rownames(res_gsva)
+cor_df_adj <- cor_df_adj[, c("geneset", "coef", "pval")]
+
+write.csv(cor_df_adj, "tbk1_gsva_fab_adjusted.csv")
+
+cordf_subset_adj <- subset(cor_df_adj, pval < 0.1)
+write.csv(cordf_subset_adj, "tbk1_gsva_fab_adjusted_filtered.csv")
 ```
 
 ```{r overlap}
@@ -422,4 +540,112 @@ print(neg_overlap)
 
 write.csv(pos_overlap, "pos_overlap.csv")
 write.csv(neg_overlap, "neg_overlap.csv")
+```
+
+```{r clinical datatable}
+clinical <- read_tsv("clinical.tsv")
+
+quartiles <- colData(dds) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("sample_id") %>%   # <-- different name
+  mutate(
+    sample_tcga = gsub("\\.", "-", sample_id),
+    patient_id  = substr(sample_tcga, 1, 12)
+  ) %>%
+  dplyr::select(patient_id, sample_id, quartile)
+
+clinical_subset <- clinical %>%
+  dplyr::select(
+    cases.submitter_id,
+    cases.disease_type,
+    demographic.age_at_index,
+    demographic.days_to_death,
+    diagnoses.days_to_last_follow_up,
+    demographic.gender,
+    demographic.race,
+    demographic.vital_status,
+    diagnoses.fab_morphology_code
+  )
+
+merged_table <- quartiles %>%
+  left_join(
+    clinical_subset,
+    by = c("patient_id" = "cases.submitter_id")
+  )
+
+final_table <- merged_table %>%
+  dplyr::select(
+    patient_id,
+    sample_id,
+    quartile,
+    cases.disease_type,
+    demographic.age_at_index,
+    demographic.days_to_death,
+    diagnoses.days_to_last_follow_up,
+    demographic.gender,
+    demographic.race,
+    demographic.vital_status,
+    diagnoses.fab_morphology_code
+  )
+
+final_table <- final_table %>%
+  dplyr::distinct(patient_id, .keep_all = TRUE)
+
+write.csv(final_table, "clinicaldata_third.csv")
+rm(quartiles, clinical_subset, merged_table)
+
+```
+
+```{r fab}
+# Create the matrix
+fab_tbk1 <- matrix(c(
+  5, 14, 11, 11, 5, 2, 2,   # Low
+  8, 12, 12, 2, 11, 3, 0,   # Mid
+  2, 9, 15, 1, 13, 10, 0    # High
+), nrow = 3, byrow = TRUE)
+
+# Add row and column names
+rownames(fab_tbk1) <- c("Low", "Mid", "High")
+colnames(fab_tbk1) <- c("M0", "M1", "M2", "M3", "M4", "M5", "NotClassified")
+
+# Run the test
+chisq.test(fab_tbk1)
+
+chisq.test(fab_tbk1, simulate.p.value = TRUE, B = 10000)
+```
+
+```{r gsea plot}
+gsva <- read.csv("gsva_selected.csv")
+gsva_plot <- ggplot(gsva, aes(x=cor, y=reorder(geneset, cor), fill = pval)) +
+  geom_col(color = "black") + 
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="red", mid="white", high="blue", midpoint= 0.05, limits=c(0, 0.1)) + 
+  labs(x="Spearman Correlation with TBK1", y="Genesets", title="GSVA Analysis") +
+  geom_vline(xintercept = 0, linetype = "solid", color = "black", size = 1)
+gsva_plot
+  
+
+celldeath <- read.csv("celldeath_pathways.csv")
+cdplot <- ggplot(celldeath,  aes(x=NES, y=reorder(pathway, NES), fill = padj)) +
+  geom_col(color = "black") + 
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="red", mid="white", high="blue", midpoint= 0.25, limits=c(0, 0.5)) + 
+  labs(x="Normalized Enrichment Score", y="Genesets", title="Cell Death Pathways") +
+  geom_vline(xintercept = 0, linetype = "solid", color = "black", size = 1)
+cdplot
+
+
+ggsave("gsva.png", gsva_plot, width = 10, dpi = 600)
+ggsave("celldeathgsea2.png", cdplot, dpi = 600)
+
 ```
