@@ -630,8 +630,8 @@ gsva_plot <- ggplot(gsva, aes(x=cor, y=reorder(geneset, cor), fill = pval)) +
 gsva_plot
   
 
-celldeath <- read.csv("celldeath_pathways.csv")
-cdplot <- ggplot(celldeath,  aes(x=NES, y=reorder(pathway, NES), fill = padj)) +
+gsea_cor <- read.csv("gsea_cor_selected.csv")
+gsea_plot <- ggplot(gsea_cor, aes(x=NES, y=reorder(pathway, NES), fill = padj)) +
   geom_col(color = "black") + 
   theme(
     panel.background = element_rect(fill = "white"), 
@@ -640,12 +640,12 @@ cdplot <- ggplot(celldeath,  aes(x=NES, y=reorder(pathway, NES), fill = padj)) +
     axis.text=element_text(color="black", face="bold")
     ) +
   scale_fill_gradient2(low="red", mid="white", high="blue", midpoint= 0.25, limits=c(0, 0.5)) + 
-  labs(x="Normalized Enrichment Score", y="Genesets", title="Cell Death Pathways") +
+  labs(x="Normalized Enrichment Score", y="Genesets", title="GSEA Analysis") +
   geom_vline(xintercept = 0, linetype = "solid", color = "black", size = 1)
-cdplot
+gsea_plot
 
 
 ggsave("gsva.png", gsva_plot, width = 10, dpi = 600)
-ggsave("celldeathgsea2.png", cdplot, dpi = 600)
+ggsave("gsea.png", gsea_plot, width = 10, dpi = 600)
 
 ```
