@@ -644,8 +644,23 @@ gsea_plot <- ggplot(gsea_cor, aes(x=NES, y=reorder(pathway, NES), fill = padj)) 
   geom_vline(xintercept = 0, linetype = "solid", color = "black", size = 1)
 gsea_plot
 
+gsea_third <- read.csv("gsea_third_selected.csv")
+gsea_third_plot <- ggplot(gsea_third, aes(x=NES, y=reorder(pathway, NES), fill = padj)) +
+  geom_col(color = "black") + 
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="red", mid="white", high="blue", midpoint= 0.25, limits=c(0, 0.5)) + 
+  labs(x="Normalized Enrichment Score", y="Genesets", title="GSEA Analysis") +
+  geom_vline(xintercept = 0, linetype = "solid", color = "black", size = 1)
+gsea_third_plot
+
 
 ggsave("gsva.png", gsva_plot, width = 10, dpi = 600)
 ggsave("gsea.png", gsea_plot, width = 10, dpi = 600)
+ggsave("gsea_third.png", gsea_third_plot, width = 10, dpi = 600)
 
 ```
