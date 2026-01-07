@@ -21,45 +21,163 @@ library(stringr)
 library(fs)
 library(dplyr)
 library(GSVA)
+library(ggpubr)
 
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/TCGA-LAML/")
+```
 
-EnsIDReplace2 <- function(input){
-  gene_mapping <- read.csv("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv")
-  rnanames <- rownames(input)
-  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
-  rnaname <- character(nrow(input))
-  for (i in seq_len(nrow(input))) {
-    ensembl_id <- rownames(input)[i]
-    if (ensembl_id %in% names(id_list)) {
-      rnaname[i] <- id_list[[ensembl_id]]
-    } else{
-      rnaname[i] <- ensembl_id
-    }
-  }
-  rnaname[rnaname == ""] <- NA
-  
-  rownames(input) <- make.names(rnaname, unique = TRUE)
-  rm(gene_mapping, id_list, ensembl_id, i, rnaname)
-}
-
+```{r functions}
 run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
-  res1 <- DESeq2::results(dds, 
-                       contrast = c("condition", condition1, condition2),
-                       independentFiltering = TRUE,
-                       alpha = 0.1)
-res1 <- subset(res1, padj < 0.1)
-rnk <- setNames(res1$log2FoldChange, rownames(res1))
-rnk <- rnk[!is.na(rnk)]
-gmt <- gmtPathways(gmt_path)
-gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
-gseadf <- as.data.frame(gsea)
-list_columns <- sapply(gseadf, is.list)
-gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
-write.csv(gseadf, output_gsea)
-res1_filtered <- res1[complete.cases(res1), ]
-write.csv(res1_filtered, output_deg)
+  suppressPackageStartupMessages({
+    library(DESeq2)
+    library(fgsea)
+    library(BiocParallel)
+    library(dplyr)
+  })
+
+  # Force serial execution to avoid BiocParallel crashes
+  BiocParallel::register(BiocParallel::SerialParam())
+
+  #-------------------------------
+  # 1. Validate contrast levels
+  #-------------------------------
+  if (!"Mutation" %in% colnames(colData(dds))) {
+    stop("Column 'Mutation' not found in colData(dds).")
+  }
+
+  mut_levels <- levels(dds$Mutation)
+
+  if (!(condition1 %in% mut_levels)) {
+    stop(paste("Condition1 not found in Mutation levels:", condition1))
+  }
+  if (!(condition2 %in% mut_levels)) {
+    stop(paste("Condition2 not found in Mutation levels:", condition2))
+  }
+
+  #-------------------------------
+  # 2. Run DESeq2 contrast
+  #-------------------------------
+  res <- DESeq2::results(
+    dds,
+    contrast = c("Mutation", condition1, condition2),
+    independentFiltering = TRUE,
+    alpha = 0.1,
+    parallel = FALSE
+  )
+
+  # Remove rows with NA statistics
+  res <- res[complete.cases(res$stat), ]
+
+  #-------------------------------
+  # 3. Build ranking vector
+  #-------------------------------
+  rnk <- setNames(res$stat, rownames(res))
+
+  if (length(rnk) < 1000) {
+    stop("Ranking vector too small (<1000 genes). Likely no signal in this contrast.")
+  }
+
+  #-------------------------------
+  # 4. Load pathways
+  #-------------------------------
+  gmt <- fgsea::gmtPathways(gmt_path)
+
+  #-------------------------------
+  # 5. Run fgsea
+  #-------------------------------
+  gsea <- fgsea(
+    pathways = gmt,
+    stats = rnk,
+    minSize = 15,
+    maxSize = 500
+  )
+
+  gsea_df <- as.data.frame(gsea)
+
+  # Flatten list columns (leadingEdge)
+  list_cols <- sapply(gsea_df, is.list)
+  gsea_df[list_cols] <- lapply(gsea_df[list_cols], function(x) sapply(x, paste, collapse = ";"))
+
+  #-------------------------------
+  # 6. Write outputs
+  #-------------------------------
+  write.csv(gsea_df, output_gsea, row.names = FALSE)
+
+  # DEG table (filtered for significance)
+  deg_df <- as.data.frame(res) %>%
+    mutate(gene = rownames(res)) %>%
+    filter(padj < 0.1)
+
+  write.csv(deg_df, output_deg, row.names = FALSE)
+
+  #-------------------------------
+  # 7. Return objects invisibly
+  #-------------------------------
+  invisible(list(
+    gsea = gsea_df,
+    degs = deg_df,
+    ranking = rnk
+  ))
 }
+
+EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv") {
+  #-----------------------------
+  # 1. Validate inputs
+  #-----------------------------
+  if (!is.matrix(input) && !is.data.frame(input)) {
+    stop("Input must be a matrix or data.frame with rownames.")
+  }
+  if (is.null(rownames(input))) {
+    stop("Input must have rownames corresponding to Ensembl IDs.")
+  }
+  if (!file.exists(mapping_file)) {
+    stop(paste("Mapping file not found:", mapping_file))
+  }
+
+  #-----------------------------
+  # 2. Load mapping file
+  #-----------------------------
+  gene_mapping <- read.csv(mapping_file, stringsAsFactors = FALSE)
+
+  required_cols <- c("gene_id", "gene_name")
+  if (!all(required_cols %in% colnames(gene_mapping))) {
+    stop("Mapping file must contain columns: gene_id, gene_name")
+  }
+
+  #-----------------------------
+  # 3. Build lookup vector
+  #-----------------------------
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+
+  #-----------------------------
+  # 4. Vectorized name replacement
+  #-----------------------------
+  old_ids <- rownames(input)
+
+  # Replace Ensembl IDs with gene names where available
+  new_names <- id_list[old_ids]
+
+  # For IDs not found in mapping, keep original
+  new_names[is.na(new_names)] <- old_ids[is.na(new_names)]
+
+  # Replace empty strings with NA
+  new_names[new_names == ""] <- NA
+
+  # Ensure syntactically valid + unique names
+  new_names <- make.names(new_names, unique = TRUE)
+
+  #-----------------------------
+  # 5. Apply new rownames
+  #-----------------------------
+  rownames(input) <- new_names
+
+  #-----------------------------
+  # 6. Return modified object
+  #-----------------------------
+  return(input)
+}
+
+
 ```
 
 ```{r rename files}
@@ -662,5 +780,49 @@ gsea_third_plot
 ggsave("gsva.png", gsva_plot, width = 10, dpi = 600)
 ggsave("gsea.png", gsea_plot, width = 10, dpi = 600)
 ggsave("gsea_third.png", gsea_third_plot, width = 10, dpi = 600)
+
+```
+
+```{r}
+# Convert TBK1 vector into a dataframe
+tbk1_df <- data.frame(
+  sample_id = names(tbk1_vec),
+  tbk1 = as.numeric(tbk1_vec)
+) %>%
+  dplyr::mutate(
+    sample_tcga = gsub("\\.", "-", sample_id),
+    patient_id  = substr(sample_tcga, 1, 12)
+  ) %>%
+  dplyr::select(patient_id, tbk1)
+
+# Merge with clinical table
+df_corr <- final_table %>%
+  left_join(tbk1_df, by = "patient_id") %>%
+  filter(!is.na(tbk1), !is.na(demographic.age_at_index))
+
+cor_test <- cor.test(df_corr$tbk1, df_corr$demographic.age_at_index, method = "spearman")
+cor_test
+
+age <- ggplot(df_corr, aes(x = demographic.age_at_index, y = tbk1)) +
+  geom_point(alpha = 0.7, color = "steelblue") +
+  geom_smooth(method = "lm", se = TRUE, color = "darkred") +
+  stat_cor(
+    method = "spearman",
+    label.x = min(df_corr$demographic.age_at_index, na.rm = TRUE),
+    label.y = max(df_corr$tbk1, na.rm = TRUE)
+  ) +
+  stat_regline_equation(
+    label.x = min(df_corr$demographic.age_at_index, na.rm = TRUE),
+    label.y = max(df_corr$tbk1, na.rm = TRUE) * 0.9
+  ) +
+  labs(
+    x = "Age",
+    y = "TBK1 Expression (normalized counts)",
+    title = "Correlation Between TBK1 Expression and Age"
+  ) +
+  theme_bw()
+age
+
+ggsave("tbk1age.png", age, dpi = 600)
 
 ```
