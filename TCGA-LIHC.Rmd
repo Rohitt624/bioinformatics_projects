@@ -1,0 +1,284 @@
+---
+title: "TCGA-LIHC"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r packages}
+library(tidyverse)
+library(DESeq2)
+library(rnaseqGene)
+library(pheatmap)
+library(ggalt)
+library(fgsea)
+library(biomaRt)
+library(ggVennDiagram)
+library(VennDiagram)
+library(ggrepel)
+library(jsonlite)
+library(stringr)
+library(fs)
+library(dplyr)
+library(GSVA)
+library(ggpubr)
+
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/")
+```
+
+```{r functions}
+run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
+  suppressPackageStartupMessages({
+    library(DESeq2)
+    library(fgsea)
+    library(BiocParallel)
+    library(dplyr)
+  })
+
+  # Force serial execution to avoid BiocParallel crashes
+  BiocParallel::register(BiocParallel::SerialParam())
+
+  #-------------------------------
+  # 1. Validate contrast levels
+  #-------------------------------
+  if (!"Mutation" %in% colnames(colData(dds))) {
+    stop("Column 'Mutation' not found in colData(dds).")
+  }
+
+  mut_levels <- levels(dds$Mutation)
+
+  if (!(condition1 %in% mut_levels)) {
+    stop(paste("Condition1 not found in Mutation levels:", condition1))
+  }
+  if (!(condition2 %in% mut_levels)) {
+    stop(paste("Condition2 not found in Mutation levels:", condition2))
+  }
+
+  #-------------------------------
+  # 2. Run DESeq2 contrast
+  #-------------------------------
+  res <- DESeq2::results(
+    dds,
+    contrast = c("Mutation", condition1, condition2),
+    independentFiltering = TRUE,
+    alpha = 0.1,
+    parallel = FALSE
+  )
+
+  # Remove rows with NA statistics
+  res <- res[complete.cases(res$stat), ]
+
+  #-------------------------------
+  # 3. Build ranking vector
+  #-------------------------------
+  rnk <- setNames(res$stat, rownames(res))
+
+  if (length(rnk) < 1000) {
+    stop("Ranking vector too small (<1000 genes). Likely no signal in this contrast.")
+  }
+
+  #-------------------------------
+  # 4. Load pathways
+  #-------------------------------
+  gmt <- fgsea::gmtPathways(gmt_path)
+
+  #-------------------------------
+  # 5. Run fgsea
+  #-------------------------------
+  gsea <- fgsea(
+    pathways = gmt,
+    stats = rnk,
+    minSize = 15,
+    maxSize = 500
+  )
+
+  gsea_df <- as.data.frame(gsea)
+
+  # Flatten list columns (leadingEdge)
+  list_cols <- sapply(gsea_df, is.list)
+  gsea_df[list_cols] <- lapply(gsea_df[list_cols], function(x) sapply(x, paste, collapse = ";"))
+
+  #-------------------------------
+  # 6. Write outputs
+  #-------------------------------
+  write.csv(gsea_df, output_gsea, row.names = FALSE)
+
+  # DEG table (filtered for significance)
+  deg_df <- as.data.frame(res) %>%
+    mutate(gene = rownames(res)) %>%
+    filter(padj < 0.1)
+
+  write.csv(deg_df, output_deg, row.names = FALSE)
+
+  #-------------------------------
+  # 7. Return objects invisibly
+  #-------------------------------
+  invisible(list(
+    gsea = gsea_df,
+    degs = deg_df,
+    ranking = rnk
+  ))
+}
+
+EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv") {
+  #-----------------------------
+  # 1. Validate inputs
+  #-----------------------------
+  if (!is.matrix(input) && !is.data.frame(input)) {
+    stop("Input must be a matrix or data.frame with rownames.")
+  }
+  if (is.null(rownames(input))) {
+    stop("Input must have rownames corresponding to Ensembl IDs.")
+  }
+  if (!file.exists(mapping_file)) {
+    stop(paste("Mapping file not found:", mapping_file))
+  }
+
+  #-----------------------------
+  # 2. Load mapping file
+  #-----------------------------
+  gene_mapping <- read.csv(mapping_file, stringsAsFactors = FALSE)
+
+  required_cols <- c("gene_id", "gene_name")
+  if (!all(required_cols %in% colnames(gene_mapping))) {
+    stop("Mapping file must contain columns: gene_id, gene_name")
+  }
+
+  #-----------------------------
+  # 3. Build lookup vector
+  #-----------------------------
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+
+  #-----------------------------
+  # 4. Vectorized name replacement
+  #-----------------------------
+  old_ids <- rownames(input)
+
+  # Replace Ensembl IDs with gene names where available
+  new_names <- id_list[old_ids]
+
+  # For IDs not found in mapping, keep original
+  new_names[is.na(new_names)] <- old_ids[is.na(new_names)]
+
+  # Replace empty strings with NA
+  new_names[new_names == ""] <- NA
+
+  # Ensure syntactically valid + unique names
+  new_names <- make.names(new_names, unique = TRUE)
+
+  #-----------------------------
+  # 5. Apply new rownames
+  #-----------------------------
+  rownames(input) <- new_names
+
+  #-----------------------------
+  # 6. Return modified object
+  #-----------------------------
+  return(input)
+}
+
+
+```
+
+```{r rename files}
+# Path to your combined metadata file
+meta_file <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/metadata.cart.2026-01-17.json"
+
+# Path to the folder containing all the UUID subfolders
+download_dir <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/downloads/"
+
+# Load metadata
+meta <- fromJSON(meta_file)
+
+# Build mapping: file_name → TCGA barcode
+mapping <- tibble(
+  file_name = meta$file_name,
+  barcode   = sapply(meta$associated_entities, function(x) x$entity_submitter_id[1])
+)
+
+# Rename files inside UUID folders
+for (i in seq_len(nrow(mapping))) {
+  
+  fname   <- mapping$file_name[i]
+  barcode <- mapping$barcode[i]
+  
+  # Find the file recursively
+  old_path <- dir(download_dir, pattern = paste0("^", fname, "$"),
+                  recursive = TRUE, full.names = TRUE)
+  
+  if (length(old_path) == 1) {
+    new_path <- file.path(dirname(old_path), paste0(barcode, ".tsv"))
+    file_move(old_path, new_path)
+    message("Renamed: ", fname, " → ", barcode)
+  } else {
+    message("Could not find file: ", fname)
+  }
+}
+
+
+```
+
+```{r pull files in downloads folder}
+library(fs)
+
+download_dir <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/downloads/"
+
+# Find all TSV files recursively
+tsv_files <- dir(download_dir, pattern = "\\.tsv$", recursive = TRUE, full.names = TRUE)
+
+# Move them to the top-level download directory
+file_move(tsv_files, download_dir)
+```
+
+```{r merge into one counts matrix}
+tsv_dir <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/downloads/"
+files <- list.files(tsv_dir, pattern = "\\.tsv$", full.names = TRUE)
+
+read_unstranded <- function(f) {
+  sample_id <- basename(f) |> str_remove("\\.tsv$")
+  
+  df <- read_tsv(
+    f,
+    comment = "#",
+    col_types = cols(),
+    progress = FALSE
+  ) |> as_tibble()
+  
+  df <- df |> filter(!is.na(gene_name))
+  
+  df |>
+    dplyr::select(gene_name, unstranded) |>
+    dplyr::mutate(sample = sample_id)
+}
+
+# Read all files
+long_df <- purrr::map_df(files, read_unstranded)
+
+# Fix duplicates by summing counts
+long_df_fixed <- long_df |>
+  dplyr::group_by(gene_name, sample) |>
+  dplyr::summarise(unstranded = sum(unstranded), .groups = "drop")
+
+# Pivot to wide matrix
+count_matrix <- long_df_fixed |>
+  tidyr::pivot_wider(
+    names_from = sample,
+    values_from = unstranded
+  ) |>
+  dplyr::arrange(gene_name)
+
+# Write to CSV
+write.csv(count_matrix, "tcga_lihc_counts.csv", row.names = FALSE)
+```
+
+```{r load data}
+cts <- read.csv("tcga_lihc_counts.csv", row.names = 1)
+cd <- read.csv("coldata.csv")
+dds <- DESeqDataSetFromMatrix(countData = aml, colData = cd, design = ~condition)
+```
+
+```{r}
+dds <- estimateSizeFactors(dds)
+norm <- counts(dds, normalized = TRUE) 
+```
