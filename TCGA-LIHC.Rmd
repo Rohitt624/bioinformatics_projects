@@ -23,6 +23,8 @@ library(fs)
 library(dplyr)
 library(GSVA)
 library(ggpubr)
+library(GSEABase)
+library(CMScaller)
 
 setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/")
 ```
@@ -177,8 +179,6 @@ EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rohit/OneDrive - Loyol
   #-----------------------------
   return(input)
 }
-
-
 ```
 
 ```{r rename files}
@@ -275,10 +275,277 @@ write.csv(count_matrix, "tcga_lihc_counts.csv", row.names = FALSE)
 ```{r load data}
 cts <- read.csv("tcga_lihc_counts.csv", row.names = 1)
 cd <- read.csv("coldata.csv")
-dds <- DESeqDataSetFromMatrix(countData = aml, colData = cd, design = ~condition)
+dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~condition)
 ```
 
 ```{r}
 dds <- estimateSizeFactors(dds)
 norm <- counts(dds, normalized = TRUE) 
+```
+
+```{r}
+# Ensure sample names match
+sample_names <- colnames(count_matrix)
+
+# Create a data frame
+col_data <- data.frame(
+  sampleID = sample_names,
+  type = "HCC",           # Or specific etiology like HBV/HCV if known
+  row.names = sample_names
+)
+
+# Verify the match
+all(rownames(col_data) == colnames(count_matrix))
+```
+
+```{r vst normalize}
+dds <- DESeqDataSetFromMatrix(countData = cts,
+                              colData = cd,
+                              design = ~ 1) # Use intercept-only for normalization
+
+# Apply VST
+vst <- vst(dds, blind = TRUE)
+
+# Extract the normalized matrix for NTP
+vst_mat <- assay(vst)
+```
+
+```{r NTP Hoshida Subtype}
+
+gmt_file <- "hoshidasubtype.gmt" 
+gs <- getGmt(gmt_file)
+
+if (!require("GSA")) install.packages("GSA")
+library(GSA)
+
+gmt_to_ntp_template <- function(gmt_path) {
+  gmt_data <- GSA.read.gmt(gmt_path)
+  
+  template_list <- list()
+  
+  for (i in 1:length(gmt_data$genesets)) {
+    genes <- gmt_data$genesets[[i]]
+    set_name <- gmt_data$geneset.names[i]
+    
+    template_list[[i]] <- data.frame(
+      probe = genes,
+      class = set_name,
+      stringsAsFactors = FALSE
+    )
+  }
+  
+  final_template <- do.call(rbind, template_list)
+  
+  final_template <- final_template[final_template$probe != "" & !is.na(final_template$probe), ]
+  
+  return(final_template)
+}
+
+hoshida_template <- gmt_to_ntp_template("hoshidasubtype.gmt")
+
+head(hoshida_template)
+hoshida_template$class <- gsub("^HOSHIDA_LIVER_CANCER_SUBCLASS_", "", hoshida_template$class)
+unique(hoshida_template$class)
+
+# 4. Run NTP using CMScaller
+# library(CMScaller)
+# results <- ntp(emat = your_rna_seq_matrix, 
+#                templates = hoshida_template, 
+#                doPlot = TRUE)
+vst_mat_centered <- ematAdjust(vst_mat)
+
+ntp_res <- CMScaller::ntp(
+  emat = as.matrix(vst_mat_centered),
+  templates = hoshida_template,
+  seed = 123,
+  doPlot = TRUE
+)
+table(ntp_res$prediction)
+
+```
+
+```{r ntp plot}
+# 1. Open the PNG device
+png("Hoshida_NTP_Results.png", width = 2400, height = 2000, res = 600)
+
+# 2. Run the function
+ntp_res <- CMScaller::ntp(
+  emat = as.matrix(vst_mat_centered),
+  templates = hoshida_template,
+  seed = 123,
+  doPlot = TRUE
+)
+
+# 3. Close the device
+dev.off()
+```
+
+```{r}
+fdr_threshold <- 0.05
+
+final_subtypes <- as.character(ntp_res$prediction)
+final_subtypes[ntp_res$FDR > fdr_threshold] <- "Undetermined"
+final_subtypes <- factor(final_subtypes)
+
+# 3. Add to a data frame with sample IDs (assuming rownames are sample IDs)
+ntp_metadata <- data.frame(
+  sampleID = rownames(ntp_res),
+  Hoshida_Subtype = final_subtypes,
+  stringsAsFactors = FALSE
+)
+
+
+ntp_metadata <- ntp_metadata[match(colnames(dds), ntp_metadata$sampleID), ]
+
+dds$Hoshida_Subtype <- as.factor(ntp_metadata$Hoshida_Subtype)
+
+colData(dds)
+```
+
+```{r}
+design(dds) <- ~ Hoshida_Subtype
+
+# Filter out "Undetermined" samples if you want a clean comparison
+# (Optional but recommended)
+dds_filtered <- dds[, dds$Hoshida_Subtype != "Undetermined"]
+dds_filtered$Hoshida_Subtype <- droplevels(dds_filtered$Hoshida_Subtype)
+
+# Run DESeq
+dds_filtered <- DESeq(dds_filtered)
+
+# Apply VST
+vst <- vst(dds, blind = TRUE)
+
+# Extract the normalized matrix for NTP
+vst_mat <- assay(vst)
+```
+
+```{r scatter}
+plot_data <- vst_mat[c("PTK2", "CCN2"), ]
+
+plot_data <- as.data.frame(t(vst_mat[c("PTK2", "CCN2"), ]))
+plot_data$Subtype <- vst$Hoshida_Subtype
+
+scatter <- ggplot(plot_data, aes(x = PTK2, y = CCN2, color = Subtype)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed", size = 0.5) +
+  scale_color_brewer(palette = "Set1") + # Distinct colors for S1, S2, S3
+  theme_minimal() +
+  labs(
+    title = "FAK vs CTGF Expression",
+    x = "FAK",
+    y = "CTGF",
+    color = "NTP Subtype"
+  ) +
+  theme(legend.position = "right") + 
+  theme(plot.title = element_text(hjust = 0.5))
+scatter
+
+ggsave("fakctgfscatter.png", scatter, dpi = 600)
+```
+
+```{r violin}
+plot_data <- as.data.frame(t(vst_mat[c("PTK2", "CCN2"), ]))
+plot_data$Subtype <- vst$Hoshida_Subtype
+
+vln <- ggplot(plot_data, aes(factor(Subtype), y = PTK2, fill = Subtype)) + 
+  geom_violin() + 
+  geom_jitter(width = 0.1) + 
+  labs(title = "FAK Expression by Hoshida Subtype", 
+       x = "Hoshida Subtype", 
+       y = "FAK") + 
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  theme_bw() + 
+  theme(plot.title = element_text(hjust = 0.5))
+vln
+
+ggsave("fakvlnplot.png", vln, dpi = 600)
+
+vln <- ggplot(plot_data, aes(factor(Subtype), y = CCN2, fill = Subtype)) + 
+  geom_violin() + 
+  geom_jitter(width = 0.1) + 
+  labs(title = "CTGF Expression by Hoshida Subtype", 
+       x = "Hoshida Subtype", 
+       y = "CTGF") + 
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  theme_bw() + 
+  theme(plot.title = element_text(hjust = 0.5))
+vln
+
+ggsave("ctgfvlnplot.png", vln, dpi = 600)
+```
+
+```{r combined violin plot}
+plot_data_long <- plot_data %>%
+  pivot_longer(cols = c("PTK2", "CCN2"), 
+               names_to = "Gene", 
+               values_to = "Expression")
+
+plot_data_long$Gene <- factor(plot_data_long$Gene, levels = c("PTK2", "CCN2"))
+
+# 2. Create the combined plot
+combined_vln <- ggplot(plot_data_long, aes(x = Subtype, y = Expression, fill = Gene)) + 
+  geom_violin(position = position_dodge(0.8)) + 
+  geom_jitter(position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.8)) +
+  labs(title = "FAK and CTGF Expression by Subtype", 
+       x = "Hoshida Subtype", 
+       y = "Expression (VST Normalized)") + 
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  scale_fill_manual(values = c("PTK2" = "dodgerblue", "CCN2" = "brown1"), 
+                    labels = c("PTK2" = "FAK", "CCN2" = "CTGF"))
+
+combined_vln
+
+
+# 3. Save the combined plot
+ggsave("combined_vln_plot.png", combined_vln, dpi = 600)
+```
+
+```{r clinical datatable}
+clinical <- read_tsv("clinical.tsv")
+
+subtype <- colData(dds) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("sample_id") %>%   # <-- different name
+  mutate(
+    sample_tcga = gsub("\\.", "-", sample_id),
+    patient_id  = substr(sample_tcga, 1, 12)
+  ) %>%
+  dplyr::select(patient_id, sample_id, Hoshida_Subtype)
+
+clinical_subset <- clinical %>%
+  dplyr::select(
+    cases.submitter_id,
+    cases.disease_type,
+    diagnoses.classification_of_tumor, 
+    diagnoses.age_at_diagnosis,
+    diagnoses.days_to_last_follow_up,
+    demographic.vital_status
+  )
+
+merged_table <- subtype %>%
+  left_join(
+    clinical_subset,
+    by = c("patient_id" = "cases.submitter_id")
+  )
+
+final_table <- merged_table %>%
+  dplyr::select(
+    patient_id,
+    sample_id,
+    Hoshida_Subtype,
+    cases.disease_type,
+    diagnoses.classification_of_tumor, 
+    diagnoses.age_at_diagnosis,
+    diagnoses.days_to_last_follow_up,
+    demographic.vital_status
+  )
+
+final_table <- final_table %>%
+  dplyr::distinct(patient_id, .keep_all = TRUE)
+
+write.csv(final_table, "clinicaldata.csv")
+rm(subtype, clinical_subset, merged_table)
+
 ```
