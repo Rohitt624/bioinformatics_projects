@@ -1,12 +1,15 @@
 ---
 title: "TCGA-LIHC"
-output: html_notebook
-editor_options: 
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+editor_options:
   chunk_output_type: console
 ---
 
 
-```{r packages}
+```{r packages, message = FALSE}
 library(tidyverse)
 library(DESeq2)
 library(rnaseqGene)
@@ -27,6 +30,10 @@ library(GSEABase)
 library(CMScaller)
 
 setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = 'C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/')
 ```
 
 ```{r functions}
@@ -181,7 +188,7 @@ EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rohit/OneDrive - Loyol
 }
 ```
 
-```{r rename files}
+```{r rename files, eval = FALSE}
 # Path to your combined metadata file
 meta_file <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/metadata.cart.2026-01-17.json"
 
@@ -219,7 +226,7 @@ for (i in seq_len(nrow(mapping))) {
 
 ```
 
-```{r pull files in downloads folder}
+```{r pull files in downloads folder, eval = FALSE}
 library(fs)
 
 download_dir <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/downloads/"
@@ -229,9 +236,9 @@ tsv_files <- dir(download_dir, pattern = "\\.tsv$", recursive = TRUE, full.names
 
 # Move them to the top-level download directory
 file_move(tsv_files, download_dir)
-```
+#```
 
-```{r merge into one counts matrix}
+#```{r merge into one counts matrix}
 tsv_dir <- "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/downloads/"
 files <- list.files(tsv_dir, pattern = "\\.tsv$", full.names = TRUE)
 
@@ -270,7 +277,7 @@ count_matrix <- long_df_fixed |>
 
 # Write to CSV
 write.csv(count_matrix, "tcga_lihc_counts.csv", row.names = FALSE)
-```
+#```
 
 ```{r load data}
 cts <- read.csv("tcga_lihc_counts.csv", row.names = 1)
@@ -281,21 +288,6 @@ dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~condition
 ```{r}
 dds <- estimateSizeFactors(dds)
 norm <- counts(dds, normalized = TRUE) 
-```
-
-```{r}
-# Ensure sample names match
-sample_names <- colnames(count_matrix)
-
-# Create a data frame
-col_data <- data.frame(
-  sampleID = sample_names,
-  type = "HCC",           # Or specific etiology like HBV/HCV if known
-  row.names = sample_names
-)
-
-# Verify the match
-all(rownames(col_data) == colnames(count_matrix))
 ```
 
 ```{r vst normalize}

@@ -1,0 +1,1074 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={TCGA-LIHC},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{TCGA-LIHC}
+\author{}
+\date{\vspace{-2.5em}}
+
+\begin{document}
+\maketitle
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(tidyverse)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: package 'ggplot2' was built under R version 4.4.3
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: package 'purrr' was built under R version 4.4.3
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: package 'stringr' was built under R version 4.4.3
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: package 'lubridate' was built under R version 4.4.3
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(DESeq2)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: package 'GenomicRanges' was built under R version 4.4.1
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: package 'matrixStats' was built under R version 4.4.3
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(rnaseqGene)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: package 'hexbin' was built under R version 4.4.2
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: package 'glmpca' was built under R version 4.4.1
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: package 'mgcv' was built under R version 4.4.3
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: package 'nlme' was built under R version 4.4.3
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: package 'edgeR' was built under R version 4.4.1
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: package 'limma' was built under R version 4.4.1
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: replacing previous import 'dplyr::select' by 'AnnotationDbi::select'
+## when loading 'rnaseqGene'
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(pheatmap)}
+\FunctionTok{library}\NormalTok{(ggalt)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: package 'ggalt' was built under R version 4.4.1
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(fgsea)}
+\FunctionTok{library}\NormalTok{(biomaRt)}
+\FunctionTok{library}\NormalTok{(ggVennDiagram)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: package 'ggVennDiagram' was built under R version 4.4.2
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(VennDiagram)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: package 'VennDiagram' was built under R version 4.4.2
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(ggrepel)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: package 'ggrepel' was built under R version 4.4.2
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(jsonlite)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: package 'jsonlite' was built under R version 4.4.3
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(stringr)}
+\FunctionTok{library}\NormalTok{(fs)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: package 'fs' was built under R version 4.4.3
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(dplyr)}
+\FunctionTok{library}\NormalTok{(GSVA)}
+\FunctionTok{library}\NormalTok{(ggpubr)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: package 'ggpubr' was built under R version 4.4.3
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(GSEABase)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: package 'XML' was built under R version 4.4.3
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(CMScaller)}
+
+\FunctionTok{setwd}\NormalTok{(}\StringTok{"C:/Users/rohit/OneDrive {-} Loyola University Chicago/Zhang Lab/CRK HCC/"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{run\_gsea }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(dds, condition1, condition2, gmt\_path, output\_gsea, output\_deg) \{}
+  \FunctionTok{suppressPackageStartupMessages}\NormalTok{(\{}
+    \FunctionTok{library}\NormalTok{(DESeq2)}
+    \FunctionTok{library}\NormalTok{(fgsea)}
+    \FunctionTok{library}\NormalTok{(BiocParallel)}
+    \FunctionTok{library}\NormalTok{(dplyr)}
+\NormalTok{  \})}
+
+  \CommentTok{\# Force serial execution to avoid BiocParallel crashes}
+\NormalTok{  BiocParallel}\SpecialCharTok{::}\FunctionTok{register}\NormalTok{(BiocParallel}\SpecialCharTok{::}\FunctionTok{SerialParam}\NormalTok{())}
+
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \CommentTok{\# 1. Validate contrast levels}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \ControlFlowTok{if}\NormalTok{ (}\SpecialCharTok{!}\StringTok{"Mutation"} \SpecialCharTok{\%in\%} \FunctionTok{colnames}\NormalTok{(}\FunctionTok{colData}\NormalTok{(dds))) \{}
+    \FunctionTok{stop}\NormalTok{(}\StringTok{"Column \textquotesingle{}Mutation\textquotesingle{} not found in colData(dds)."}\NormalTok{)}
+\NormalTok{  \}}
+
+\NormalTok{  mut\_levels }\OtherTok{\textless{}{-}} \FunctionTok{levels}\NormalTok{(dds}\SpecialCharTok{$}\NormalTok{Mutation)}
+
+  \ControlFlowTok{if}\NormalTok{ (}\SpecialCharTok{!}\NormalTok{(condition1 }\SpecialCharTok{\%in\%}\NormalTok{ mut\_levels)) \{}
+    \FunctionTok{stop}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Condition1 not found in Mutation levels:"}\NormalTok{, condition1))}
+\NormalTok{  \}}
+  \ControlFlowTok{if}\NormalTok{ (}\SpecialCharTok{!}\NormalTok{(condition2 }\SpecialCharTok{\%in\%}\NormalTok{ mut\_levels)) \{}
+    \FunctionTok{stop}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Condition2 not found in Mutation levels:"}\NormalTok{, condition2))}
+\NormalTok{  \}}
+
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \CommentTok{\# 2. Run DESeq2 contrast}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+\NormalTok{  res }\OtherTok{\textless{}{-}}\NormalTok{ DESeq2}\SpecialCharTok{::}\FunctionTok{results}\NormalTok{(}
+\NormalTok{    dds,}
+    \AttributeTok{contrast =} \FunctionTok{c}\NormalTok{(}\StringTok{"Mutation"}\NormalTok{, condition1, condition2),}
+    \AttributeTok{independentFiltering =} \ConstantTok{TRUE}\NormalTok{,}
+    \AttributeTok{alpha =} \FloatTok{0.1}\NormalTok{,}
+    \AttributeTok{parallel =} \ConstantTok{FALSE}
+\NormalTok{  )}
+
+  \CommentTok{\# Remove rows with NA statistics}
+\NormalTok{  res }\OtherTok{\textless{}{-}}\NormalTok{ res[}\FunctionTok{complete.cases}\NormalTok{(res}\SpecialCharTok{$}\NormalTok{stat), ]}
+
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \CommentTok{\# 3. Build ranking vector}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+\NormalTok{  rnk }\OtherTok{\textless{}{-}} \FunctionTok{setNames}\NormalTok{(res}\SpecialCharTok{$}\NormalTok{stat, }\FunctionTok{rownames}\NormalTok{(res))}
+
+  \ControlFlowTok{if}\NormalTok{ (}\FunctionTok{length}\NormalTok{(rnk) }\SpecialCharTok{\textless{}} \DecValTok{1000}\NormalTok{) \{}
+    \FunctionTok{stop}\NormalTok{(}\StringTok{"Ranking vector too small (\textless{}1000 genes). Likely no signal in this contrast."}\NormalTok{)}
+\NormalTok{  \}}
+
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \CommentTok{\# 4. Load pathways}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+\NormalTok{  gmt }\OtherTok{\textless{}{-}}\NormalTok{ fgsea}\SpecialCharTok{::}\FunctionTok{gmtPathways}\NormalTok{(gmt\_path)}
+
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \CommentTok{\# 5. Run fgsea}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+\NormalTok{  gsea }\OtherTok{\textless{}{-}} \FunctionTok{fgsea}\NormalTok{(}
+    \AttributeTok{pathways =}\NormalTok{ gmt,}
+    \AttributeTok{stats =}\NormalTok{ rnk,}
+    \AttributeTok{minSize =} \DecValTok{15}\NormalTok{,}
+    \AttributeTok{maxSize =} \DecValTok{500}
+\NormalTok{  )}
+
+\NormalTok{  gsea\_df }\OtherTok{\textless{}{-}} \FunctionTok{as.data.frame}\NormalTok{(gsea)}
+
+  \CommentTok{\# Flatten list columns (leadingEdge)}
+\NormalTok{  list\_cols }\OtherTok{\textless{}{-}} \FunctionTok{sapply}\NormalTok{(gsea\_df, is.list)}
+\NormalTok{  gsea\_df[list\_cols] }\OtherTok{\textless{}{-}} \FunctionTok{lapply}\NormalTok{(gsea\_df[list\_cols], }\ControlFlowTok{function}\NormalTok{(x) }\FunctionTok{sapply}\NormalTok{(x, paste, }\AttributeTok{collapse =} \StringTok{";"}\NormalTok{))}
+
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \CommentTok{\# 6. Write outputs}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \FunctionTok{write.csv}\NormalTok{(gsea\_df, output\_gsea, }\AttributeTok{row.names =} \ConstantTok{FALSE}\NormalTok{)}
+
+  \CommentTok{\# DEG table (filtered for significance)}
+\NormalTok{  deg\_df }\OtherTok{\textless{}{-}} \FunctionTok{as.data.frame}\NormalTok{(res) }\SpecialCharTok{\%\textgreater{}\%}
+    \FunctionTok{mutate}\NormalTok{(}\AttributeTok{gene =} \FunctionTok{rownames}\NormalTok{(res)) }\SpecialCharTok{\%\textgreater{}\%}
+    \FunctionTok{filter}\NormalTok{(padj }\SpecialCharTok{\textless{}} \FloatTok{0.1}\NormalTok{)}
+
+  \FunctionTok{write.csv}\NormalTok{(deg\_df, output\_deg, }\AttributeTok{row.names =} \ConstantTok{FALSE}\NormalTok{)}
+
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \CommentTok{\# 7. Return objects invisibly}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \FunctionTok{invisible}\NormalTok{(}\FunctionTok{list}\NormalTok{(}
+    \AttributeTok{gsea =}\NormalTok{ gsea\_df,}
+    \AttributeTok{degs =}\NormalTok{ deg\_df,}
+    \AttributeTok{ranking =}\NormalTok{ rnk}
+\NormalTok{  ))}
+\NormalTok{\}}
+
+\NormalTok{EnsIDReplace2 }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(input, }\AttributeTok{mapping\_file =} \StringTok{"C:/Users/rohit/OneDrive {-} Loyola University Chicago/Zhang Lab/Ensembl\_labels\_human.csv"}\NormalTok{) \{}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \CommentTok{\# 1. Validate inputs}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \ControlFlowTok{if}\NormalTok{ (}\SpecialCharTok{!}\FunctionTok{is.matrix}\NormalTok{(input) }\SpecialCharTok{\&\&} \SpecialCharTok{!}\FunctionTok{is.data.frame}\NormalTok{(input)) \{}
+    \FunctionTok{stop}\NormalTok{(}\StringTok{"Input must be a matrix or data.frame with rownames."}\NormalTok{)}
+\NormalTok{  \}}
+  \ControlFlowTok{if}\NormalTok{ (}\FunctionTok{is.null}\NormalTok{(}\FunctionTok{rownames}\NormalTok{(input))) \{}
+    \FunctionTok{stop}\NormalTok{(}\StringTok{"Input must have rownames corresponding to Ensembl IDs."}\NormalTok{)}
+\NormalTok{  \}}
+  \ControlFlowTok{if}\NormalTok{ (}\SpecialCharTok{!}\FunctionTok{file.exists}\NormalTok{(mapping\_file)) \{}
+    \FunctionTok{stop}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Mapping file not found:"}\NormalTok{, mapping\_file))}
+\NormalTok{  \}}
+
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \CommentTok{\# 2. Load mapping file}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+\NormalTok{  gene\_mapping }\OtherTok{\textless{}{-}} \FunctionTok{read.csv}\NormalTok{(mapping\_file, }\AttributeTok{stringsAsFactors =} \ConstantTok{FALSE}\NormalTok{)}
+
+\NormalTok{  required\_cols }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"gene\_id"}\NormalTok{, }\StringTok{"gene\_name"}\NormalTok{)}
+  \ControlFlowTok{if}\NormalTok{ (}\SpecialCharTok{!}\FunctionTok{all}\NormalTok{(required\_cols }\SpecialCharTok{\%in\%} \FunctionTok{colnames}\NormalTok{(gene\_mapping))) \{}
+    \FunctionTok{stop}\NormalTok{(}\StringTok{"Mapping file must contain columns: gene\_id, gene\_name"}\NormalTok{)}
+\NormalTok{  \}}
+
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \CommentTok{\# 3. Build lookup vector}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+\NormalTok{  id\_list }\OtherTok{\textless{}{-}} \FunctionTok{setNames}\NormalTok{(gene\_mapping}\SpecialCharTok{$}\NormalTok{gene\_name, gene\_mapping}\SpecialCharTok{$}\NormalTok{gene\_id)}
+
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \CommentTok{\# 4. Vectorized name replacement}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+\NormalTok{  old\_ids }\OtherTok{\textless{}{-}} \FunctionTok{rownames}\NormalTok{(input)}
+
+  \CommentTok{\# Replace Ensembl IDs with gene names where available}
+\NormalTok{  new\_names }\OtherTok{\textless{}{-}}\NormalTok{ id\_list[old\_ids]}
+
+  \CommentTok{\# For IDs not found in mapping, keep original}
+\NormalTok{  new\_names[}\FunctionTok{is.na}\NormalTok{(new\_names)] }\OtherTok{\textless{}{-}}\NormalTok{ old\_ids[}\FunctionTok{is.na}\NormalTok{(new\_names)]}
+
+  \CommentTok{\# Replace empty strings with NA}
+\NormalTok{  new\_names[new\_names }\SpecialCharTok{==} \StringTok{""}\NormalTok{] }\OtherTok{\textless{}{-}} \ConstantTok{NA}
+
+  \CommentTok{\# Ensure syntactically valid + unique names}
+\NormalTok{  new\_names }\OtherTok{\textless{}{-}} \FunctionTok{make.names}\NormalTok{(new\_names, }\AttributeTok{unique =} \ConstantTok{TRUE}\NormalTok{)}
+
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \CommentTok{\# 5. Apply new rownames}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \FunctionTok{rownames}\NormalTok{(input) }\OtherTok{\textless{}{-}}\NormalTok{ new\_names}
+
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \CommentTok{\# 6. Return modified object}
+  \CommentTok{\#{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+  \FunctionTok{return}\NormalTok{(input)}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Path to your combined metadata file}
+\NormalTok{meta\_file }\OtherTok{\textless{}{-}} \StringTok{"C:/Users/rohit/OneDrive {-} Loyola University Chicago/Zhang Lab/CRK HCC/metadata.cart.2026{-}01{-}17.json"}
+
+\CommentTok{\# Path to the folder containing all the UUID subfolders}
+\NormalTok{download\_dir }\OtherTok{\textless{}{-}} \StringTok{"C:/Users/rohit/OneDrive {-} Loyola University Chicago/Zhang Lab/CRK HCC/downloads/"}
+
+\CommentTok{\# Load metadata}
+\NormalTok{meta }\OtherTok{\textless{}{-}} \FunctionTok{fromJSON}\NormalTok{(meta\_file)}
+
+\CommentTok{\# Build mapping: file\_name → TCGA barcode}
+\NormalTok{mapping }\OtherTok{\textless{}{-}} \FunctionTok{tibble}\NormalTok{(}
+  \AttributeTok{file\_name =}\NormalTok{ meta}\SpecialCharTok{$}\NormalTok{file\_name,}
+  \AttributeTok{barcode   =} \FunctionTok{sapply}\NormalTok{(meta}\SpecialCharTok{$}\NormalTok{associated\_entities, }\ControlFlowTok{function}\NormalTok{(x) x}\SpecialCharTok{$}\NormalTok{entity\_submitter\_id[}\DecValTok{1}\NormalTok{])}
+\NormalTok{)}
+
+\CommentTok{\# Rename files inside UUID folders}
+\ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \FunctionTok{seq\_len}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(mapping))) \{}
+  
+\NormalTok{  fname   }\OtherTok{\textless{}{-}}\NormalTok{ mapping}\SpecialCharTok{$}\NormalTok{file\_name[i]}
+\NormalTok{  barcode }\OtherTok{\textless{}{-}}\NormalTok{ mapping}\SpecialCharTok{$}\NormalTok{barcode[i]}
+  
+  \CommentTok{\# Find the file recursively}
+\NormalTok{  old\_path }\OtherTok{\textless{}{-}} \FunctionTok{dir}\NormalTok{(download\_dir, }\AttributeTok{pattern =} \FunctionTok{paste0}\NormalTok{(}\StringTok{"\^{}"}\NormalTok{, fname, }\StringTok{"$"}\NormalTok{),}
+                  \AttributeTok{recursive =} \ConstantTok{TRUE}\NormalTok{, }\AttributeTok{full.names =} \ConstantTok{TRUE}\NormalTok{)}
+  
+  \ControlFlowTok{if}\NormalTok{ (}\FunctionTok{length}\NormalTok{(old\_path) }\SpecialCharTok{==} \DecValTok{1}\NormalTok{) \{}
+\NormalTok{    new\_path }\OtherTok{\textless{}{-}} \FunctionTok{file.path}\NormalTok{(}\FunctionTok{dirname}\NormalTok{(old\_path), }\FunctionTok{paste0}\NormalTok{(barcode, }\StringTok{".tsv"}\NormalTok{))}
+    \FunctionTok{file\_move}\NormalTok{(old\_path, new\_path)}
+    \FunctionTok{message}\NormalTok{(}\StringTok{"Renamed: "}\NormalTok{, fname, }\StringTok{" → "}\NormalTok{, barcode)}
+\NormalTok{  \} }\ControlFlowTok{else}\NormalTok{ \{}
+    \FunctionTok{message}\NormalTok{(}\StringTok{"Could not find file: "}\NormalTok{, fname)}
+\NormalTok{  \}}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(fs)}
+
+\NormalTok{download\_dir }\OtherTok{\textless{}{-}} \StringTok{"C:/Users/rohit/OneDrive {-} Loyola University Chicago/Zhang Lab/CRK HCC/downloads/"}
+
+\CommentTok{\# Find all TSV files recursively}
+\NormalTok{tsv\_files }\OtherTok{\textless{}{-}} \FunctionTok{dir}\NormalTok{(download\_dir, }\AttributeTok{pattern =} \StringTok{"}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{.tsv$"}\NormalTok{, }\AttributeTok{recursive =} \ConstantTok{TRUE}\NormalTok{, }\AttributeTok{full.names =} \ConstantTok{TRUE}\NormalTok{)}
+
+\CommentTok{\# Move them to the top{-}level download directory}
+\FunctionTok{file\_move}\NormalTok{(tsv\_files, download\_dir)}
+\CommentTok{\#\textasciigrave{}\textasciigrave{}\textasciigrave{}}
+
+\CommentTok{\#\textasciigrave{}\textasciigrave{}\textasciigrave{}\{r merge into one counts matrix\}}
+\NormalTok{tsv\_dir }\OtherTok{\textless{}{-}} \StringTok{"C:/Users/rohit/OneDrive {-} Loyola University Chicago/Zhang Lab/CRK HCC/downloads/"}
+\NormalTok{files }\OtherTok{\textless{}{-}} \FunctionTok{list.files}\NormalTok{(tsv\_dir, }\AttributeTok{pattern =} \StringTok{"}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{.tsv$"}\NormalTok{, }\AttributeTok{full.names =} \ConstantTok{TRUE}\NormalTok{)}
+
+\NormalTok{read\_unstranded }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(f) \{}
+\NormalTok{  sample\_id }\OtherTok{\textless{}{-}} \FunctionTok{basename}\NormalTok{(f) }\SpecialCharTok{|\textgreater{}} \FunctionTok{str\_remove}\NormalTok{(}\StringTok{"}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{.tsv$"}\NormalTok{)}
+  
+\NormalTok{  df }\OtherTok{\textless{}{-}} \FunctionTok{read\_tsv}\NormalTok{(}
+\NormalTok{    f,}
+    \AttributeTok{comment =} \StringTok{"\#"}\NormalTok{,}
+    \AttributeTok{col\_types =} \FunctionTok{cols}\NormalTok{(),}
+    \AttributeTok{progress =} \ConstantTok{FALSE}
+\NormalTok{  ) }\SpecialCharTok{|\textgreater{}} \FunctionTok{as\_tibble}\NormalTok{()}
+  
+\NormalTok{  df }\OtherTok{\textless{}{-}}\NormalTok{ df }\SpecialCharTok{|\textgreater{}} \FunctionTok{filter}\NormalTok{(}\SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(gene\_name))}
+  
+\NormalTok{  df }\SpecialCharTok{|\textgreater{}}
+\NormalTok{    dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(gene\_name, unstranded) }\SpecialCharTok{|\textgreater{}}
+\NormalTok{    dplyr}\SpecialCharTok{::}\FunctionTok{mutate}\NormalTok{(}\AttributeTok{sample =}\NormalTok{ sample\_id)}
+\NormalTok{\}}
+
+\CommentTok{\# Read all files}
+\NormalTok{long\_df }\OtherTok{\textless{}{-}}\NormalTok{ purrr}\SpecialCharTok{::}\FunctionTok{map\_df}\NormalTok{(files, read\_unstranded)}
+
+\CommentTok{\# Fix duplicates by summing counts}
+\NormalTok{long\_df\_fixed }\OtherTok{\textless{}{-}}\NormalTok{ long\_df }\SpecialCharTok{|\textgreater{}}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{group\_by}\NormalTok{(gene\_name, sample) }\SpecialCharTok{|\textgreater{}}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{summarise}\NormalTok{(}\AttributeTok{unstranded =} \FunctionTok{sum}\NormalTok{(unstranded), }\AttributeTok{.groups =} \StringTok{"drop"}\NormalTok{)}
+
+\CommentTok{\# Pivot to wide matrix}
+\NormalTok{count\_matrix }\OtherTok{\textless{}{-}}\NormalTok{ long\_df\_fixed }\SpecialCharTok{|\textgreater{}}
+\NormalTok{  tidyr}\SpecialCharTok{::}\FunctionTok{pivot\_wider}\NormalTok{(}
+    \AttributeTok{names\_from =}\NormalTok{ sample,}
+    \AttributeTok{values\_from =}\NormalTok{ unstranded}
+\NormalTok{  ) }\SpecialCharTok{|\textgreater{}}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{arrange}\NormalTok{(gene\_name)}
+
+\CommentTok{\# Write to CSV}
+\FunctionTok{write.csv}\NormalTok{(count\_matrix, }\StringTok{"tcga\_lihc\_counts.csv"}\NormalTok{, }\AttributeTok{row.names =} \ConstantTok{FALSE}\NormalTok{)}
+\CommentTok{\#\textasciigrave{}\textasciigrave{}\textasciigrave{}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{cts }\OtherTok{\textless{}{-}} \FunctionTok{read.csv}\NormalTok{(}\StringTok{"tcga\_lihc\_counts.csv"}\NormalTok{, }\AttributeTok{row.names =} \DecValTok{1}\NormalTok{)}
+\NormalTok{cd }\OtherTok{\textless{}{-}} \FunctionTok{read.csv}\NormalTok{(}\StringTok{"coldata.csv"}\NormalTok{)}
+\NormalTok{dds }\OtherTok{\textless{}{-}} \FunctionTok{DESeqDataSetFromMatrix}\NormalTok{(}\AttributeTok{countData =}\NormalTok{ cts, }\AttributeTok{colData =}\NormalTok{ cd, }\AttributeTok{design =} \SpecialCharTok{\textasciitilde{}}\NormalTok{condition)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## converting counts to integer mode
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in DESeqDataSet(se, design = design, ignoreRank): some variables in
+## design formula are characters, converting to factors
+\end{verbatim}
+
+\begin{verbatim}
+##   Note: levels of factors in the design contain characters other than
+##   letters, numbers, '_' and '.'. It is recommended (but not required) to use
+##   only letters, numbers, and delimiters '_' or '.', as these are safe characters
+##   for column names in R. [This is a message, not a warning or an error]
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dds }\OtherTok{\textless{}{-}} \FunctionTok{estimateSizeFactors}\NormalTok{(dds)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##   Note: levels of factors in the design contain characters other than
+##   letters, numbers, '_' and '.'. It is recommended (but not required) to use
+##   only letters, numbers, and delimiters '_' or '.', as these are safe characters
+##   for column names in R. [This is a message, not a warning or an error]
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{norm }\OtherTok{\textless{}{-}} \FunctionTok{counts}\NormalTok{(dds, }\AttributeTok{normalized =} \ConstantTok{TRUE}\NormalTok{) }
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dds }\OtherTok{\textless{}{-}} \FunctionTok{DESeqDataSetFromMatrix}\NormalTok{(}\AttributeTok{countData =}\NormalTok{ cts,}
+                              \AttributeTok{colData =}\NormalTok{ cd,}
+                              \AttributeTok{design =} \SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{) }\CommentTok{\# Use intercept{-}only for normalization}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## converting counts to integer mode
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Apply VST}
+\NormalTok{vst }\OtherTok{\textless{}{-}} \FunctionTok{vst}\NormalTok{(dds, }\AttributeTok{blind =} \ConstantTok{TRUE}\NormalTok{)}
+
+\CommentTok{\# Extract the normalized matrix for NTP}
+\NormalTok{vst\_mat }\OtherTok{\textless{}{-}} \FunctionTok{assay}\NormalTok{(vst)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{gmt\_file }\OtherTok{\textless{}{-}} \StringTok{"hoshidasubtype.gmt"} 
+\NormalTok{gs }\OtherTok{\textless{}{-}} \FunctionTok{getGmt}\NormalTok{(gmt\_file)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning in getGmt(gmt_file): 2 record(s) contain duplicate ids:
+## HOSHIDA_LIVER_CANCER_SUBCLASS_S1, HOSHIDA_LIVER_CANCER_SUBCLASS_S2
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\ControlFlowTok{if}\NormalTok{ (}\SpecialCharTok{!}\FunctionTok{require}\NormalTok{(}\StringTok{"GSA"}\NormalTok{)) }\FunctionTok{install.packages}\NormalTok{(}\StringTok{"GSA"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: GSA
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(GSA)}
+
+\NormalTok{gmt\_to\_ntp\_template }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(gmt\_path) \{}
+\NormalTok{  gmt\_data }\OtherTok{\textless{}{-}} \FunctionTok{GSA.read.gmt}\NormalTok{(gmt\_path)}
+  
+\NormalTok{  template\_list }\OtherTok{\textless{}{-}} \FunctionTok{list}\NormalTok{()}
+  
+  \ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \DecValTok{1}\SpecialCharTok{:}\FunctionTok{length}\NormalTok{(gmt\_data}\SpecialCharTok{$}\NormalTok{genesets)) \{}
+\NormalTok{    genes }\OtherTok{\textless{}{-}}\NormalTok{ gmt\_data}\SpecialCharTok{$}\NormalTok{genesets[[i]]}
+\NormalTok{    set\_name }\OtherTok{\textless{}{-}}\NormalTok{ gmt\_data}\SpecialCharTok{$}\NormalTok{geneset.names[i]}
+    
+\NormalTok{    template\_list[[i]] }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}
+      \AttributeTok{probe =}\NormalTok{ genes,}
+      \AttributeTok{class =}\NormalTok{ set\_name,}
+      \AttributeTok{stringsAsFactors =} \ConstantTok{FALSE}
+\NormalTok{    )}
+\NormalTok{  \}}
+  
+\NormalTok{  final\_template }\OtherTok{\textless{}{-}} \FunctionTok{do.call}\NormalTok{(rbind, template\_list)}
+  
+\NormalTok{  final\_template }\OtherTok{\textless{}{-}}\NormalTok{ final\_template[final\_template}\SpecialCharTok{$}\NormalTok{probe }\SpecialCharTok{!=} \StringTok{""} \SpecialCharTok{\&} \SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(final\_template}\SpecialCharTok{$}\NormalTok{probe), ]}
+  
+  \FunctionTok{return}\NormalTok{(final\_template)}
+\NormalTok{\}}
+
+\NormalTok{hoshida\_template }\OtherTok{\textless{}{-}} \FunctionTok{gmt\_to\_ntp\_template}\NormalTok{(}\StringTok{"hoshidasubtype.gmt"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 1231
+## 2
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{head}\NormalTok{(hoshida\_template)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##    probe                            class
+## 1   ACP5 HOSHIDA_LIVER_CANCER_SUBCLASS_S1
+## 2  ACTA2 HOSHIDA_LIVER_CANCER_SUBCLASS_S1
+## 3 ADAM15 HOSHIDA_LIVER_CANCER_SUBCLASS_S1
+## 4  ADAM8 HOSHIDA_LIVER_CANCER_SUBCLASS_S1
+## 5  ADAM9 HOSHIDA_LIVER_CANCER_SUBCLASS_S1
+## 6  AEBP1 HOSHIDA_LIVER_CANCER_SUBCLASS_S1
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{hoshida\_template}\SpecialCharTok{$}\NormalTok{class }\OtherTok{\textless{}{-}} \FunctionTok{gsub}\NormalTok{(}\StringTok{"\^{}HOSHIDA\_LIVER\_CANCER\_SUBCLASS\_"}\NormalTok{, }\StringTok{""}\NormalTok{, hoshida\_template}\SpecialCharTok{$}\NormalTok{class)}
+\FunctionTok{unique}\NormalTok{(hoshida\_template}\SpecialCharTok{$}\NormalTok{class)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] "S1" "S2" "S3"
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# 4. Run NTP using CMScaller}
+\CommentTok{\# library(CMScaller)}
+\CommentTok{\# results \textless{}{-} ntp(emat = your\_rna\_seq\_matrix, }
+\CommentTok{\#                templates = hoshida\_template, }
+\CommentTok{\#                doPlot = TRUE)}
+\NormalTok{vst\_mat\_centered }\OtherTok{\textless{}{-}} \FunctionTok{ematAdjust}\NormalTok{(vst\_mat)}
+
+\NormalTok{ntp\_res }\OtherTok{\textless{}{-}}\NormalTok{ CMScaller}\SpecialCharTok{::}\FunctionTok{ntp}\NormalTok{(}
+  \AttributeTok{emat =} \FunctionTok{as.matrix}\NormalTok{(vst\_mat\_centered),}
+  \AttributeTok{templates =}\NormalTok{ hoshida\_template,}
+  \AttributeTok{seed =} \DecValTok{123}\NormalTok{,}
+  \AttributeTok{doPlot =} \ConstantTok{TRUE}
+\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{TCGA-LIHC_files/figure-latex/NTP Hoshida Subtype-1.pdf}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{table}\NormalTok{(ntp\_res}\SpecialCharTok{$}\NormalTok{prediction)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 
+##  S1  S2  S3 
+## 130  93 201
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# 1. Open the PNG device}
+\FunctionTok{png}\NormalTok{(}\StringTok{"Hoshida\_NTP\_Results.png"}\NormalTok{, }\AttributeTok{width =} \DecValTok{2400}\NormalTok{, }\AttributeTok{height =} \DecValTok{2000}\NormalTok{, }\AttributeTok{res =} \DecValTok{600}\NormalTok{)}
+
+\CommentTok{\# 2. Run the function}
+\NormalTok{ntp\_res }\OtherTok{\textless{}{-}}\NormalTok{ CMScaller}\SpecialCharTok{::}\FunctionTok{ntp}\NormalTok{(}
+  \AttributeTok{emat =} \FunctionTok{as.matrix}\NormalTok{(vst\_mat\_centered),}
+  \AttributeTok{templates =}\NormalTok{ hoshida\_template,}
+  \AttributeTok{seed =} \DecValTok{123}\NormalTok{,}
+  \AttributeTok{doPlot =} \ConstantTok{TRUE}
+\NormalTok{)}
+
+\CommentTok{\# 3. Close the device}
+\FunctionTok{dev.off}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## pdf 
+##   2
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{fdr\_threshold }\OtherTok{\textless{}{-}} \FloatTok{0.05}
+
+\NormalTok{final\_subtypes }\OtherTok{\textless{}{-}} \FunctionTok{as.character}\NormalTok{(ntp\_res}\SpecialCharTok{$}\NormalTok{prediction)}
+\NormalTok{final\_subtypes[ntp\_res}\SpecialCharTok{$}\NormalTok{FDR }\SpecialCharTok{\textgreater{}}\NormalTok{ fdr\_threshold] }\OtherTok{\textless{}{-}} \StringTok{"Undetermined"}
+\NormalTok{final\_subtypes }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(final\_subtypes)}
+
+\CommentTok{\# 3. Add to a data frame with sample IDs (assuming rownames are sample IDs)}
+\NormalTok{ntp\_metadata }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}
+  \AttributeTok{sampleID =} \FunctionTok{rownames}\NormalTok{(ntp\_res),}
+  \AttributeTok{Hoshida\_Subtype =}\NormalTok{ final\_subtypes,}
+  \AttributeTok{stringsAsFactors =} \ConstantTok{FALSE}
+\NormalTok{)}
+
+
+\NormalTok{ntp\_metadata }\OtherTok{\textless{}{-}}\NormalTok{ ntp\_metadata[}\FunctionTok{match}\NormalTok{(}\FunctionTok{colnames}\NormalTok{(dds), ntp\_metadata}\SpecialCharTok{$}\NormalTok{sampleID), ]}
+
+\NormalTok{dds}\SpecialCharTok{$}\NormalTok{Hoshida\_Subtype }\OtherTok{\textless{}{-}} \FunctionTok{as.factor}\NormalTok{(ntp\_metadata}\SpecialCharTok{$}\NormalTok{Hoshida\_Subtype)}
+
+\FunctionTok{colData}\NormalTok{(dds)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## DataFrame with 424 rows and 3 columns
+##                                                   X              condition
+##                                         <character>            <character>
+## TCGA.2V.A95S.01A.11R.A37K.07 TCGA-2V-A95S-01A-11R.. TCGA-2V-A95S-01A-11R..
+## TCGA.2Y.A9GS.01A.12R.A38B.07 TCGA-2Y-A9GS-01A-12R.. TCGA-2Y-A9GS-01A-12R..
+## TCGA.2Y.A9GT.01A.11R.A38B.07 TCGA-2Y-A9GT-01A-11R.. TCGA-2Y-A9GT-01A-11R..
+## TCGA.2Y.A9GU.01A.11R.A38B.07 TCGA-2Y-A9GU-01A-11R.. TCGA-2Y-A9GU-01A-11R..
+## TCGA.2Y.A9GV.01A.11R.A38B.07 TCGA-2Y-A9GV-01A-11R.. TCGA-2Y-A9GV-01A-11R..
+## ...                                             ...                    ...
+## TCGA.ZS.A9CD.01A.11R.A37K.07 TCGA-ZS-A9CD-01A-11R.. TCGA-ZS-A9CD-01A-11R..
+## TCGA.ZS.A9CE.01A.11R.A37K.07 TCGA-ZS-A9CE-01A-11R.. TCGA-ZS-A9CE-01A-11R..
+## TCGA.ZS.A9CF.01A.11R.A38B.07 TCGA-ZS-A9CF-01A-11R.. TCGA-ZS-A9CF-01A-11R..
+## TCGA.ZS.A9CF.02A.11R.A38B.07 TCGA-ZS-A9CF-02A-11R.. TCGA-ZS-A9CF-02A-11R..
+## TCGA.ZS.A9CG.01A.11R.A37K.07 TCGA-ZS-A9CG-01A-11R.. TCGA-ZS-A9CG-01A-11R..
+##                              Hoshida_Subtype
+##                                     <factor>
+## TCGA.2V.A95S.01A.11R.A37K.07    S1          
+## TCGA.2Y.A9GS.01A.12R.A38B.07    Undetermined
+## TCGA.2Y.A9GT.01A.11R.A38B.07    S3          
+## TCGA.2Y.A9GU.01A.11R.A38B.07    S3          
+## TCGA.2Y.A9GV.01A.11R.A38B.07    S3          
+## ...                                      ...
+## TCGA.ZS.A9CD.01A.11R.A37K.07    S3          
+## TCGA.ZS.A9CE.01A.11R.A37K.07    S3          
+## TCGA.ZS.A9CF.01A.11R.A38B.07    S3          
+## TCGA.ZS.A9CF.02A.11R.A38B.07    Undetermined
+## TCGA.ZS.A9CG.01A.11R.A37K.07    S3
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{design}\NormalTok{(dds) }\OtherTok{\textless{}{-}} \ErrorTok{\textasciitilde{}}\NormalTok{ Hoshida\_Subtype}
+
+\CommentTok{\# Filter out "Undetermined" samples if you want a clean comparison}
+\CommentTok{\# (Optional but recommended)}
+\NormalTok{dds\_filtered }\OtherTok{\textless{}{-}}\NormalTok{ dds[, dds}\SpecialCharTok{$}\NormalTok{Hoshida\_Subtype }\SpecialCharTok{!=} \StringTok{"Undetermined"}\NormalTok{]}
+\NormalTok{dds\_filtered}\SpecialCharTok{$}\NormalTok{Hoshida\_Subtype }\OtherTok{\textless{}{-}} \FunctionTok{droplevels}\NormalTok{(dds\_filtered}\SpecialCharTok{$}\NormalTok{Hoshida\_Subtype)}
+
+\CommentTok{\# Run DESeq}
+\NormalTok{dds\_filtered }\OtherTok{\textless{}{-}} \FunctionTok{DESeq}\NormalTok{(dds\_filtered)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## estimating size factors
+\end{verbatim}
+
+\begin{verbatim}
+## estimating dispersions
+\end{verbatim}
+
+\begin{verbatim}
+## gene-wise dispersion estimates
+\end{verbatim}
+
+\begin{verbatim}
+## mean-dispersion relationship
+\end{verbatim}
+
+\begin{verbatim}
+## final dispersion estimates
+\end{verbatim}
+
+\begin{verbatim}
+## fitting model and testing
+\end{verbatim}
+
+\begin{verbatim}
+## -- replacing outliers and refitting for 4856 genes
+## -- DESeq argument 'minReplicatesForReplace' = 7 
+## -- original counts are preserved in counts(dds)
+\end{verbatim}
+
+\begin{verbatim}
+## estimating dispersions
+\end{verbatim}
+
+\begin{verbatim}
+## fitting model and testing
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Apply VST}
+\NormalTok{vst }\OtherTok{\textless{}{-}} \FunctionTok{vst}\NormalTok{(dds, }\AttributeTok{blind =} \ConstantTok{TRUE}\NormalTok{)}
+
+\CommentTok{\# Extract the normalized matrix for NTP}
+\NormalTok{vst\_mat }\OtherTok{\textless{}{-}} \FunctionTok{assay}\NormalTok{(vst)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{plot\_data }\OtherTok{\textless{}{-}}\NormalTok{ vst\_mat[}\FunctionTok{c}\NormalTok{(}\StringTok{"PTK2"}\NormalTok{, }\StringTok{"CCN2"}\NormalTok{), ]}
+
+\NormalTok{plot\_data }\OtherTok{\textless{}{-}} \FunctionTok{as.data.frame}\NormalTok{(}\FunctionTok{t}\NormalTok{(vst\_mat[}\FunctionTok{c}\NormalTok{(}\StringTok{"PTK2"}\NormalTok{, }\StringTok{"CCN2"}\NormalTok{), ]))}
+\NormalTok{plot\_data}\SpecialCharTok{$}\NormalTok{Subtype }\OtherTok{\textless{}{-}}\NormalTok{ vst}\SpecialCharTok{$}\NormalTok{Hoshida\_Subtype}
+
+\NormalTok{scatter }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(plot\_data, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ PTK2, }\AttributeTok{y =}\NormalTok{ CCN2, }\AttributeTok{color =}\NormalTok{ Subtype)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{(}\AttributeTok{size =} \DecValTok{3}\NormalTok{, }\AttributeTok{alpha =} \FloatTok{0.8}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{geom\_smooth}\NormalTok{(}\AttributeTok{method =} \StringTok{"lm"}\NormalTok{, }\AttributeTok{se =} \ConstantTok{FALSE}\NormalTok{, }\AttributeTok{color =} \StringTok{"black"}\NormalTok{, }\AttributeTok{linetype =} \StringTok{"dashed"}\NormalTok{, }\AttributeTok{size =} \FloatTok{0.5}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_color\_brewer}\NormalTok{(}\AttributeTok{palette =} \StringTok{"Set1"}\NormalTok{) }\SpecialCharTok{+} \CommentTok{\# Distinct colors for S1, S2, S3}
+  \FunctionTok{theme\_minimal}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}
+    \AttributeTok{title =} \StringTok{"FAK vs CTGF Expression"}\NormalTok{,}
+    \AttributeTok{x =} \StringTok{"FAK"}\NormalTok{,}
+    \AttributeTok{y =} \StringTok{"CTGF"}\NormalTok{,}
+    \AttributeTok{color =} \StringTok{"NTP Subtype"}
+\NormalTok{  ) }\SpecialCharTok{+}
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{legend.position =} \StringTok{"right"}\NormalTok{) }\SpecialCharTok{+} 
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{plot.title =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{hjust =} \FloatTok{0.5}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
+## i Please use `linewidth` instead.
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+## generated.
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{scatter}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## `geom_smooth()` using formula = 'y ~ x'
+\end{verbatim}
+
+\pandocbounded{\includegraphics[keepaspectratio]{TCGA-LIHC_files/figure-latex/scatter-1.pdf}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggsave}\NormalTok{(}\StringTok{"fakctgfscatter.png"}\NormalTok{, scatter, }\AttributeTok{dpi =} \DecValTok{600}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Saving 6.5 x 4.5 in image
+## `geom_smooth()` using formula = 'y ~ x'
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{plot\_data }\OtherTok{\textless{}{-}} \FunctionTok{as.data.frame}\NormalTok{(}\FunctionTok{t}\NormalTok{(vst\_mat[}\FunctionTok{c}\NormalTok{(}\StringTok{"PTK2"}\NormalTok{, }\StringTok{"CCN2"}\NormalTok{), ]))}
+\NormalTok{plot\_data}\SpecialCharTok{$}\NormalTok{Subtype }\OtherTok{\textless{}{-}}\NormalTok{ vst}\SpecialCharTok{$}\NormalTok{Hoshida\_Subtype}
+
+\NormalTok{vln }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(plot\_data, }\FunctionTok{aes}\NormalTok{(}\FunctionTok{factor}\NormalTok{(Subtype), }\AttributeTok{y =}\NormalTok{ PTK2, }\AttributeTok{fill =}\NormalTok{ Subtype)) }\SpecialCharTok{+} 
+  \FunctionTok{geom\_violin}\NormalTok{() }\SpecialCharTok{+} 
+  \FunctionTok{geom\_jitter}\NormalTok{(}\AttributeTok{width =} \FloatTok{0.1}\NormalTok{) }\SpecialCharTok{+} 
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"FAK Expression by Hoshida Subtype"}\NormalTok{, }
+       \AttributeTok{x =} \StringTok{"Hoshida Subtype"}\NormalTok{, }
+       \AttributeTok{y =} \StringTok{"FAK"}\NormalTok{) }\SpecialCharTok{+} 
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{plot.title =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{hjust =} \FloatTok{0.5}\NormalTok{)) }\SpecialCharTok{+} 
+  \FunctionTok{theme\_bw}\NormalTok{() }\SpecialCharTok{+} 
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{plot.title =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{hjust =} \FloatTok{0.5}\NormalTok{))}
+\NormalTok{vln}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{TCGA-LIHC_files/figure-latex/violin-1.pdf}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggsave}\NormalTok{(}\StringTok{"fakvlnplot.png"}\NormalTok{, vln, }\AttributeTok{dpi =} \DecValTok{600}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Saving 6.5 x 4.5 in image
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{vln }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(plot\_data, }\FunctionTok{aes}\NormalTok{(}\FunctionTok{factor}\NormalTok{(Subtype), }\AttributeTok{y =}\NormalTok{ CCN2, }\AttributeTok{fill =}\NormalTok{ Subtype)) }\SpecialCharTok{+} 
+  \FunctionTok{geom\_violin}\NormalTok{() }\SpecialCharTok{+} 
+  \FunctionTok{geom\_jitter}\NormalTok{(}\AttributeTok{width =} \FloatTok{0.1}\NormalTok{) }\SpecialCharTok{+} 
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"CTGF Expression by Hoshida Subtype"}\NormalTok{, }
+       \AttributeTok{x =} \StringTok{"Hoshida Subtype"}\NormalTok{, }
+       \AttributeTok{y =} \StringTok{"CTGF"}\NormalTok{) }\SpecialCharTok{+} 
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{plot.title =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{hjust =} \FloatTok{0.5}\NormalTok{)) }\SpecialCharTok{+} 
+  \FunctionTok{theme\_bw}\NormalTok{() }\SpecialCharTok{+} 
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{plot.title =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{hjust =} \FloatTok{0.5}\NormalTok{))}
+\NormalTok{vln}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{TCGA-LIHC_files/figure-latex/violin-2.pdf}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggsave}\NormalTok{(}\StringTok{"ctgfvlnplot.png"}\NormalTok{, vln, }\AttributeTok{dpi =} \DecValTok{600}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Saving 6.5 x 4.5 in image
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{plot\_data\_long }\OtherTok{\textless{}{-}}\NormalTok{ plot\_data }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{pivot\_longer}\NormalTok{(}\AttributeTok{cols =} \FunctionTok{c}\NormalTok{(}\StringTok{"PTK2"}\NormalTok{, }\StringTok{"CCN2"}\NormalTok{), }
+               \AttributeTok{names\_to =} \StringTok{"Gene"}\NormalTok{, }
+               \AttributeTok{values\_to =} \StringTok{"Expression"}\NormalTok{)}
+
+\NormalTok{plot\_data\_long}\SpecialCharTok{$}\NormalTok{Gene }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(plot\_data\_long}\SpecialCharTok{$}\NormalTok{Gene, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"PTK2"}\NormalTok{, }\StringTok{"CCN2"}\NormalTok{))}
+
+\CommentTok{\# 2. Create the combined plot}
+\NormalTok{combined\_vln }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(plot\_data\_long, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ Subtype, }\AttributeTok{y =}\NormalTok{ Expression, }\AttributeTok{fill =}\NormalTok{ Gene)) }\SpecialCharTok{+} 
+  \FunctionTok{geom\_violin}\NormalTok{(}\AttributeTok{position =} \FunctionTok{position\_dodge}\NormalTok{(}\FloatTok{0.8}\NormalTok{)) }\SpecialCharTok{+} 
+  \FunctionTok{geom\_jitter}\NormalTok{(}\AttributeTok{position =} \FunctionTok{position\_jitterdodge}\NormalTok{(}\AttributeTok{jitter.width =} \FloatTok{0.1}\NormalTok{, }\AttributeTok{dodge.width =} \FloatTok{0.8}\NormalTok{)) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"FAK and CTGF Expression by Subtype"}\NormalTok{, }
+       \AttributeTok{x =} \StringTok{"Hoshida Subtype"}\NormalTok{, }
+       \AttributeTok{y =} \StringTok{"Expression (VST Normalized)"}\NormalTok{) }\SpecialCharTok{+} 
+  \FunctionTok{theme\_bw}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{plot.title =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{hjust =} \FloatTok{0.5}\NormalTok{)) }\SpecialCharTok{+} 
+  \FunctionTok{scale\_fill\_manual}\NormalTok{(}\AttributeTok{values =} \FunctionTok{c}\NormalTok{(}\StringTok{"PTK2"} \OtherTok{=} \StringTok{"dodgerblue"}\NormalTok{, }\StringTok{"CCN2"} \OtherTok{=} \StringTok{"brown1"}\NormalTok{), }
+                    \AttributeTok{labels =} \FunctionTok{c}\NormalTok{(}\StringTok{"PTK2"} \OtherTok{=} \StringTok{"FAK"}\NormalTok{, }\StringTok{"CCN2"} \OtherTok{=} \StringTok{"CTGF"}\NormalTok{))}
+
+\NormalTok{combined\_vln}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{TCGA-LIHC_files/figure-latex/combined violin plot-1.pdf}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# 3. Save the combined plot}
+\FunctionTok{ggsave}\NormalTok{(}\StringTok{"combined\_vln\_plot.png"}\NormalTok{, combined\_vln, }\AttributeTok{dpi =} \DecValTok{600}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Saving 6.5 x 4.5 in image
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{clinical }\OtherTok{\textless{}{-}} \FunctionTok{read\_tsv}\NormalTok{(}\StringTok{"clinical.tsv"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Rows: 2977 Columns: 210
+## -- Column specification --------------------------------------------------------
+## Delimiter: "\t"
+## chr (208): project.project_id, cases.case_id, cases.consent_type, cases.days...
+## lgl   (2): demographic.age_is_obfuscated, diagnoses.diagnosis_is_primary_dis...
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{subtype }\OtherTok{\textless{}{-}} \FunctionTok{colData}\NormalTok{(dds) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{as.data.frame}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  tibble}\SpecialCharTok{::}\FunctionTok{rownames\_to\_column}\NormalTok{(}\StringTok{"sample\_id"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}   \CommentTok{\# \textless{}{-}{-} different name}
+  \FunctionTok{mutate}\NormalTok{(}
+    \AttributeTok{sample\_tcga =} \FunctionTok{gsub}\NormalTok{(}\StringTok{"}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{."}\NormalTok{, }\StringTok{"{-}"}\NormalTok{, sample\_id),}
+    \AttributeTok{patient\_id  =} \FunctionTok{substr}\NormalTok{(sample\_tcga, }\DecValTok{1}\NormalTok{, }\DecValTok{12}\NormalTok{)}
+\NormalTok{  ) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(patient\_id, sample\_id, Hoshida\_Subtype)}
+
+\NormalTok{clinical\_subset }\OtherTok{\textless{}{-}}\NormalTok{ clinical }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(}
+\NormalTok{    cases.submitter\_id,}
+\NormalTok{    cases.disease\_type,}
+\NormalTok{    diagnoses.classification\_of\_tumor, }
+\NormalTok{    diagnoses.age\_at\_diagnosis,}
+\NormalTok{    diagnoses.days\_to\_last\_follow\_up,}
+\NormalTok{    demographic.vital\_status}
+\NormalTok{  )}
+
+\NormalTok{merged\_table }\OtherTok{\textless{}{-}}\NormalTok{ subtype }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{left\_join}\NormalTok{(}
+\NormalTok{    clinical\_subset,}
+    \AttributeTok{by =} \FunctionTok{c}\NormalTok{(}\StringTok{"patient\_id"} \OtherTok{=} \StringTok{"cases.submitter\_id"}\NormalTok{)}
+\NormalTok{  )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning in left_join(., clinical_subset, by = c(patient_id = "cases.submitter_id")): Detected an unexpected many-to-many relationship between `x` and `y`.
+## i Row 1 of `x` matches multiple rows in `y`.
+## i Row 2732 of `y` matches multiple rows in `x`.
+## i If a many-to-many relationship is expected, set `relationship =
+##   "many-to-many"` to silence this warning.
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{final\_table }\OtherTok{\textless{}{-}}\NormalTok{ merged\_table }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(}
+\NormalTok{    patient\_id,}
+\NormalTok{    sample\_id,}
+\NormalTok{    Hoshida\_Subtype,}
+\NormalTok{    cases.disease\_type,}
+\NormalTok{    diagnoses.classification\_of\_tumor, }
+\NormalTok{    diagnoses.age\_at\_diagnosis,}
+\NormalTok{    diagnoses.days\_to\_last\_follow\_up,}
+\NormalTok{    demographic.vital\_status}
+\NormalTok{  )}
+
+\NormalTok{final\_table }\OtherTok{\textless{}{-}}\NormalTok{ final\_table }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{distinct}\NormalTok{(patient\_id, }\AttributeTok{.keep\_all =} \ConstantTok{TRUE}\NormalTok{)}
+
+\FunctionTok{write.csv}\NormalTok{(final\_table, }\StringTok{"clinicaldata.csv"}\NormalTok{)}
+\FunctionTok{rm}\NormalTok{(subtype, clinical\_subset, merged\_table)}
+\end{Highlighting}
+\end{Shaded}
+
+
+\end{document}
