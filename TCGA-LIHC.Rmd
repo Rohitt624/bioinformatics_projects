@@ -277,7 +277,7 @@ count_matrix <- long_df_fixed |>
 
 # Write to CSV
 write.csv(count_matrix, "tcga_lihc_counts.csv", row.names = FALSE)
-#```
+```
 
 ```{r load data}
 cts <- read.csv("tcga_lihc_counts.csv", row.names = 1)
@@ -539,5 +539,154 @@ final_table <- final_table %>%
 
 write.csv(final_table, "clinicaldata.csv")
 rm(subtype, clinical_subset, merged_table)
+
+```
+
+```{r subset}
+s1 <- dds[, dds$Hoshida_Subtype == "S1"]
+s2 <- dds[, dds$Hoshida_Subtype == "S2"]
+s3 <- dds[, dds$Hoshida_Subtype == "S3"]
+
+s1_vst <- vst(s1, blind = TRUE)
+s1_mat <- assay(s1_vst)
+
+s2_vst <- vst(s2, blind = TRUE)
+s2_mat <- assay(s2_vst)
+
+s3_vst <- vst(s3, blind = TRUE)
+s3_mat <- assay(s3_vst)
+```
+
+```{r s1 scatter}
+plot_data <- as.data.frame(t(s1_mat[c("PTK2", "CCN2"), ]))
+plot_data$Subtype <- s1_vst$Hoshida_Subtype
+
+# Fit linear model
+lm_fit <- lm(CCN2 ~ PTK2, data = plot_data)
+
+# Extract stats
+summary_fit <- summary(lm_fit)
+r_value <- sqrt(summary_fit$r.squared)
+p_value <- summary_fit$coefficients[2, 4]
+
+# Create label text
+label_text <- paste0("R = ", round(r_value, 3),
+                     "\nP = ", signif(p_value, 3))
+
+# Plot with annotation
+scatter <- ggplot(plot_data, aes(x = PTK2, y = CCN2, color = Subtype)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_smooth(method = "lm", se = FALSE, color = "black",
+              linetype = "dashed", size = 0.5) +
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal() +
+  labs(
+    title = "FAK vs CTGF Expression",
+    x = "FAK",
+    y = "CTGF",
+    color = "NTP Subtype"
+  ) +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5)
+  ) +
+  annotate("text",
+           x = Inf, y = -Inf,
+           label = label_text,
+           hjust = 1.1, vjust = -0.5,
+           size = 4)
+
+scatter
+
+ggsave("s1fakctgfscatter.png", scatter, dpi = 600)
+
+```
+
+```{r s2 scatter}
+plot_data <- as.data.frame(t(s2_mat[c("PTK2", "CCN2"), ]))
+plot_data$Subtype <- s2_vst$Hoshida_Subtype
+
+# Fit linear model
+lm_fit <- lm(CCN2 ~ PTK2, data = plot_data)
+
+# Extract stats
+summary_fit <- summary(lm_fit)
+r_value <- sqrt(summary_fit$r.squared)
+p_value <- summary_fit$coefficients[2, 4]
+
+# Create label text
+label_text <- paste0("R = ", round(r_value, 3),
+                     "\nP = ", signif(p_value, 3))
+
+# Plot with annotation
+scatter <- ggplot(plot_data, aes(x = PTK2, y = CCN2, color = Subtype)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_smooth(method = "lm", se = FALSE, color = "black",
+              linetype = "dashed", size = 0.5) +
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal() +
+  labs(
+    title = "FAK vs CTGF Expression",
+    x = "FAK",
+    y = "CTGF",
+    color = "NTP Subtype"
+  ) +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5)
+  ) +
+  annotate("text",
+           x = Inf, y = -Inf,
+           label = label_text,
+           hjust = 1.1, vjust = -0.5,
+           size = 4)
+
+scatter
+
+ggsave("s2fakctgfscatter.png", scatter, dpi = 600)
+```
+
+```{r s3 scatter}
+plot_data <- as.data.frame(t(s3_mat[c("PTK2", "CCN2"), ]))
+plot_data$Subtype <- s3_vst$Hoshida_Subtype
+
+# Fit linear model
+lm_fit <- lm(CCN2 ~ PTK2, data = plot_data)
+
+# Extract stats
+summary_fit <- summary(lm_fit)
+r_value <- sqrt(summary_fit$r.squared)
+p_value <- summary_fit$coefficients[2, 4]
+
+# Create label text
+label_text <- paste0("R = ", round(r_value, 3),
+                     "\nP = ", signif(p_value, 3))
+
+# Plot with annotation
+scatter <- ggplot(plot_data, aes(x = PTK2, y = CCN2, color = Subtype)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_smooth(method = "lm", se = FALSE, color = "black",
+              linetype = "dashed", size = 0.5) +
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal() +
+  labs(
+    title = "FAK vs CTGF Expression",
+    x = "FAK",
+    y = "CTGF",
+    color = "NTP Subtype"
+  ) +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5)
+  ) +
+  annotate("text",
+           x = Inf, y = -Inf,
+           label = label_text,
+           hjust = 1.1, vjust = -0.5,
+           size = 4)
+
+scatter
+
+ggsave("s3fakctgfscatter.png", scatter, dpi = 600)
 
 ```
