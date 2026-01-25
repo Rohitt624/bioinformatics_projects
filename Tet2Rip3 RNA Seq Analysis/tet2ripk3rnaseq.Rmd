@@ -18,6 +18,166 @@ library(rnaseqGene)
 library(pheatmap)
 library(ggalt)
 library(limma)
+library(stringr)
+
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = 'C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/')
+```
+
+
+```{r functions}
+run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
+  suppressPackageStartupMessages({
+    library(DESeq2)
+    library(fgsea)
+    library(BiocParallel)
+    library(dplyr)
+  })
+
+  # Force serial execution to avoid BiocParallel crashes
+  BiocParallel::register(BiocParallel::SerialParam())
+
+  #-------------------------------
+  # 1. Validate contrast levels
+  #-------------------------------
+  if (!"condition" %in% colnames(colData(dds))) {
+    stop("Column 'condition' not found in colData(dds).")
+  }
+
+  mut_levels <- levels(dds$condition)
+
+  if (!(condition1 %in% mut_levels)) {
+    stop(paste("Condition1 not found in condition levels:", condition1))
+  }
+  if (!(condition2 %in% mut_levels)) {
+    stop(paste("Condition2 not found in condition levels:", condition2))
+  }
+
+  #-------------------------------
+  # 2. Run DESeq2 contrast
+  #-------------------------------
+  res <- DESeq2::results(
+    dds,
+    contrast = c("condition", condition1, condition2),
+    independentFiltering = TRUE,
+    alpha = 0.1,
+    parallel = FALSE
+  )
+
+  # Remove rows with NA statistics
+  res <- res[complete.cases(res$stat), ]
+
+  #-------------------------------
+  # 3. Build ranking vector
+  #-------------------------------
+  rnk <- setNames(res$stat, rownames(res))
+
+  if (length(rnk) < 1000) {
+    stop("Ranking vector too small (<1000 genes). Likely no signal in this contrast.")
+  }
+
+  #-------------------------------
+  # 4. Load pathways
+  #-------------------------------
+  gmt <- fgsea::gmtPathways(gmt_path)
+
+  #-------------------------------
+  # 5. Run fgsea
+  #-------------------------------
+  gsea <- fgsea(
+    pathways = gmt,
+    stats = rnk,
+    minSize = 15,
+    maxSize = 500
+  )
+
+  gsea_df <- as.data.frame(gsea)
+
+  # Flatten list columns (leadingEdge)
+  list_cols <- sapply(gsea_df, is.list)
+  gsea_df[list_cols] <- lapply(gsea_df[list_cols], function(x) sapply(x, paste, collapse = ";"))
+
+  #-------------------------------
+  # 6. Write outputs
+  #-------------------------------
+  write.csv(gsea_df, output_gsea, row.names = FALSE)
+
+  # DEG table (filtered for significance)
+  deg_df <- as.data.frame(res) %>%
+    mutate(gene = rownames(res)) %>%
+    filter(padj < 0.1)
+
+  write.csv(deg_df, output_deg, row.names = FALSE)
+
+  #-------------------------------
+  # 7. Return objects invisibly
+  #-------------------------------
+  invisible(list(
+    gsea = gsea_df,
+    degs = deg_df,
+    ranking = rnk
+  ))
+}
+
+EnsIDReplace <- function(input, mapping_file = "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv") {
+  #-----------------------------
+  # 1. Validate inputs
+  #-----------------------------
+  if (!is.matrix(input) && !is.data.frame(input)) {
+    stop("Input must be a matrix or data.frame with rownames.")
+  }
+  if (is.null(rownames(input))) {
+    stop("Input must have rownames corresponding to Ensembl IDs.")
+  }
+  if (!file.exists(mapping_file)) {
+    stop(paste("Mapping file not found:", mapping_file))
+  }
+
+  #-----------------------------
+  # 2. Load mapping file
+  #-----------------------------
+  gene_mapping <- read.csv(mapping_file, stringsAsFactors = FALSE)
+
+  required_cols <- c("gene_id", "gene_name")
+  if (!all(required_cols %in% colnames(gene_mapping))) {
+    stop("Mapping file must contain columns: gene_id, gene_name")
+  }
+
+  #-----------------------------
+  # 3. Build lookup vector
+  #-----------------------------
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+
+  #-----------------------------
+  # 4. Vectorized name replacement
+  #-----------------------------
+  old_ids <- rownames(input)
+
+  # Replace Ensembl IDs with gene names where available
+  new_names <- id_list[old_ids]
+
+  # For IDs not found in mapping, keep original
+  new_names[is.na(new_names)] <- old_ids[is.na(new_names)]
+
+  # Replace empty strings with NA
+  new_names[new_names == ""] <- NA
+
+  # Ensure syntactically valid + unique names
+  new_names <- make.names(new_names, unique = TRUE)
+
+  #-----------------------------
+  # 5. Apply new rownames
+  #-----------------------------
+  rownames(input) <- new_names
+
+  #-----------------------------
+  # 6. Return modified object
+  #-----------------------------
+  return(input)
+}
 ```
 
 # DESeq2 analysis
@@ -25,13 +185,13 @@ library(limma)
 ## Load counts matrix into a DESeqDataSet object
 
 ```{r Load Data, warning=FALSE, message=FALSE}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/raw_counts modified corrected triplicates.csv") #file path to Counts csv document
+cts2 <- read.csv("raw_counts modified corrected triplicates.csv") #file path to Counts csv document
 cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
 cts <- cts2[, -1]
 table(duplicated(cts$Gene.name)) #check for duplicate gene names
 rownames(cts) <- make.names(cts2$Gene.name, unique = TRUE) #forces gene names to become unique
 rm(cts2)
-cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/coldata.csv") #make coldata file with sample names in one column and then condition in second column
+cd <- read.csv("coldata.csv") #make coldata file with sample names in one column and then condition in second column
 dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~ condition)
 ```
 
@@ -41,71 +201,46 @@ dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~ conditio
 rlog <- rlog(dds, blind=FALSE)
 dds <- DESeq(dds)
 rescmp <- results(dds) 
+
+res_DKO_vs_WT <- results(dds, contrast=c("condition", "DKO", "WT"), alpha = 0.05)
+resDKO_WT <- as.data.frame(res_DKO_vs_WT)
 ```
 
 ### Save results as csv
 
 ```{r Save Results, eval=FALSE}
-write.csv(rescmp, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/completeresults.csv")
+write.csv(rescmp, "completeresults.csv")
 ```
 
 ## Creating curated AITL Gene List
 
-#### GSE83918
-```{r Setup8}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSM2221611.csv") 
-cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
-cts <- cts2[, -1]
-table(duplicated(cts$Gene_Name)) #check for duplicate gene names
-rownames(cts) <- make.names(cts2$Gene_Name, unique = TRUE)
-rm(cts2)
-cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSM2221611.csv") 
-design <- model.matrix(~0 + condition, data=cd)
-cts <- log2(cts+1)
-```
-
-```{r Analysis8}
-contrast_matrix <- makeContrasts(TM_vs_WT = conditionTM - conditionWT, levels = design)
-GSE83918 <- lmFit(cts, design)
-GSE83918 <- contrasts.fit(GSE83918, contrast_matrix)
-GSE83918 <- eBayes(GSE83918)
-res83918 <- topTable(GSE83918, adjust = "fdr", number = Inf)
-write.csv(res83918, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results83918.csv")
-```
-
 #### GSE221599
 ```{r Setup2}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSE221599.csv") 
-cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
+cts2 <- read.csv("Gene List Validation/GSE221599.csv") 
+cts2 <- cts2[, -1]
 cts <- cts2[, -1]
-table(duplicated(cts$gene_name)) #check for duplicate gene names
-rownames(cts) <- make.names(cts2$gene_name, unique = TRUE) #forces gene names to become unique
+table(duplicated(cts$gene_name))
+rownames(cts) <- make.names(cts2$gene_name, unique = TRUE) 
 rm(cts2)
-cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSE221599.csv") 
-design <- model.matrix(~0 + condition, data=cd)
-dge <- DGEList(counts=cts, group=cd$condition)
-dge <- calcNormFactors(dge)
-dge <- voom(dge, design)
+cd <- read.csv("Gene List Validation/coldataGSE221599.csv") 
+dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~ condition)
 ```
 
 ```{r Analysis2}
-dge <- lmFit(dge, design)
-contrast_matrix <- makeContrasts(DM_vs_WT = conditionDM - conditionWT, levels=design)
-dge <- contrasts.fit(dge, contrast_matrix)
-dge <- eBayes(dge)
-res221599 <- topTable(dge, adjust = "fdr", number = Inf)
-#write results as csv
-write.csv(res221599, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/res221599v2.csv")
+dds <- DESeq(dds)
+res_DM_vs_WT <- results(dds, contrast=c("condition", "DM", "WT"), alpha = 0.05)
+res221599 <- as.data.frame(res_DM_vs_WT)
+write.csv(res221599, "Gene List Validation/res221599v2.csv")
 ```
 
 #### GSE90976
 ```{r Setup9}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSE90976.csv") 
+cts2 <- read.csv("Gene List Validation/GSE90976.csv") 
 cts <- cts2[, -1]
 table(duplicated(cts$Genes)) #check for duplicate gene names
 rownames(cts) <- make.names(cts2$Genes, unique = TRUE)
 rm(cts2)
-cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSE90976.csv") 
+cd <- read.csv("Gene List Validation/coldataGSE90976.csv") 
 design <- model.matrix(~0 + condition, data=cd)
 cts <- log2(cts+1)
 ```
@@ -115,52 +250,52 @@ contrast_matrix <- makeContrasts(DKO_vs_WT = conditionDKO - conditionWT, levels 
 GSE90976 <- lmFit(cts, design)
 GSE90976 <- contrasts.fit(GSE90976, contrast_matrix)
 GSE90976 <- eBayes(GSE90976)
-res90976 <- topTable(GSE90976, adjust = "fdr", number = Inf)
-write.csv(res90976, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results90976.csv")
-```
-
-#### GSE121747
-```{r Setup1}
-cts2 <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/GSE121747.csv") 
-cts2 <- cts2[, -1] #only necessary if bulk seq data has ensembl id before gene names
-cts <- cts2[, -1]
-table(duplicated(cts$Genes)) #check for duplicate gene names
-rownames(cts) <- make.names(cts2$Genes, unique = TRUE)
-rm(cts2)
-cd <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/coldataGSE121747.csv") 
-design <- model.matrix(~0 + condition, data=cd)
-cts <- log2(cts+1)
-```
-
-```{r Analysis1}
-contrast_matrix <- makeContrasts(TM_vs_WT = conditionTM - conditionWT, levels = design)
-GSE121747 <- lmFit(cts, design)
-GSE121747 <- contrasts.fit(GSE121747, contrast_matrix)
-GSE121747 <- eBayes(GSE121747)
-res121747 <- topTable(GSE121747, adjust = "fdr", number = Inf)
-write.csv(res121747, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/results121747.csv")
+res90976 <- topTable(GSE90976, coef = "DKO_vs_WT", adjust = "fdr", number = Inf)
+write.csv(res90976, "Gene List Validation/results90976.csv")
 ```
 
 #### Overlap
 
 ```{r Overlap}
-res121747$gene <- rownames(res121747)
-res121747$gene <- sub("\\..*", "", res121747$gene)
-res121747.2 <- res121747[which(abs(res121747$logFC)>0.8),]
-res221599$gene <- rownames(res221599)
-res221599$gene <- sub("\\..*", "", res221599$gene)
-res221599.2 <- res221599[which(abs(res221599$logFC)>0.8),]
-res83918$gene <- rownames(res83918)
-res83918$gene <- sub("\\..*", "", res83918$gene)
-res83918.2 <- res83918[which(abs(res83918$logFC)>0.8),]
-res90976$gene <- rownames(res90976)
-res90976$gene <- sub("\\..*", "", res90976$gene)
-res90976.2 <- res90976[which(abs(res90976$logFC)>0.8),]
 
+# Rename padj to adj.P.Val
+colnames(res221599)[colnames(res221599) == "padj"] <- "adj.P.Val"
 
-overlap <- Reduce(intersect, list(res121747.2$gene, res83918.2$gene, res221599.2$gene, res90976.2$gene))
+# Optional: Rename log2FoldChange to logFC to match limma exactly
+colnames(res221599)[colnames(res221599) == "log2FoldChange"] <- "logFC"
 
-write.csv(overlap, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/Gene List Validation/overlap.csv")
+filter_genes <- function(df, direction = "up", p_thresh = 0.1, fc_thresh = 0.5) {
+  df$gene <- sub("\\..*", "", rownames(df))
+  
+  if (direction == "up") {
+    subset_df <- df[which(df$logFC > fc_thresh & df$adj.P.Val < p_thresh), ]
+  } else {
+    subset_df <- df[which(df$logFC < -fc_thresh & df$adj.P.Val < p_thresh), ]
+  }
+  return(subset_df$gene)
+}
+
+# 1. Get Up-regulated genes for each dataset
+up_221599 <- filter_genes(res221599, "up")
+up_90976  <- filter_genes(res90976,  "up")
+
+# 2. Get Down-regulated genes for each dataset
+down_221599 <- filter_genes(res221599, "down")
+down_90976  <- filter_genes(res90976,  "down")
+
+# 3. Find the Intersections
+overlap_up <- Reduce(intersect, list(up_221599, up_90976))
+overlap_down <- Reduce(intersect, list(down_221599, down_90976))
+
+# 4. Combine and Export
+# Creating a dataframe to label which are which
+final_list <- data.frame(
+  gene = c(overlap_up, overlap_down),
+  direction = c(rep("Consistent_Up", length(overlap_up)), 
+                rep("Consistent_Down", length(overlap_down)))
+)
+
+write.csv(final_list, "Gene List Validation/consistent_overlap_test.csv", row.names = FALSE)
 ```
 
 # Generate Heatmap
@@ -169,10 +304,11 @@ This heatmap is generated using a list of AITL genes curated using other dataset
 
 ```{r Heatmap of Specific Genes}
 # Subset normalized counts to include only the genes of interest
-subset_rlog <- assay(rlog)[rownames(rlog) %in% overlap, ]
+rlog_mat <- assay(rlog)
+subset_rlog <- rlog_mat[rownames(rlog_mat) %in% final_list$gene, ]
 dko_samples <- c("DKO_1", "DKO_2", "DKO_3")
 rest <- c("WT_1", "WT_2", "WT_3", "Tet2KO_1", "Tet2KO_2", "Tet2KO_3")
-row_order <- order(rowMeans(subset_rlog[, dko_samples])-rowMeans(subset_rlog[, rest]), decreasing = TRUE)
+row_order <- order(rowMeans(subset_rlog[, dko_samples])-rowMeans(subset_rlog[, rest]), decreasing = FALSE)
 subset_rlog <- subset_rlog[row_order, ]
 subset_rlog <- as.matrix(subset_rlog)
 
@@ -189,16 +325,18 @@ col_data <- colData(dds)[desired_order, ]
 color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
 
 # Create a heatmap
-heatmap <- pheatmap(subset_rlog, 
-         scale = "row", 
-         clustering_distance_rows = "binary", 
-         cluster_cols = FALSE, 
-         clustering_method = "complete", 
+heatmap <- pheatmap(subset_rlog,
+                    scale = "row",
          color = color_palette,
          show_rownames = TRUE, 
          show_colnames = TRUE,
          main = "Heatmap of AITL Genes",
-         treeheight_row = 0)
+         treeheight_row = 0,
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,)
+heatmap
+
+ggsave("aitlsigheatmap_test.png", heatmap, dpi = 600, height = 8, width = 6)
 
 ```
 
@@ -223,20 +361,18 @@ pca + geom_point(size=5) +
 The negative reports were not added for the DKO vs WT comparison as the report was empty, and that created some errors. 
 
 ```{r GSEA Results}
-dt1 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/newaitl2.Gsea.1728424109372/gsea_report_for_DKO_1728424109372.tsv")
-dt2 <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/newaitl2.Gsea.1728424109372/gsea_report_for_Tet2KO_1728424109372.tsv")
+dt1 <- read_tsv("output/202410083/newaitl2.Gsea.1728424109372/gsea_report_for_DKO_1728424109372.tsv")
+dt2 <- read_tsv("output/202410083/newaitl2.Gsea.1728424109372/gsea_report_for_Tet2KO_1728424109372.tsv")
 dt <- bind_rows(dt1, dt2)
 rm(dt1, dt2)
 dt <- dt[which(dt["FDR q-val"]<0.25 & abs(dt["NES"])>1.2),]
-dt <- rename(dt, FDR.q.val="FDR q-val")
 
-write.csv(dt, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/filtereddkotet2.csv")
+write.csv(dt, "output/202410083/filtereddkotet2.csv")
 
-dw <- read_tsv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/newaitl6.Gsea.1728428240183/gsea_report_for_DKO_1728428240183.tsv")
+dw <- read_tsv("output/202410083/newaitl6.Gsea.1728428240183/gsea_report_for_DKO_1728428240183.tsv")
 dw <- dw[which(dw["FDR q-val"]<0.25 & abs(dw["NES"])>1.2),]
-dw <- rename(dw, FDR.q.val="FDR q-val")
 
-write.csv(dw, "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/filtereddkowt.csv")
+write.csv(dw, "output/202410083/filtereddkowt.csv")
 ```
 
 
@@ -246,9 +382,12 @@ The filtered reports from above were then separated into three categories to the
 
 #### DKO vs Tet2KO comparison results
 ```{r Generate Plots - DKO vs Tet2KO, fig.width=10, fig.height=9}
-tf <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/finaltfolldtv2.csv")
-tfplot <- ggplot(tf, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-tfplot + geom_point(size=5, shape=21) + 
+tf <- read.csv("output/202410083/finaltfolldtv2.csv")
+tf$NAME <- gsub("_", " ", tf$NAME)
+tfplot <- ggplot(tf, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES, size = SIZE)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(2, 10)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
@@ -258,8 +397,9 @@ tfplot + geom_point(size=5, shape=21) +
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.1,2.1)) + 
   labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
   xlim(0,5.1)
+tfplot
 
-cc <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/finalcellcycledtv2.csv")
+cc <- read.csv("output/202410083/finalcellcycledtv2.csv")
 ccplot <- ggplot(cc, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 ccplot + geom_point(size=5, shape=21) +  
  theme(
@@ -288,7 +428,7 @@ myplot + geom_point(size=5, shape=21) +
 
 #### DKO vs WT comparison results
 ```{r Generate Plots - DKO vs WT, fig.width=10, fig.height=9}
-tf <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/finaltfolldwv2.csv")
+tf <- read.csv("output/202410083/finaltfolldwv2.csv")
 tfplot <- ggplot(tf, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
 tfplot + geom_point(size=5, shape=21) + 
  theme(
@@ -326,4 +466,34 @@ myplot + geom_point(size=5, shape=21) +
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.6,1.6)) + 
   labs(x="-log(FDR q-value)", y="Genesets", title="Myeloid Genesets") +
   xlim(0,5.1)
+```
+
+```{r}
+run_gsea (dds, "DKO", "WT", "gseagmt/aitlgenes.gmt", "dkotet2gsea.csv", "dkotet2deg.csv")
+
+gmt <- fgsea::gmtPathways("gseagmt/aitlgenes.gmt")
+
+rnk <- setNames(resDKO_WT$stat, rownames(resDKO_WT))
+
+rnk <- rnk[is.finite(rnk)]
+
+write.csv(rnk, "dkowt.csv")
+
+res_DKO_vs_Tet2 <- results(dds, contrast=c("condition", "DKO", "Tet2KO"), alpha = 0.05)
+resDKO_T2 <- as.data.frame(res_DKO_vs_Tet2)
+
+rnk2 <- setNames(resDKO_T2$stat, rownames(resDKO_T2))
+
+rnk2 <- rnk2[is.finite(rnk2)]
+
+write.csv(rnk2, "dkotet2.csv")
+
+
+fgseaRes <- fgsea(pathways = gmt, stats = rnk)
+
+pathwayName <- "AITL Genes DOWN"
+
+plotEnrichment(gmt[[pathwayName]], rnk) + 
+  labs(title = pathwayName)
+
 ```
