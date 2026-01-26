@@ -279,6 +279,7 @@ subset_rlog <- rlog_mat[rownames(rlog_mat) %in% final_list$gene, ]
 dko_samples <- c("DKO_1", "DKO_2", "DKO_3")
 rest <- c("WT_1", "WT_2", "WT_3", "Tet2KO_1", "Tet2KO_2", "Tet2KO_3")
 row_order <- order(rowMeans(subset_rlog[, dko_samples])-rowMeans(subset_rlog[, rest]), decreasing = FALSE)
+row_order <- c(11, 30, 31, 1, 13, 14, 5, 42, 20, 28, 8, 25, 34, 38, 17, 18, 4, 37, 22, 35, 26, 19, 7, 9, 12, 2, 15, 6, 41, 39, 27, 23, 43, 44, 10, 40, 32, 24, 33, 36, 29, 21, 3, 16)
 subset_rlog <- subset_rlog[row_order, ]
 subset_rlog <- as.matrix(subset_rlog)
 
@@ -301,7 +302,7 @@ heatmap <- pheatmap(subset_rlog,
          cluster_cols = FALSE,)
 heatmap
 
-ggsave("aitlsigheatmap.png", heatmap, dpi = 600, height = 8, width = 6)
+ggsave("aitlsigheatmap_originalorder.png", heatmap, dpi = 600, height = 8, width = 6)
 
 ```
 
