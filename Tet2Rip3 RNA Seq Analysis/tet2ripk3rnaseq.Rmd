@@ -19,165 +19,13 @@ library(pheatmap)
 library(ggalt)
 library(limma)
 library(stringr)
+library(ggrepel)
 
 setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/")
 ```
 
 ```{r setup, include=FALSE}
-knitr::opts_knit$set(root.dir = 'C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/')
-```
-
-
-```{r functions}
-run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
-  suppressPackageStartupMessages({
-    library(DESeq2)
-    library(fgsea)
-    library(BiocParallel)
-    library(dplyr)
-  })
-
-  # Force serial execution to avoid BiocParallel crashes
-  BiocParallel::register(BiocParallel::SerialParam())
-
-  #-------------------------------
-  # 1. Validate contrast levels
-  #-------------------------------
-  if (!"condition" %in% colnames(colData(dds))) {
-    stop("Column 'condition' not found in colData(dds).")
-  }
-
-  mut_levels <- levels(dds$condition)
-
-  if (!(condition1 %in% mut_levels)) {
-    stop(paste("Condition1 not found in condition levels:", condition1))
-  }
-  if (!(condition2 %in% mut_levels)) {
-    stop(paste("Condition2 not found in condition levels:", condition2))
-  }
-
-  #-------------------------------
-  # 2. Run DESeq2 contrast
-  #-------------------------------
-  res <- DESeq2::results(
-    dds,
-    contrast = c("condition", condition1, condition2),
-    independentFiltering = TRUE,
-    alpha = 0.1,
-    parallel = FALSE
-  )
-
-  # Remove rows with NA statistics
-  res <- res[complete.cases(res$stat), ]
-
-  #-------------------------------
-  # 3. Build ranking vector
-  #-------------------------------
-  rnk <- setNames(res$stat, rownames(res))
-
-  if (length(rnk) < 1000) {
-    stop("Ranking vector too small (<1000 genes). Likely no signal in this contrast.")
-  }
-
-  #-------------------------------
-  # 4. Load pathways
-  #-------------------------------
-  gmt <- fgsea::gmtPathways(gmt_path)
-
-  #-------------------------------
-  # 5. Run fgsea
-  #-------------------------------
-  gsea <- fgsea(
-    pathways = gmt,
-    stats = rnk,
-    minSize = 15,
-    maxSize = 500
-  )
-
-  gsea_df <- as.data.frame(gsea)
-
-  # Flatten list columns (leadingEdge)
-  list_cols <- sapply(gsea_df, is.list)
-  gsea_df[list_cols] <- lapply(gsea_df[list_cols], function(x) sapply(x, paste, collapse = ";"))
-
-  #-------------------------------
-  # 6. Write outputs
-  #-------------------------------
-  write.csv(gsea_df, output_gsea, row.names = FALSE)
-
-  # DEG table (filtered for significance)
-  deg_df <- as.data.frame(res) %>%
-    mutate(gene = rownames(res)) %>%
-    filter(padj < 0.1)
-
-  write.csv(deg_df, output_deg, row.names = FALSE)
-
-  #-------------------------------
-  # 7. Return objects invisibly
-  #-------------------------------
-  invisible(list(
-    gsea = gsea_df,
-    degs = deg_df,
-    ranking = rnk
-  ))
-}
-
-EnsIDReplace <- function(input, mapping_file = "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv") {
-  #-----------------------------
-  # 1. Validate inputs
-  #-----------------------------
-  if (!is.matrix(input) && !is.data.frame(input)) {
-    stop("Input must be a matrix or data.frame with rownames.")
-  }
-  if (is.null(rownames(input))) {
-    stop("Input must have rownames corresponding to Ensembl IDs.")
-  }
-  if (!file.exists(mapping_file)) {
-    stop(paste("Mapping file not found:", mapping_file))
-  }
-
-  #-----------------------------
-  # 2. Load mapping file
-  #-----------------------------
-  gene_mapping <- read.csv(mapping_file, stringsAsFactors = FALSE)
-
-  required_cols <- c("gene_id", "gene_name")
-  if (!all(required_cols %in% colnames(gene_mapping))) {
-    stop("Mapping file must contain columns: gene_id, gene_name")
-  }
-
-  #-----------------------------
-  # 3. Build lookup vector
-  #-----------------------------
-  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
-
-  #-----------------------------
-  # 4. Vectorized name replacement
-  #-----------------------------
-  old_ids <- rownames(input)
-
-  # Replace Ensembl IDs with gene names where available
-  new_names <- id_list[old_ids]
-
-  # For IDs not found in mapping, keep original
-  new_names[is.na(new_names)] <- old_ids[is.na(new_names)]
-
-  # Replace empty strings with NA
-  new_names[new_names == ""] <- NA
-
-  # Ensure syntactically valid + unique names
-  new_names <- make.names(new_names, unique = TRUE)
-
-  #-----------------------------
-  # 5. Apply new rownames
-  #-----------------------------
-  rownames(input) <- new_names
-
-  #-----------------------------
-  # 6. Return modified object
-  #-----------------------------
-  return(input)
-}
+knitr::opts_knit$set(root.dir = 'C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/')
 ```
 
 # DESeq2 analysis
@@ -212,7 +60,137 @@ resDKO_WT <- as.data.frame(res_DKO_vs_WT)
 write.csv(rescmp, "completeresults.csv")
 ```
 
-## Creating curated AITL Gene List
+# Generate PCA Plot
+
+```{r PCA Plot}
+pca <- plotPCA(rlog)
+pca + geom_point(size=5) + 
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), # White background
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+  ) + 
+  scale_color_manual(labels=c("Tet2-/- Ripk3-/-", "Tet2-/-", "WT"), values = c("red","blue", "green3")) + 
+  lims(x=c(-15, 25), y=c(-15, 25))
+```
+
+# Volcano Plots
+
+## DKO vs WT
+```{r volcano plot DKO vs WT}
+res_DKO_vs_WT <- results(dds, contrast=c("condition", "DKO", "WT"), alpha = 0.05)
+res_DKO_vs_WT <- res_DKO_vs_WT %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "gene") %>% 
+  mutate(
+    sig = case_when(
+      padj <= 0.05 & log2FoldChange >0  ~ "Up",
+      padj <= 0.05 & log2FoldChange <0 ~ "Down",
+      TRUE ~ "NS"
+    )
+  )
+
+top10_up <- res_DKO_vs_WT %>%
+  filter(sig == "Up") %>%
+  arrange(pvalue) %>%
+  head(10)
+
+top10_down <- res_DKO_vs_WT %>%
+  filter(sig == "Down") %>%
+  arrange(pvalue) %>%
+  head(10)
+
+leading_edge <- bind_rows(top10_up, top10_down)
+
+volcano <- ggplot(res_DKO_vs_WT, aes(x = log2FoldChange, y = -log10(padj))) +
+  geom_point(aes(color = sig), alpha = 0.8, size = 1.8) +
+  scale_color_manual(
+    values = c(
+      "Up" = "red",
+      "Down" = "blue",
+      "NS" = "gray70"
+    )
+  ) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
+  labs(
+    title = expression("Tet2KO Ripk3KO vs WT"),
+    x = "log2 Fold Change",
+    y = "-log10 Adjusted p-value",
+    color = "Direction"
+  ) +
+  theme_bw(base_size = 12) + 
+  geom_text_repel(
+    data = leading_edge,
+    aes(label = gene), 
+    size = 3, 
+    max.overlaps = Inf, 
+    box.padding = 0.4, 
+    point.padding = 0.2, 
+    segment.color = "gray50")
+volcano
+
+ggsave("volcano_dkowt.png", volcano, dpi = 600)
+```
+
+## DKO vs Tet2KO
+
+```{r volcano plot DKO vs Tet2}
+res_DKO_vs_Tet2 <- results(dds, contrast=c("condition", "DKO", "Tet2KO"), alpha = 0.05)
+res_DKO_vs_Tet2 <- res_DKO_vs_Tet2 %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "gene") %>% 
+  mutate(
+    sig = case_when(
+      padj <= 0.05 & log2FoldChange >0  ~ "Up",
+      padj <= 0.05 & log2FoldChange <0 ~ "Down",
+      TRUE ~ "NS"
+    )
+  )
+
+top10_up <- res_DKO_vs_Tet2 %>%
+  filter(sig == "Up") %>%
+  arrange(pvalue) %>%
+  head(10)
+
+top10_down <- res_DKO_vs_Tet2 %>%
+  filter(sig == "Down") %>%
+  arrange(pvalue) %>%
+  head(10)
+
+leading_edge <- bind_rows(top10_up, top10_down)
+
+volcano <- ggplot(res_DKO_vs_Tet2, aes(x = log2FoldChange, y = -log10(padj))) +
+  geom_point(aes(color = sig), alpha = 0.8, size = 1.8) +
+  scale_color_manual(
+    values = c(
+      "Up" = "red",
+      "Down" = "blue",
+      "NS" = "gray70"
+    )
+  ) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
+  labs(
+    title = expression("Tet2KO Ripk3KO vs Tet2KO"),
+    x = "log2 Fold Change",
+    y = "-log10 Adjusted p-value",
+    color = "Direction"
+  ) +
+  theme_bw(base_size = 12) + 
+  geom_text_repel(
+    data = leading_edge,
+    aes(label = gene), 
+    size = 3, 
+    max.overlaps = Inf, 
+    box.padding = 0.4, 
+    point.padding = 0.2, 
+    segment.color = "gray50")
+volcano
+
+ggsave("volcano_dkotet2.png", volcano, dpi = 600)
+
+```
+
+# Creating curated AITL Gene List
 
 #### GSE221599
 ```{r Setup2}
@@ -257,10 +235,8 @@ write.csv(res90976, "Gene List Validation/results90976.csv")
 #### Overlap
 
 ```{r Overlap}
-
 # Rename padj to adj.P.Val
 colnames(res221599)[colnames(res221599) == "padj"] <- "adj.P.Val"
-
 # Optional: Rename log2FoldChange to logFC to match limma exactly
 colnames(res221599)[colnames(res221599) == "log2FoldChange"] <- "logFC"
 
@@ -275,27 +251,22 @@ filter_genes <- function(df, direction = "up", p_thresh = 0.1, fc_thresh = 0.5) 
   return(subset_df$gene)
 }
 
-# 1. Get Up-regulated genes for each dataset
 up_221599 <- filter_genes(res221599, "up")
 up_90976  <- filter_genes(res90976,  "up")
 
-# 2. Get Down-regulated genes for each dataset
 down_221599 <- filter_genes(res221599, "down")
 down_90976  <- filter_genes(res90976,  "down")
 
-# 3. Find the Intersections
 overlap_up <- Reduce(intersect, list(up_221599, up_90976))
 overlap_down <- Reduce(intersect, list(down_221599, down_90976))
 
-# 4. Combine and Export
-# Creating a dataframe to label which are which
 final_list <- data.frame(
   gene = c(overlap_up, overlap_down),
   direction = c(rep("Consistent_Up", length(overlap_up)), 
                 rep("Consistent_Down", length(overlap_down)))
 )
 
-write.csv(final_list, "Gene List Validation/consistent_overlap_test.csv", row.names = FALSE)
+write.csv(final_list, "Gene List Validation/consistent_overlap.csv", row.names = FALSE)
 ```
 
 # Generate Heatmap
@@ -303,7 +274,6 @@ write.csv(final_list, "Gene List Validation/consistent_overlap_test.csv", row.na
 This heatmap is generated using a list of AITL genes curated using other datasets. 
 
 ```{r Heatmap of Specific Genes}
-# Subset normalized counts to include only the genes of interest
 rlog_mat <- assay(rlog)
 subset_rlog <- rlog_mat[rownames(rlog_mat) %in% final_list$gene, ]
 dko_samples <- c("DKO_1", "DKO_2", "DKO_3")
@@ -312,19 +282,14 @@ row_order <- order(rowMeans(subset_rlog[, dko_samples])-rowMeans(subset_rlog[, r
 subset_rlog <- subset_rlog[row_order, ]
 subset_rlog <- as.matrix(subset_rlog)
 
-# Define the desired column order
 desired_order <- c("WT_1", "WT_2", "WT_3", "Tet2KO_1", "Tet2KO_2", "Tet2KO_3", "DKO_1", "DKO_2", "DKO_3")
 
-# Reorder the columns
 subset_rlog <- subset_rlog[, desired_order]
 
-# Extract column data (sample information) and reorder it
 col_data <- colData(dds)[desired_order, ]
 
-# Define color palette
 color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
 
-# Create a heatmap
 heatmap <- pheatmap(subset_rlog,
                     scale = "row",
          color = color_palette,
@@ -336,57 +301,60 @@ heatmap <- pheatmap(subset_rlog,
          cluster_cols = FALSE,)
 heatmap
 
-ggsave("aitlsigheatmap_test.png", heatmap, dpi = 600, height = 8, width = 6)
+ggsave("aitlsigheatmap.png", heatmap, dpi = 600, height = 8, width = 6)
 
-```
-
-# Generate PCA Plot
-
-```{r PCA Plot}
-pca <- plotPCA(rlog)
-pca + geom_point(size=5) + 
-  theme(
-    panel.background = element_rect(fill = "white", color = "black"), # White background
-    axis.text = element_blank(),
-    axis.ticks = element_blank(),
-  ) + 
-  scale_color_manual(labels=c("Tet2-/- Ripk3-/-", "Tet2-/-", "WT"), values = c("red","blue", "green3")) + 
-  lims(x=c(-15, 25), y=c(-15, 25))
 ```
 
 # Display GSEA Results
 
 ## Filter GSEA reports for an FDR q-value < 0.25 and Normalized Enrichment Score > 1.3
 
-The negative reports were not added for the DKO vs WT comparison as the report was empty, and that created some errors. 
 
-```{r GSEA Results}
-dt1 <- read_tsv("output/202410083/newaitl2.Gsea.1728424109372/gsea_report_for_DKO_1728424109372.tsv")
-dt2 <- read_tsv("output/202410083/newaitl2.Gsea.1728424109372/gsea_report_for_Tet2KO_1728424109372.tsv")
+```{r GSEA Results tlymph}
+dw1 <- read_tsv("output/dkowt_tlymph.GseaPreranked.1769300113793/gsea_report_for_na_pos_1769300113793.tsv")
+dw2 <- read_tsv("output/dkowt_tlymph.GseaPreranked.1769300113793/gsea_report_for_na_neg_1769300113793.tsv")
+dw <- bind_rows(dw1, dw2)
+rm(dw1, dw2)
+dw <- dw[which(dw["FDR q-val"]<0.25 & abs(dw["NES"])>1.0),]
+
+write.csv(dw, "output/filtereddkowt_tlymph.csv")
+
+dt1 <- read_tsv("output/dkotet2_tlymph.GseaPreranked.1769300784692/gsea_report_for_na_pos_1769300784692.tsv")
+dt2 <- read_tsv("output/dkotet2_tlymph.GseaPreranked.1769300784692/gsea_report_for_na_neg_1769300784692.tsv")
 dt <- bind_rows(dt1, dt2)
 rm(dt1, dt2)
-dt <- dt[which(dt["FDR q-val"]<0.25 & abs(dt["NES"])>1.2),]
+dt <- dt[which(dt["FDR q-val"]<0.25 & abs(dt["NES"])>1.0),]
 
-write.csv(dt, "output/202410083/filtereddkotet2.csv")
-
-dw <- read_tsv("output/202410083/newaitl6.Gsea.1728428240183/gsea_report_for_DKO_1728428240183.tsv")
-dw <- dw[which(dw["FDR q-val"]<0.25 & abs(dw["NES"])>1.2),]
-
-write.csv(dw, "output/202410083/filtereddkowt.csv")
+write.csv(dt, "output/filtereddkotet2_tlymph.csv")
 ```
 
+```{r GSEA Results cell cycle}
+dw1 <- read_tsv("output/dkowt_cellcycle.GseaPreranked.1769300936240/gsea_report_for_na_pos_1769300936240.tsv")
+dw2 <- read_tsv("output/dkowt_cellcycle.GseaPreranked.1769300936240/gsea_report_for_na_neg_1769300936240.tsv")
+dw <- bind_rows(dw1, dw2)
+rm(dw1, dw2)
+dw <- dw[which(dw["FDR q-val"]<0.25 & abs(dw["NES"])>1.0),]
+
+write.csv(dw, "output/filtereddkowt_cellcycle.csv")
+
+dt1 <- read_tsv("output/dkotet2_cellcycle.GseaPreranked.1769300922079/gsea_report_for_na_pos_1769300922079.tsv")
+dt2 <- read_tsv("output/dkotet2_cellcycle.GseaPreranked.1769300922079/gsea_report_for_na_neg_1769300922079.tsv")
+dt <- bind_rows(dt1, dt2)
+rm(dt1, dt2)
+dt <- dt[which(dt["FDR q-val"]<0.25 & abs(dt["NES"])>1.0),]
+
+write.csv(dt, "output/filtereddkotet2_cellcycle.csv")
+```
 
 ## Generate Plots
 
-The filtered reports from above were then separated into three categories to then be plotted together. 
-
 #### DKO vs Tet2KO comparison results
 ```{r Generate Plots - DKO vs Tet2KO, fig.width=10, fig.height=9}
-tf <- read.csv("output/202410083/finaltfolldtv2.csv")
-tf$NAME <- gsub("_", " ", tf$NAME)
-tfplot <- ggplot(tf, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES, size = SIZE)) +
+tf2 <- read.csv("output/filtereddkotet2_tlymph.csv")
+tf2$NAME <- gsub("_", " ", tf2$NAME)
+tfplot <- ggplot(tf2, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, NES), fill = NES, size = SIZE)) +
   geom_point(shape=21) + 
-  scale_size(range = c(2, 10)) +
+  scale_size(range = c(5, 10)) +
   scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
  theme(
     panel.background = element_rect(fill = "white"), 
@@ -394,106 +362,82 @@ tfplot <- ggplot(tf, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR
     plot.title = element_text(hjust = 0.5), 
     axis.text=element_text(color="black", face="bold")
     ) +
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.1,2.1)) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
   labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
-  xlim(0,5.1)
+  xlim(0,5.1) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 tfplot
 
-cc <- read.csv("output/202410083/finalcellcycledtv2.csv")
-ccplot <- ggplot(cc, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-ccplot + geom_point(size=5, shape=21) +  
+cc2 <- read.csv("output/filtereddkotet2_cellcycle.csv")
+cc2$NAME <- gsub("_", " ", cc2$NAME)
+cc2 <- cc2[cc2$NAME %in% cc2$NAME, ]
+ccplot <- ggplot(cc2, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, NES), fill = NES, size = SIZE)) +
+  geom_point(shape=21) +  
+  scale_size(range = c(5, 10)) + 
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
     plot.title = element_text(hjust = 0.5), 
     axis.text=element_text(color="black", face="bold")
     ) +
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.2,2.2)) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-3,3)) + 
   labs(x="-log(FDR q-value)", y="Genesets", title="Cell Cycle & Proliferation Genesets") +
-  xlim(0,5.1)
+  xlim(0,5.1) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+ccplot
 
-my <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/finalmyeloiddtv2.csv")
-myplot <- ggplot(my, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-myplot + geom_point(size=5, shape=21) +  
- theme(
-    panel.background = element_rect(fill = "white"), 
-    panel.border = element_rect(color = "black", fill = NA), 
-    plot.title = element_text(hjust = 0.5), 
-    axis.text=element_text(color="black", face="bold")
-    ) +
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.0,2.0)) + 
-  labs(x="-log(FDR q-value)", y="Genesets", title="Myeloid Genesets") +
-  xlim(0,5.1)
+ggsave("dkotet2_tlymph.png", tfplot, dpi = 600, height = 6.5, width = 6.5)
+
+ggsave("dkotet2_cellcycle.png", ccplot, dpi = 600, height = 6.5, width = 6.5)
 ```
 
 #### DKO vs WT comparison results
 ```{r Generate Plots - DKO vs WT, fig.width=10, fig.height=9}
-tf <- read.csv("output/202410083/finaltfolldwv2.csv")
-tfplot <- ggplot(tf, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-tfplot + geom_point(size=5, shape=21) + 
+tf <- read.csv("output/filtereddkowt_tlymph.csv")
+tf$NAME <- gsub("_", " ", tf$NAME)
+tfplot <- ggplot(tf, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, NES), fill = NES, size = SIZE)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 10)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
     plot.title = element_text(hjust = 0.5), 
     axis.text=element_text(color="black", face="bold")
     ) +
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.5,1.5)) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
   labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
-  xlim(0,5.1)
+  xlim(0,5.1) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+tfplot
 
-cc <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/finalcellcycledwv2.csv")
-ccplot <- ggplot(cc, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-ccplot + geom_point(size=5, shape=21) +  
+cc <- read.csv("output/filtereddkowt_cellcycle.csv")
+cc$NAME <- gsub("_", " ", cc$NAME)
+ccplot <- ggplot(cc, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, NES), fill = NES, size = SIZE)) +
+  geom_point(shape=21) +  
+  scale_size(range = c(5, 10)) + 
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
     plot.title = element_text(hjust = 0.5), 
     axis.text=element_text(color="black", face="bold")
     ) +
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.7,1.7)) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-3,3)) + 
   labs(x="-log(FDR q-value)", y="Genesets", title="Cell Cycle & Proliferation Genesets") +
-  xlim(0,5.1)
+  xlim(0,5.1) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+ccplot
 
-my <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/output/202410083/finalmyeloiddwv2.csv")
-myplot <- ggplot(my, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, -log10(FDR.q.val)), fill = NES))
-myplot + geom_point(size=5, shape=21) +  
- theme(
-    panel.background = element_rect(fill = "white"), 
-    panel.border = element_rect(color = "black", fill = NA), 
-    plot.title = element_text(hjust = 0.5), 
-    axis.text=element_text(color="black", face="bold")
-    ) +
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-1.6,1.6)) + 
-  labs(x="-log(FDR q-value)", y="Genesets", title="Myeloid Genesets") +
-  xlim(0,5.1)
+ggsave("dkowt_tlymph.png", tfplot, dpi = 600, height = 6.5, width = 6.5)
+
+ggsave("dkowt_cellcycle.png", ccplot, dpi = 600, height = 6.5, width = 6.5)
 ```
 
-```{r}
-run_gsea (dds, "DKO", "WT", "gseagmt/aitlgenes.gmt", "dkotet2gsea.csv", "dkotet2deg.csv")
+# ICOS RNA-seq expression
 
-gmt <- fgsea::gmtPathways("gseagmt/aitlgenes.gmt")
-
-rnk <- setNames(resDKO_WT$stat, rownames(resDKO_WT))
-
-rnk <- rnk[is.finite(rnk)]
-
-write.csv(rnk, "dkowt.csv")
-
-res_DKO_vs_Tet2 <- results(dds, contrast=c("condition", "DKO", "Tet2KO"), alpha = 0.05)
-resDKO_T2 <- as.data.frame(res_DKO_vs_Tet2)
-
-rnk2 <- setNames(resDKO_T2$stat, rownames(resDKO_T2))
-
-rnk2 <- rnk2[is.finite(rnk2)]
-
-write.csv(rnk2, "dkotet2.csv")
-
-
-fgseaRes <- fgsea(pathways = gmt, stats = rnk)
-
-pathwayName <- "AITL Genes DOWN"
-
-plotEnrichment(gmt[[pathwayName]], rnk) + 
-  labs(title = pathwayName)
-
+```{r icos expression}
+icos <- rlog_mat["Icos",]
+write.csv(icos, "icosexpression.csv")
 ```
