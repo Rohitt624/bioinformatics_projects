@@ -21,7 +21,7 @@ library(limma)
 library(stringr)
 library(ggrepel)
 
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Kanak Tet2 Ripk3/")
 ```
 
 ```{r setup, include=FALSE}
@@ -351,17 +351,18 @@ write.csv(dt, "output/filtereddkotet2_cellcycle.csv")
 
 #### DKO vs Tet2KO comparison results
 ```{r Generate Plots - DKO vs Tet2KO, fig.width=10, fig.height=9}
-tf2 <- read.csv("output/filtereddkotet2_tlymph.csv")
+tf2 <- read.csv("output/filtereddkotet2_tlymph2.csv")
 tf2$NAME <- gsub("_", " ", tf2$NAME)
 tfplot <- ggplot(tf2, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, NES), fill = NES, size = SIZE)) +
   geom_point(shape=21) + 
   scale_size(range = c(5, 10)) +
-  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
- theme(
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 25)) +
+  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
-    plot.title = element_text(hjust = 0.5), 
-    axis.text=element_text(color="black", face="bold")
+    plot.title = element_text(hjust = 0.5, size = 15), 
+    axis.text=element_text(color="black", face="bold", size = 15), 
+    axis.title = element_text(size = 15)
     ) +
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
   labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
@@ -371,16 +372,17 @@ tfplot
 
 cc2 <- read.csv("output/filtereddkotet2_cellcycle.csv")
 cc2$NAME <- gsub("_", " ", cc2$NAME)
-cc2 <- cc2[cc2$NAME %in% cc2$NAME, ]
+cc2 <- cc2[cc2$NAME %in% cc$NAME, ]
 ccplot <- ggplot(cc2, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, NES), fill = NES, size = SIZE)) +
   geom_point(shape=21) +  
   scale_size(range = c(5, 10)) + 
-  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
- theme(
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 25)) +
+  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
-    plot.title = element_text(hjust = 0.5), 
-    axis.text=element_text(color="black", face="bold")
+    plot.title = element_text(hjust = 0.5, size = 15), 
+    axis.text=element_text(color="black", face="bold", size = 15), 
+    axis.title = element_text(size = 15)
     ) +
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-3,3)) + 
   labs(x="-log(FDR q-value)", y="Genesets", title="Cell Cycle & Proliferation Genesets") +
@@ -388,24 +390,25 @@ ccplot <- ggplot(cc2, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, NES), fil
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 ccplot
 
-ggsave("dkotet2_tlymph.png", tfplot, dpi = 600, height = 6.5, width = 6.5)
+ggsave("dkotet2_tlymph.png", tfplot, dpi = 600, height = 8.5, width = 8)
 
-ggsave("dkotet2_cellcycle.png", ccplot, dpi = 600, height = 6.5, width = 6.5)
+ggsave("dkotet2_cellcycle.png", ccplot, dpi = 600, height = 8.5, width = 8)
 ```
 
 #### DKO vs WT comparison results
 ```{r Generate Plots - DKO vs WT, fig.width=10, fig.height=9}
-tf <- read.csv("output/filtereddkowt_tlymph.csv")
+tf <- read.csv("output/filtereddkowt_tlymph2.csv")
 tf$NAME <- gsub("_", " ", tf$NAME)
 tfplot <- ggplot(tf, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, NES), fill = NES, size = SIZE)) +
   geom_point(shape=21) + 
   scale_size(range = c(5, 10)) +
-  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 25)) +
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
-    plot.title = element_text(hjust = 0.5), 
-    axis.text=element_text(color="black", face="bold")
+    plot.title = element_text(hjust = 0.5, size = 15), 
+    axis.text=element_text(color="black", face="bold", size = 15), 
+    axis.title = element_text(size = 15)
     ) +
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
   labs(x="-log(FDR q value)", y="Genesets", title="T cell & Lymphoma Genesets") +
@@ -418,12 +421,13 @@ cc$NAME <- gsub("_", " ", cc$NAME)
 ccplot <- ggplot(cc, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, NES), fill = NES, size = SIZE)) +
   geom_point(shape=21) +  
   scale_size(range = c(5, 10)) + 
-  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 25)) +
  theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
-    plot.title = element_text(hjust = 0.5), 
-    axis.text=element_text(color="black", face="bold")
+    plot.title = element_text(hjust = 0.5, size = 15), 
+    axis.text=element_text(color="black", face="bold", size = 15), 
+    axis.title = element_text(size = 15)
     ) +
   scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-3,3)) + 
   labs(x="-log(FDR q-value)", y="Genesets", title="Cell Cycle & Proliferation Genesets") +
@@ -431,9 +435,9 @@ ccplot <- ggplot(cc, aes(x=-log10(FDR.q.val+0.00001), y=reorder(NAME, NES), fill
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 ccplot
 
-ggsave("dkowt_tlymph.png", tfplot, dpi = 600, height = 6.5, width = 6.5)
+ggsave("dkowt_tlymph2.png", tfplot, dpi = 600, height = 8.5, width = 8)
 
-ggsave("dkowt_cellcycle.png", ccplot, dpi = 600, height = 6.5, width = 6.5)
+ggsave("dkowt_cellcycle.png", ccplot, dpi = 600, height = 8.5, width = 8)
 ```
 
 # ICOS RNA-seq expression
