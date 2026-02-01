@@ -51,11 +51,11 @@ run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_
   #-------------------------------
   # 1. Validate contrast levels
   #-------------------------------
-  if (!"Mutation" %in% colnames(colData(dds))) {
-    stop("Column 'Mutation' not found in colData(dds).")
+  if (!"condition" %in% colnames(colData(dds))) {
+    stop("Column 'condition' not found in colData(dds).")
   }
 
-  mut_levels <- levels(dds$Mutation)
+  mut_levels <- levels(dds$condition)
 
   if (!(condition1 %in% mut_levels)) {
     stop(paste("Condition1 not found in Mutation levels:", condition1))
@@ -69,7 +69,7 @@ run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_
   #-------------------------------
   res <- DESeq2::results(
     dds,
-    contrast = c("Mutation", condition1, condition2),
+    contrast = c("condition", condition1, condition2),
     independentFiltering = TRUE,
     alpha = 0.1,
     parallel = FALSE
@@ -98,11 +98,12 @@ run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_
   gsea <- fgsea(
     pathways = gmt,
     stats = rnk,
-    minSize = 15,
+    minSize = 0,
     maxSize = 500
   )
 
   gsea_df <- as.data.frame(gsea)
+  
 
   # Flatten list columns (leadingEdge)
   list_cols <- sapply(gsea_df, is.list)
@@ -336,7 +337,7 @@ gmt_to_ntp_template <- function(gmt_path) {
 hoshida_template <- gmt_to_ntp_template("hoshidasubtype.gmt")
 
 head(hoshida_template)
-hoshida_template$class <- gsub("^HOSHIDA_LIVER_CANCER_SUBCLASS_", "", hoshida_template$class)
+hoshida_template$class <- gsub("HOSHIDA_LIVER_CANCER_SUBCLASS_", "", hoshida_template$class)
 unique(hoshida_template$class)
 
 # 4. Run NTP using CMScaller
@@ -399,11 +400,11 @@ design(dds) <- ~ Hoshida_Subtype
 
 # Filter out "Undetermined" samples if you want a clean comparison
 # (Optional but recommended)
-dds_filtered <- dds[, dds$Hoshida_Subtype != "Undetermined"]
-dds_filtered$Hoshida_Subtype <- droplevels(dds_filtered$Hoshida_Subtype)
+#dds_filtered <- dds[, dds$Hoshida_Subtype != "Undetermined"]
+#dds_filtered$Hoshida_Subtype <- droplevels(dds_filtered$Hoshida_Subtype)
 
 # Run DESeq
-dds_filtered <- DESeq(dds_filtered)
+#dds_filtered <- DESeq(dds_filtered)
 
 # Apply VST
 vst <- vst(dds, blind = TRUE)
@@ -413,8 +414,6 @@ vst_mat <- assay(vst)
 ```
 
 ```{r scatter}
-plot_data <- vst_mat[c("PTK2", "CCN2"), ]
-
 plot_data <- as.data.frame(t(vst_mat[c("PTK2", "CCN2"), ]))
 plot_data$Subtype <- vst$Hoshida_Subtype
 
@@ -437,15 +436,17 @@ ggsave("fakctgfscatter.png", scatter, dpi = 600)
 ```
 
 ```{r violin}
-plot_data <- as.data.frame(t(vst_mat[c("PTK2", "CCN2"), ]))
+plot_data <- as.data.frame(t(vst_extended[c("KEGG_FOCAL_ADHESION", "CCN2"), ]))
 plot_data$Subtype <- vst$Hoshida_Subtype
 
-vln <- ggplot(plot_data, aes(factor(Subtype), y = PTK2, fill = Subtype)) + 
+write.csv(plot_data, "plotdata.csv")
+
+vln <- ggplot(plot_data, aes(factor(Subtype), y = KEGG_FOCAL_ADHESION, fill = Subtype)) + 
   geom_violin() + 
   geom_jitter(width = 0.1) + 
   labs(title = "FAK Expression by Hoshida Subtype", 
        x = "Hoshida Subtype", 
-       y = "FAK") + 
+       y = "KEGG: Focal Adhesion") + 
   theme(plot.title = element_text(hjust = 0.5)) + 
   theme_bw() + 
   theme(plot.title = element_text(hjust = 0.5))
@@ -456,8 +457,7 @@ ggsave("fakvlnplot.png", vln, dpi = 600)
 vln <- ggplot(plot_data, aes(factor(Subtype), y = CCN2, fill = Subtype)) + 
   geom_violin() + 
   geom_jitter(width = 0.1) + 
-  labs(title = "CTGF Expression by Hoshida Subtype", 
-       x = "Hoshida Subtype", 
+  labs(x = "Hoshida Subtype", 
        y = "CTGF") + 
   theme(plot.title = element_text(hjust = 0.5)) + 
   theme_bw() + 
@@ -467,13 +467,42 @@ vln
 ggsave("ctgfvlnplot.png", vln, dpi = 600)
 ```
 
+```{r}
+# 1. Filter out the undetermined subtype
+# This keeps only rows where Subtype is S1, S2, or S3
+plot_data_filtered <- subset(plot_data, Subtype %in% c("S1", "S2", "S3"))
+
+# 2. Define your custom color palette
+# You can use names ("steelblue"), HEX codes ("#E69F00"), or RGB
+my_colors <- c("S1" = "darkred", "S2" = "grey50", "S3" = "grey50")
+
+# 3. Create the plot (CCN2 example)
+vln_ccn2 <- ggplot(plot_data_filtered, aes(x = factor(Subtype), y = KEGG_FOCAL_ADHESION, fill = Subtype)) + 
+  geom_violin(alpha = 0.7, trim = FALSE) + 
+  geom_jitter(width = 0.1, alpha = 0.5) + 
+  scale_fill_manual(values = my_colors) + # This applies your colors
+  labs(    x = "Hoshida Subtype", 
+    y = "KEGG: Focal Adhesion"
+  ) + 
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        legend.position = "none")
+
+vln_ccn2
+
+# 4. Save the new version
+ggsave("kegg_hoshida_vln.png", vln_ccn2, dpi = 600)
+```
+
+
 ```{r combined violin plot}
 plot_data_long <- plot_data %>%
-  pivot_longer(cols = c("PTK2", "CCN2"), 
+  pivot_longer(cols = c("KEGG_FOCAL_ADHESION", "CCN2"), 
                names_to = "Gene", 
                values_to = "Expression")
 
-plot_data_long$Gene <- factor(plot_data_long$Gene, levels = c("PTK2", "CCN2"))
+plot_data_long$Gene <- factor(plot_data_long$Gene, levels = c("KEGG_FOCAL_ADHESION", "CCN2"))
 
 # 2. Create the combined plot
 combined_vln <- ggplot(plot_data_long, aes(x = Subtype, y = Expression, fill = Gene)) + 
@@ -484,8 +513,8 @@ combined_vln <- ggplot(plot_data_long, aes(x = Subtype, y = Expression, fill = G
        y = "Expression (VST Normalized)") + 
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5)) + 
-  scale_fill_manual(values = c("PTK2" = "dodgerblue", "CCN2" = "brown1"), 
-                    labels = c("PTK2" = "FAK", "CCN2" = "CTGF"))
+  scale_fill_manual(values = c("KEGG_FOCAL_ADHESION" = "dodgerblue", "CCN2" = "brown1"), 
+                    labels = c("KEGG_FOCAL_ADHESION" = "KEGG_FOCAL_ADHESION", "CCN2" = "CTGF"))
 
 combined_vln
 
@@ -543,10 +572,12 @@ rm(subtype, clinical_subset, merged_table)
 ```
 
 ```{r subset}
-s1 <- dds[, dds$Hoshida_Subtype == "S1"]
+s1 <- dds[, dds$Hoshida_Subtype == "CTNNB1_UP"]
 s2 <- dds[, dds$Hoshida_Subtype == "S2"]
 s3 <- dds[, dds$Hoshida_Subtype == "S3"]
 
+s1n <- estimateSizeFactors(s1)
+norm <- counts(s1n, normalized = TRUE) 
 s1_vst <- vst(s1, blind = TRUE)
 s1_mat <- assay(s1_vst)
 
@@ -559,7 +590,7 @@ s3_mat <- assay(s3_vst)
 
 ```{r s1 scatter}
 plot_data <- as.data.frame(t(s1_mat[c("PTK2", "CCN2"), ]))
-plot_data$Subtype <- s1_vst$Hoshida_Subtype
+plot_data$fak <- s1_vst$fak
 
 # Fit linear model
 lm_fit <- lm(CCN2 ~ PTK2, data = plot_data)
@@ -574,7 +605,7 @@ label_text <- paste0("R = ", round(r_value, 3),
                      "\nP = ", signif(p_value, 3))
 
 # Plot with annotation
-scatter <- ggplot(plot_data, aes(x = PTK2, y = CCN2, color = Subtype)) +
+scatter <- ggplot(plot_data, aes(x = PTK2, y = CCN2, color = fak)) +
   geom_point(size = 3, alpha = 0.8) +
   geom_smooth(method = "lm", se = FALSE, color = "black",
               linetype = "dashed", size = 0.5) +
@@ -604,7 +635,7 @@ ggsave("s1fakctgfscatter.png", scatter, dpi = 600)
 
 ```{r s2 scatter}
 plot_data <- as.data.frame(t(s2_mat[c("PTK2", "CCN2"), ]))
-plot_data$Subtype <- s2_vst$Hoshida_Subtype
+plot_data$fak <- s2_vst$fak
 
 # Fit linear model
 lm_fit <- lm(CCN2 ~ PTK2, data = plot_data)
@@ -619,7 +650,7 @@ label_text <- paste0("R = ", round(r_value, 3),
                      "\nP = ", signif(p_value, 3))
 
 # Plot with annotation
-scatter <- ggplot(plot_data, aes(x = PTK2, y = CCN2, color = Subtype)) +
+scatter <- ggplot(plot_data, aes(x = PTK2, y = CCN2, color = fak)) +
   geom_point(size = 3, alpha = 0.8) +
   geom_smooth(method = "lm", se = FALSE, color = "black",
               linetype = "dashed", size = 0.5) +
@@ -648,7 +679,7 @@ ggsave("s2fakctgfscatter.png", scatter, dpi = 600)
 
 ```{r s3 scatter}
 plot_data <- as.data.frame(t(s3_mat[c("PTK2", "CCN2"), ]))
-plot_data$Subtype <- s3_vst$Hoshida_Subtype
+plot_data$fak <- s3_vst$fak
 
 # Fit linear model
 lm_fit <- lm(CCN2 ~ PTK2, data = plot_data)
@@ -663,7 +694,7 @@ label_text <- paste0("R = ", round(r_value, 3),
                      "\nP = ", signif(p_value, 3))
 
 # Plot with annotation
-scatter <- ggplot(plot_data, aes(x = PTK2, y = CCN2, color = Subtype)) +
+scatter <- ggplot(plot_data, aes(x = PTK2, y = CCN2, color = fak)) +
   geom_point(size = 3, alpha = 0.8) +
   geom_smooth(method = "lm", se = FALSE, color = "black",
               linetype = "dashed", size = 0.5) +
@@ -689,4 +720,359 @@ scatter
 
 ggsave("s3fakctgfscatter.png", scatter, dpi = 600)
 
+```
+
+
+```{r}
+alter <- read.table("altered_samples.txt")
+alter$V1 <- gsub("^lihc_tcga:", "", alter$V1)
+alter$V1 <- gsub("-01", "", alter$V1)
+alter$ptk <- "altered"
+
+subtype <- colData(dds) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("sample_id") %>%   # <-- different name
+  mutate(
+    sample_tcga = gsub("\\.", "-", sample_id),
+    patient_id  = substr(sample_tcga, 1, 12)
+  ) %>%
+  dplyr::select(patient_id, sample_id)
+
+merged_table <- subtype %>%
+  left_join(
+    alter,
+    by = c("patient_id" = "V1")
+  )
+
+merged_table$ptk[is.na(merged_table$ptk)] <- "unaltered"
+
+merged_table <- merged_table[match(colnames(dds), merged_table$sample_id), ]
+
+dds$fak <- as.factor(merged_table$ptk)
+
+colData(dds)
+
+design(dds) <- ~fak
+
+vst <- vst(dds, blind = TRUE)
+
+vst_mat <- assay(vst)
+```
+
+```{r subset}
+fak <- dds[, dds$fak == "altered"]
+notfak <- dds[, dds$fak == "unaltered"]
+
+fak_vst <- vst(fak, blind = TRUE)
+fak_mat <- assay(fak_vst)
+
+notfak_vst <- vst(notfak, blind = TRUE)
+notfak_mat <- assay(notfak_vst)
+```
+
+```{r}
+plot_data <- as.data.frame(t(fak_mat[c("PTK2", "CCN2"), ]))
+plot_data$Subtype <- fak_vst$Hoshida_Subtype
+
+# Fit linear model
+lm_fit <- lm(CCN2 ~ PTK2, data = plot_data)
+
+# Extract stats
+summary_fit <- summary(lm_fit)
+r_value <- sqrt(summary_fit$r.squared)
+p_value <- summary_fit$coefficients[2, 4]
+
+# Create label text
+label_text <- bquote(italic(R)^2 == .(round(r_value, 3)) ~ "\n" ~ P == .(signif(p_value, 3)))
+
+# Plot with annotation
+scatter <- ggplot(plot_data, aes(x = PTK2, y = CCN2, color = Subtype)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_smooth(method = "lm", se = FALSE, color = "black",
+              linetype = "dashed", size = 0.5) +
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal() +
+  labs(
+    title = "FAK vs CTGF Expression",
+    x = "FAK",
+    y = "CTGF",
+  ) +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5)
+  ) +
+  annotate("text",
+           x = Inf, y = -Inf,
+           label = label_text,
+           hjust = 1.1, vjust = -0.5,
+           size = 4)
+
+scatter
+```
+
+```{r subset}
+s1 <- s1[, s1$fak == "altered"]
+s2 <- s2[, s2$fak == "altered"]
+s3 <- s3[, s3$fak == "altered"]
+
+s1_vst <- vst(s1, blind = TRUE)
+s1_mat <- assay(s1_vst)
+
+s2_vst <- vst(s2, blind = TRUE)
+s2_mat <- assay(s2_vst)
+
+s3_vst <- vst(s3, blind = TRUE)
+s3_mat <- assay(s3_vst)
+```
+
+```{r gsva}
+gmt <- gmtPathways("KEGG_FOCAL_ADHESION.v2026.1.Hs.gmt")
+
+gsvaPar <- gsvaParam(vst_mat, gmt,"gsva")
+res_gsva <- gsva(gsvaPar, verbose = TRUE)
+
+tbk1_vec <- s1_mat["CCN2", ]
+
+cor_list <- apply(res_gsva, 1, function(gsva_scores) {
+  test <- cor.test(gsva_scores, tbk1_vec,
+                   method = "spearman",
+                   use = "pairwise.complete.obs")
+  data.frame(cor = test$estimate,
+             pval = test$p.value)
+})
+
+# Combine into a single data frame
+cor_df <- do.call(rbind, cor_list)
+
+# Add gene set names
+cor_df$geneset <- rownames(res_gsva)
+
+# Reorder columns
+cor_df <- cor_df[, c("geneset", "cor", "pval")]
+
+# Inspect results
+head(cor_df)
+
+
+write.csv(cor_df, "hif1a_gsva_cor.csv")
+```
+
+```{r}
+library(ggplot2)
+
+# 1. Extract the pathway scores (assuming the name matches your GMT file)
+pathway_name <- "KEGG_FOCAL_ADHESION" 
+# Note: If the name in your GMT is different, use: rownames(res_gsva)[1]
+gsva_scores <- as.numeric(res_gsva[pathway_name, ])
+
+# 2. Create a temporary plotting data frame
+plot_data <- data.frame(
+  CCN2 = tbk1_vec,
+  GSVA = gsva_scores, 
+  Subtype <- vst$Hoshida_Subtype
+
+)
+
+# 3. Pull the specific stats for the label
+stats <- cor_df[cor_df$geneset == pathway_name, ]
+label_text <- bquote(italic(rho) == .(round(stats$cor, 3)) ~ (italic(P) == .(signif(stats$pval, 3))))
+
+# 4. Generate the plot
+scatter <- ggplot(plot_data, aes(x = GSVA, y = CCN2, color = Subtype)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_smooth(method = "lm", color = "black", se = FALSE, fill = "gray80") +
+  labs(x = "KEGG: Focal Adhesion",
+    y = "HIF1A"
+  ) +
+  theme_bw() + 
+  theme(panel.grid.major = element_line(color = "grey65"), 
+        panel.grid.minor = element_line(color = "grey65"))
+scatter
+
+
+ggsave("keggctgfplot3.png", scatter, dpi = 600, height = 8, width = 8)
+
+
+scatter <- ggplot(plot_data, aes(x = PTK2, y = CCN2, color = Subtype)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_smooth(method = "lm", se = FALSE, color = "black",
+              linetype = "dashed", size = 0.5) +
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal() +
+  labs(
+    title = "FAK vs CTGF Expression",
+    x = "FAK",
+    y = "CTGF",
+  ) +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5)
+  ) +
+  annotate("text",
+           x = Inf, y = -Inf,
+           label = label_text,
+           hjust = 1.1, vjust = -0.5,
+           size = 4)
+
+scatter
+```
+
+```{r}
+s1_plotdata <- subset(plot_data, plot_data$Subtype....vst.Hoshida_Subtype == "S1")
+
+cor_list <- apply(gsva_s1, 1, function(gsva_scores) {
+  test <- cor.test(gsva_scores, tbk1_vec,
+                   method = "spearman",
+                   use = "pairwise.complete.obs")
+  data.frame(cor = test$estimate,
+             pval = test$p.value)
+})
+
+# Combine into a single data frame
+cor_df <- do.call(rbind, cor_list)
+
+# Add gene set names
+cor_df$geneset <- rownames(res_gsva)
+
+# Reorder columns
+cor_df <- cor_df[, c("geneset", "cor", "pval")]
+
+
+scatter <- ggplot(s1_plotdata, aes(x = GSVA, y = CCN2, color = Subtype....vst.Hoshida_Subtype)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_smooth(method = "lm", color = "black", se = FALSE, fill = "gray80") +
+  labs(x = "KEGG: Focal Adhesion",
+    y = "HIF1A"
+  ) +
+  theme_bw() + 
+  theme(panel.grid.major = element_line(color = "grey65"), 
+        panel.grid.minor = element_line(color = "grey65"))
+scatter
+
+```
+
+```{r}
+# 1. Ensure columns are in the same order (critical for matrix math)
+# This aligns res_gsva columns to match the vst column order
+res_gsva_aligned <- res_gsva[, colnames(vst_mat), drop = FALSE]
+
+# 2. Combine them
+# If vst is a matrix:
+vst_extended <- rbind(vst_mat, res_gsva_aligned)
+
+# If vst is a data frame, rbind will still work, 
+# but you might want to ensure the result stays a data frame:
+#vst_extended <- rbind(vst, as.data.frame(res_gsva_aligned))
+
+# 3. Verify the addition
+tail(rownames(vst_extended), n = 5) # Should show your pathway name at the bottom
+
+gsva_s1 <- res_gsva_aligned[, colnames(s1_mat), drop = FALSE]
+```
+
+```{r}
+cts <- read.csv("shrnacounts.csv", row.names = 1)
+cd <- read.csv("cd_sh.csv")
+dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~condition)
+
+cts2 <- read.csv("readcount_genename.csv", row.names = 1)
+cd2 <- read.csv("cd_protac.csv")
+dds2 <- DESeqDataSetFromMatrix(countData = cts2, colData = cd2, design = ~condition)
+
+```
+
+```{r}
+rlog <- rlog(dds, blind=FALSE)
+dds <- DESeq(dds)
+rescmp <- results(dds) 
+
+rlog2 <- rlog(dds2, blind=FALSE)
+dds2 <- DESeq(dds2)
+rescmp2 <- results(dds2) 
+```
+
+```{r}
+run_gsea(dds, "B3C", "B3S", "cchumangseapathways.gmt", "b3c_ccgsea.csv", "b3c_ccdeg.csv")
+run_gsea(dds, "H7C", "H7S", "cchumangseapathways.gmt", "h7c_ccgsea.csv", "h7c_ccdeg.csv")
+
+run_gsea(dds2, "H3PR6", "H3D6", "cchumangseapathways.gmt", "3p6_ccgsea.csv", "3p6_ccdeg.csv")
+run_gsea(dds2, "H3PR24", "H3D24", "cchumangseapathways.gmt", "3p24_ccgsea.csv", "3p24_ccdeg.csv")
+run_gsea(dds2, "H7PR6", "H7D6", "cchumangseapathways.gmt", "7p6_ccgsea.csv", "7p6_ccdeg.csv")
+run_gsea(dds2, "H7PR24", "H7D24", "cchumangseapathways.gmt", "7p24_ccgsea.csv", "7p24_ccdeg.csv")
+
+b3s <- read.csv("b3c_ccgsea.csv")
+h7s <- read.csv("h7c_ccgsea.csv")
+b3p6 <- read.csv("3p6_ccgsea.csv")
+b3p24 <- read.csv("3p24_ccgsea.csv")
+h7p6 <- read.csv("7p6_ccgsea.csv")
+h7p24 <- read.csv("7p24_ccgsea.csv")
+
+overlap <- Reduce(intersect, list(b3s$pathway, h7s$pathway, b3p6$pathway, b3p24$pathway, h7p6$pathway, h7p24$pathway))
+write.csv(overlap, "overlap2.csv")
+
+```
+
+
+```{r}
+skp2 <- read.csv("SKP2.csv")
+skp2plot <- ggplot(skp2, aes(x=-log10(padj+0.00001), y=reorder(pathway, NES), fill = NES)) +
+  geom_point(shape=21, size = 10) + 
+  scale_size(range = c(5, 10)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
+  labs(x="-log(padj)", y="Genesets") +
+  xlim(0,5.1) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+skp2plot
+
+ggsave("skpplot.png", skp2plot, dpi = 600, width = 6.5, height = 5)
+```
+
+
+```{r}
+cc <- read.csv("cellcycle.csv")
+ccplot <- ggplot(cc, aes(x=-log10(padj+0.00001), y=reorder(pathway, NES), fill = NES)) +
+  geom_point(shape=21, size = 10) + 
+  scale_size(range = c(5, 10)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
+  labs(x="-log(padj)", y="Genesets") +
+  xlim(0,5.1) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+ccplot
+
+ggsave("ccplot.png", ccplot, dpi = 600, width = 6.5, height = 5)
+```
+
+```{r}
+table <- read.csv("selected3p24.csv")
+table$pathway <- gsub("_", " ", table$pathway)
+table <- table[c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), ]
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 10)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.1,2.1)) + 
+  labs(x="-log(padj)", y="Genesets") +
+  xlim(0,11.5) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gseaplot
+
+ggsave("3p24plot.png", gseaplot, dpi = 600, width = 6.5, height = 5)
 ```
