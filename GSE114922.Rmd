@@ -24,43 +24,6 @@ library(GSVA)
 
 
 setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE114922/")
-
-EnsIDReplace2 <- function(input){
-  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv")
-  rnanames <- rownames(input)
-  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
-  rnaname <- character(nrow(input))
-  for (i in seq_len(nrow(input))) {
-    ensembl_id <- rownames(input)[i]
-    if (ensembl_id %in% names(id_list)) {
-      rnaname[i] <- id_list[[ensembl_id]]
-    } else{
-      rnaname[i] <- ensembl_id
-    }
-  }
-  rnaname[rnaname == ""] <- NA
-  
-  rownames(input) <- make.names(rnaname, unique = TRUE)
-  rm(gene_mapping, id_list, ensembl_id, i, rnaname)
-}
-
-run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
-  res1 <- DESeq2::results(dds, 
-                       contrast = c("Mutation", condition1, condition2),
-                       independentFiltering = TRUE,
-                       alpha = 0.1,
-                       parallel = FALSE)
-rnk <- setNames(res1$log2FoldChange, rownames(res1))
-rnk <- rnk[!is.na(rnk)]
-gmt <- gmtPathways(gmt_path)
-gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
-gseadf <- as.data.frame(gsea)
-list_columns <- sapply(gseadf, is.list)
-gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
-write.csv(gseadf, output_gsea)
-res1_filtered <- res1[complete.cases(res1), ]
-write.csv(res1_filtered, output_deg)
-}
 ```
 
 ```{r functions}
@@ -237,7 +200,9 @@ dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~Mutation)
 ```{r single gene expression}
 dds <- estimateSizeFactors(dds)
 norm <- counts(dds, normalized = TRUE) 
-tbk1_vec <- norm["TBK1", ]
+vst <- vst(dds)
+vst_mat <- assay(vst)
+tbk1_vec <- vst_mat["TBK1", ]
 
 df <- data.frame( sample = names(tbk1_vec), tbk1 = as.numeric(tbk1_vec) ) 
 df_ordered <- df %>% arrange(tbk1)
@@ -254,14 +219,27 @@ df_ordered2 <- df_ordered %>%
 
 tbk1plot <- ggplot(df_ordered2, aes(x = reorder(sample, tbk1), y = tbk1, fill = Mutation)) + 
   geom_col() + 
-  labs(title = "TBK1 Expression in MDS", x = "Sample", y = "TBK1 Expression (normalized counts)") + 
+  labs(title = "TBK1 Expression in MDS", x = "Sample", y = "TBK1 Expression (vst)") + 
   theme_bw() + 
   theme(axis.text.x = element_blank(),
         axis.ticks.x = element_blank())
 tbk1plot
 
-ggsave("tbk1_patientsamples.png", tbk1plot, dpi = 600)
+ggsave("tbk1_patientsamples_vst.png", tbk1plot, dpi = 600)
 
+```
+
+```{r vlnplot}
+tbk1plot <- ggplot(df_ordered2, aes(x = factor(Mutation), y = tbk1, fill = Mutation)) + 
+  geom_violin(alpha = 0.7, trim = FALSE) + 
+  geom_jitter(width = 0.1, alpha = 0.5) + 
+  labs(title = "TBK1 Expression in MDS", y = "TBK1 Expression (vst)") + 
+  theme_minimal()
+tbk1plot
+
+ggsave("tbk1_patientsamples_vln.png", tbk1plot, dpi = 600)
+
+write.csv(df_ordered2, "tbk1expression.csv")
 ```
 
 ```{r dds}
@@ -284,9 +262,9 @@ ggsave("pca.png", allpca, dpi = 600)
 ```
 
 ```{r gsea}
-run_gsea(dds, "SF3B1", "Healthy", "humangseapathways.gmt", "sf3b1gsea.csv", "sf3b1deg.csv")
+run_gsea(dds, "SRSF2", "Healthy", "humangseapathways.gmt", "srsf2gsea.csv", "srsf2deg.csv")
 
-run_gsea(dds, "SF3B1", "Other", "humangseapathways.gmt", "sf3b1mdsgsea.csv", "sf3b1mdsdeg.csv")
+run_gsea(dds, "SRSF2", "Other", "humangseapathways.gmt", "srsf2mdsgsea.csv", "srsf2mdsdeg.csv")
 ```
 
 ```{r broad correlations}
