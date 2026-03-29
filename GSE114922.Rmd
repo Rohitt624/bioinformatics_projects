@@ -23,7 +23,7 @@ library(dplyr)
 library(GSVA)
 
 
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE114922/")
+setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE114922/")
 ```
 
 ```{r functions}
@@ -202,7 +202,7 @@ dds <- estimateSizeFactors(dds)
 norm <- counts(dds, normalized = TRUE) 
 vst <- vst(dds)
 vst_mat <- assay(vst)
-tbk1_vec <- vst_mat["TBK1", ]
+tbk1_vec <- vst_mat["MAP3K7", ]
 
 df <- data.frame( sample = names(tbk1_vec), tbk1 = as.numeric(tbk1_vec) ) 
 df_ordered <- df %>% arrange(tbk1)
@@ -219,13 +219,13 @@ df_ordered2 <- df_ordered %>%
 
 tbk1plot <- ggplot(df_ordered2, aes(x = reorder(sample, tbk1), y = tbk1, fill = Mutation)) + 
   geom_col() + 
-  labs(title = "TBK1 Expression in MDS", x = "Sample", y = "TBK1 Expression (vst)") + 
+  labs(title = "Caspase 8 Expression in MDS", x = "Sample", y = "Caspase 8 Expression (vst)") + 
   theme_bw() + 
   theme(axis.text.x = element_blank(),
         axis.ticks.x = element_blank())
 tbk1plot
 
-ggsave("tbk1_patientsamples_vst.png", tbk1plot, dpi = 600)
+ggsave("casp8_patientsamples_vst.png", tbk1plot, dpi = 600)
 
 ```
 
@@ -239,7 +239,7 @@ tbk1plot
 
 ggsave("tbk1_patientsamples_vln.png", tbk1plot, dpi = 600)
 
-write.csv(df_ordered2, "tbk1expression.csv")
+write.csv(df_ordered2, "tak1expression.csv")
 ```
 
 ```{r dds}
@@ -309,4 +309,83 @@ write.csv(gseadf, "tbk1_gsea_cor.csv")
 gseadf_subset <- subset(gseadf, padj < 0.25)
 write.csv(gseadf_subset, "tbk1corgseafiltered.csv")
 
+```
+
+```{r}
+gs <- read.csv("inflammationgseapathways.csv")
+gs$pathway <- gsub("_", " ", gs$pathway)
+gsplot <- ggplot(gs, aes(x=-log10(padj+0.0000000001), y=reorder(pathway, NES), fill = NES)) +
+  geom_col(color = "black", size = 0.5) + 
+  scale_size(range = c(5, 10)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.75,2.75)) + 
+  labs(x="-log(padj)", y="Genesets") +
+  xlim(0,10) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gsplot
+
+ggsave("gsplot.png", gsplot, dpi = 600, width = 6.5, height = 8)
+```
+
+```{r volcano plot}
+res_DKO_vs_Tet2 <- results(dds, contrast=c("Mutation", "SF3B1", "Healthy"), alpha = 0.05)
+res_DKO_vs_Tet2 <- res_DKO_vs_Tet2 %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "gene") %>% 
+  mutate(
+    sig = case_when(
+      padj <= 0.05 & log2FoldChange >0  ~ "Up",
+      padj <= 0.05 & log2FoldChange <0 ~ "Down",
+      TRUE ~ "NS"
+    )
+  )
+
+top10_up <- res_DKO_vs_Tet2 %>%
+  filter(sig == "Up") %>%
+  arrange(pvalue) %>%
+  head(10)
+
+top10_down <- res_DKO_vs_Tet2 %>%
+  filter(sig == "Down") %>%
+  arrange(pvalue) %>%
+  head(10)
+
+deg <- read.csv("selecteddeg.csv")
+
+leading_edge <- bind_rows(top10_up, top10_down, deg)
+
+volcano <- ggplot(res_DKO_vs_Tet2, aes(x = log2FoldChange, y = -log10(padj))) +
+  geom_point(aes(color = sig), alpha = 0.8, size = 1.8) +
+  scale_color_manual(
+    values = c(
+      "Up" = "red",
+      "Down" = "blue",
+      "NS" = "gray70"
+    )
+  ) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
+  labs(
+    title = expression("SF3B1 MDS vs Healthy"),
+    x = "log2 Fold Change",
+    y = "-log10 Adjusted p-value",
+    color = "Direction"
+  ) +
+  theme_bw(base_size = 12) + 
+  geom_text_repel(
+    data = leading_edge,
+    aes(label = gene), 
+    size = 3, 
+    max.overlaps = Inf, 
+    box.padding = 0.4, 
+    point.padding = 0.2, 
+    segment.color = "gray50")
+volcano
+
+ggsave("volcano_sf3b1.png", volcano, dpi = 600)
 ```

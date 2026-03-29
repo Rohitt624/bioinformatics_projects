@@ -1045,7 +1045,7 @@ ccplot <- ggplot(cc, aes(x=-log10(padj+0.00001), y=reorder(pathway, NES), fill =
     plot.title = element_text(hjust = 0.5), 
     axis.text=element_text(color="black", face="bold")
     ) +
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.75,2.75)) + 
   labs(x="-log(padj)", y="Genesets") +
   xlim(0,5.1) + 
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
