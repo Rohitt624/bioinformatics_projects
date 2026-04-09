@@ -5,15 +5,27 @@ editor_options:
   chunk_output_type: console
 ---
 
+```{r}
+remotes::install_local("E:/CytoExploreR-master.zip",
+                        dependencies = TRUE)
+install.packages(c("ggcyto", "uwot"))
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install(c("flowCore", "flowWorkspace", "CytoML", "openCyto"))
+
+```
+
 ```{r libraries}
 library(flowCore)
 library(flowWorkspace)
 library(CytoML)
 library(ggcyto)
 library(openCyto)
-library(FlowSOM)
 library(uwot)
-setwd("D:/Zhang Lab/MDS Project/srsf2_exp2")
+library(CytoExploreR)
+library(gridExtra)
+setwd("Z:/Rohit Thalla/MDS/Data/Inflammatory Cytokines/Exp2/032426-SFSF2-TNFa-Single-Co-Culture-D7")
 ```
 
 ```{r functions}
@@ -22,8 +34,15 @@ ws <- open_flowjo_xml("my_workspace.wsp")
 gs <- flowjo_to_gatingset(ws, name = "my_group")
 
 # 2. Or start fresh from .fcs files
-fcs <- read.flowSet(files = list.files("data/", pattern = ".fcs", full.names = TRUE))
+files <- list.files("Unmixed/", pattern = "\\.fcs$", full.names = TRUE, recursive = TRUE)
+head(files)  # verify paths look correct
 
+fcs <- read.flowSet(files = files)
+# Extract group names from the subfolder names
+groups <- basename(dirname(files))
+groups
+
+pData(fcs)$group <- groups
 
 # Check channels — Aurora will have an "Autofluorescence" channel
 colnames(fcs[[1]])
@@ -31,26 +50,159 @@ colnames(fcs[[1]])
 # Exclude it from analysis/clustering if needed
 channels_of_interest <- colnames(fcs[[1]])[!grepl("Autofluorescence|AF", 
                                                     colnames(fcs[[1]]))]
+# Exclude scatter, time, and any non-fluorescence channels
+linear <- c("Time", "SSC-H", "SSC-A", "FSC-H", "FSC-A", "SSC-B-H", "SSC-B-A")
+
+fluor_channels <- colnames(fcs[[1]])[
+  !colnames(fcs[[1]]) %in% linear &
+  !grepl("Autofluorescence|AF", colnames(fcs[[1]]))
+]
+
+fluor_channels
+# Should give you: BV421, BV605, BV785, PerCP-eFluor 710, PE, dTomato, APC, Zombie NIR, APC-Fire 750
+# Look at the raw untransformed values
+# fcs_trans is your transformed flowSet, but fcs is the raw original
+summary(exprs(fcs[[1]])[, "Zombie NIR-A"])
+
+# Or if you want to see all fluorescence channels at once
+sapply(fluor_channels, function(ch) {
+  summary(exprs(fcs[[1]])[, ch])
+})
+# t should be close to your data's max value, not the default 262144
+# Build it as a transformerList, which is what GatingSets expect
+zombie_transformer <- flowWorkspace::logicle_trans(w = 0.5, 
+                                                    t = 262144, 
+                                                    m = 4.5, 
+                                                    a = 0)
+
+trans_list <- transformerList("Zombie NIR-A", zombie_transformer)
+gs <- transform(gs, trans_list)
 
 # 4. Transform (Logicle, similar to FlowJo's biexponential)
 # estimateLogicle handles negatives well — preferred for Aurora
-trans <- estimateLogicle(fcs[[1]], channels = channels_of_interest)
-fcs_trans <- transform(fcs, trans)
+trans <- estimateLogicle(fcs[[1]], channels = fluor_channels)
+# Linear transform for scatter channels
+linear_trans <- transformList(
+  c("FSC-A", "FSC-H", "SSC-A", "SSC-H", "SSC-B-A", "SSC-B-H"),
+  linearTransform(transformationId = "linear", a = 1/4000000, b = 0)
+)
+
+# Combine with your existing logicle transforms
+all_trans <- c(linear_trans, trans)  # trans = your estimateLogicle object from earlier
+
+# Apply combined transforms to the GatingSet
+gs <- transform(gs, all_trans)
 
 # 5. Gating
 gs <- GatingSet(fcs_trans)
-gate_lymph <- polygonGate(filterId = "Lymphocytes",
-                           "FSC-A" = c(50000, 200000, 200000, 50000),
-                           "SSC-A" = c(10000, 10000, 80000, 80000))
-add(gs, gate_lymph, parent = "root")
+P1 <- polygonGate(filterId = "P1",
+                           "FSC-A" = c(1000000, 1000000, 2000000, 4000000, 4000000),
+                           "SSC-A" = c(500000, 2000000, 3000000, 3000000, 500000))
+gs_pop_add(gs, P1, parent = "root")
+recompute(gs)
+
+# Check hierarchy
+gs_get_pop_paths(gs)
+
+# Add child gate (example)
+P2 <- polygonGate(filterId = "P2", 
+                  "FSC-A" = c(...), 
+                  "FSC-H" = c(...))
+gs_pop_add(gs, P2, parent = "P1")
 recompute(gs)
 
 # 6. Visualize (like FlowJo plots)
-autoplot(gs[[1]], gate = "Lymphocytes")
+autoplot(gs[[1]], gate = "P1")
+autoplot(gs[[1]])
+
+# Plot P1 gate on FSC-A vs SSC-A
+autoplot(gs[[1]], gate = "P1", bins = 256) +
+  scale_x_continuous(limits = c(0, 5000000)) +
+  scale_y_continuous(limits = c(0, 5000000)) +
+  theme_bw()
+
+p <- ggcyto(gs[[1]], aes(x = `FSC-A`, y = `SSC-A`)) +
+  geom_hex(bins = 256) +
+  geom_gate("P1") +
+  geom_stats("P1", type = c("count", "percent")) +
+  scale_fill_gradientn(colors = c("navy","cyan","green","yellow","red")) +
+  labs(title = "P1 — Scatter gate") +
+  theme_bw(base_size = 12)
+
+p
 
 # 7. Get statistics
 gs_pop_get_stats(gs, nodes = gs_get_pop_paths(gs))
 ```
+
+
+```{r plot each channel as histogram}
+library(ggplot2)
+library(gridExtra)
+
+plots <- lapply(fluor_channels, function(ch) {
+  dat <- as.data.frame(exprs(fcs_trans[[1]])[, ch])
+  colnames(dat) <- "value"
+  
+  ggplot(dat, aes(x = value)) +
+    geom_density(fill = "steelblue", alpha = 0.5, color = NA) +
+    ggtitle(ch) +
+    theme_bw(base_size = 9) +
+    theme(plot.title = element_text(size = 8)) +
+    labs(x = NULL, y = NULL)
+})
+
+do.call(grid.arrange, c(plots, ncol = 3))
+```
+
+```{r plot each channel vs fcs}
+plots <- lapply(fluor_channels, function(ch) {
+  dat <- data.frame(
+    fsc = exprs(fcs_trans[[1]])[, "FSC-A"],
+    flu = exprs(fcs_trans[[1]])[, ch]
+  )
+  
+  ggplot(dat, aes(x = fsc, y = flu)) +
+    geom_hex(bins = 128) +
+    scale_fill_gradientn(colors = c("navy","cyan","green","yellow","red")) +
+    ggtitle(ch) +
+    theme_bw(base_size = 9) +
+    theme(plot.title = element_text(size = 8),
+          legend.position = "none") +
+    labs(x = "FSC-A", y = ch)
+})
+
+do.call(grid.arrange, c(plots, ncol = 3))
+```
+
+```{r retransform problematic channels}
+problem_channels <- c("Zombie NIR-A", "dTomato-A", "BV785-A")
+sapply(problem_channels, function(ch) {
+  quantile(exprs(fcs[[1]])[, ch], c(0.01, 0.25, 0.5, 0.75, 0.99))
+})
+
+# Auto-estimate everything except the problem channels
+fluor_auto <- fluor_channels[!fluor_channels %in% problem_channels]
+trans_auto <- estimateLogicle(fcs[[1]], channels = fluor_auto)
+
+trans_manual <- transformList(
+  c("Zombie NIR-A", "dTomato-A", "BV785-A"),
+  list(
+    logicleTransform(w = 0.5, t = 262144,   m = 4.5, a = 0),  # Zombie NIR
+    logicleTransform(w = 1.0, t = 262144,   m = 4.5, a = 0),  # dTomato — wide w for negatives
+    logicleTransform(w = 0.5, t = 4000000,  m = 4.5, a = 0)   # BV785 — t raised to cover 99th pct
+  )
+)
+
+fcs_trans <- transform(fcs, trans_auto)
+fcs_trans <- transform(fcs_trans, trans_manual)
+fcs_trans <- transform(fcs_trans, linear_trans)
+
+gs <- GatingSet(fcs_trans)
+gs_pop_add(gs, P1, parent = "root")
+recompute(gs)
+```
+
 
 ```{r}
 # Get all fcs files with their folder paths
@@ -73,4 +225,42 @@ pData(cs)
 #> 4  sample4     Tumor
 #> 5  sample5        LN
 #> 6  sample6        LN
+```
+
+```{r}
+# Wrap your flowSet in a CytoExploreR GatingSet
+gs <- cyto_setup(fcs_trans, gatingTemplate = "my_gates.csv")
+
+# Open interactive gating window — click to draw polygon, right-click to close
+cyto_gate_draw(gs,
+               parent    = "root",
+               alias     = "P1",
+               channels  = c("FSC-A", "SSC-A"),
+               gatingTemplate = "my_gates.csv")
+# Singlets
+cyto_gate_draw(gs,
+               parent   = "P1",
+               alias    = "Singlets",
+               channels = c("FSC-A", "FSC-H"),
+               gatingTemplate = "my_gates.csv")
+
+# Live cells (after Zombie NIR)
+cyto_gate_draw(gs,
+               parent         = "Singlets",
+               alias          = "Live",
+               channels       = c("FSC-A", "Zombie NIR-A"),
+               gatingTemplate = "my_gates.csv",
+               xlim           = c(0, 4500000),
+               ylim           = c(0, 1.5))
+
+
+
+# And so on for each population...
+# Gates are auto-saved to "my_gates.csv" — reload next session with:
+gs <- cyto_setup(fcs_trans, gatingTemplate = "my_gates.csv")
+cyto_gatingTemplate_apply(gs, "my_gates.csv")
+
+cyto_stats_compute(gs,
+                   alias = c("P1", "Singlets", "Live"),
+                   stat  = "percent")
 ```
