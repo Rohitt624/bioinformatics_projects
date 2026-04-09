@@ -1,0 +1,76 @@
+---
+title: "Flow Analysis Template"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r libraries}
+library(flowCore)
+library(flowWorkspace)
+library(CytoML)
+library(ggcyto)
+library(openCyto)
+library(FlowSOM)
+library(uwot)
+setwd("D:/Zhang Lab/MDS Project/srsf2_exp2")
+```
+
+```{r functions}
+# 1. Import FlowJo workspace directly
+ws <- open_flowjo_xml("my_workspace.wsp")
+gs <- flowjo_to_gatingset(ws, name = "my_group")
+
+# 2. Or start fresh from .fcs files
+fcs <- read.flowSet(files = list.files("data/", pattern = ".fcs", full.names = TRUE))
+
+
+# Check channels — Aurora will have an "Autofluorescence" channel
+colnames(fcs[[1]])
+
+# Exclude it from analysis/clustering if needed
+channels_of_interest <- colnames(fcs[[1]])[!grepl("Autofluorescence|AF", 
+                                                    colnames(fcs[[1]]))]
+
+# 4. Transform (Logicle, similar to FlowJo's biexponential)
+# estimateLogicle handles negatives well — preferred for Aurora
+trans <- estimateLogicle(fcs[[1]], channels = channels_of_interest)
+fcs_trans <- transform(fcs, trans)
+
+# 5. Gating
+gs <- GatingSet(fcs_trans)
+gate_lymph <- polygonGate(filterId = "Lymphocytes",
+                           "FSC-A" = c(50000, 200000, 200000, 50000),
+                           "SSC-A" = c(10000, 10000, 80000, 80000))
+add(gs, gate_lymph, parent = "root")
+recompute(gs)
+
+# 6. Visualize (like FlowJo plots)
+autoplot(gs[[1]], gate = "Lymphocytes")
+
+# 7. Get statistics
+gs_pop_get_stats(gs, nodes = gs_get_pop_paths(gs))
+```
+
+```{r}
+# Get all fcs files with their folder paths
+fcs_files <- list.files("data/", pattern = "\\.fcs$", 
+                         full.names = TRUE, recursive = TRUE)
+
+# Extract group name from folder name
+groups <- basename(dirname(fcs_files))
+
+# Load all files
+cs <- load_cytoset_from_fcs(fcs_files)
+
+# Assign group metadata
+pData(cs)$group <- groups
+pData(cs)
+#>       name     group
+#> 1  sample1      PBMC
+#> 2  sample2      PBMC
+#> 3  sample3     Tumor
+#> 4  sample4     Tumor
+#> 5  sample5        LN
+#> 6  sample6        LN
+```
