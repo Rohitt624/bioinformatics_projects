@@ -22,39 +22,140 @@ library(patchwork)
 library(scales)
 library(ggbreak)
 library(ggcyto)
+library(jsonlite)
+library(stringr)
 options(future.globals.maxSize = 5000 * 1024^2)
-setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491")
+setwd("E:/Zhang Lab/Archives/RNASeq/RNASeq/Cite-seq/GSE145491")
+```
 
-run_gsea <- function(markers, gmt_path, output_gsea) {
-rnk <- setNames(markers$avg_log2FC, rownames(markers))
-rnk <- rnk[!is.na(rnk)]
-gmt <- gmtPathways(gmt_path)
-gsea <- fgsea(pathways = gmt, stats = rnk, minSize = 15, maxSize = 500)
-gseadf <- as.data.frame(gsea)
-list_columns <- sapply(gseadf, is.list)
-gseadf[list_columns] <- lapply(gseadf[list_columns], function(col) sapply(col, paste, collapse = ";"))
-write.csv(gseadf, output_gsea)
+```{r functions}
+run_gsea_seurat <- function(markers_df, gmt_path, output_gsea, output_deg) {
+  suppressPackageStartupMessages({
+    library(fgsea)
+    library(BiocParallel)
+    library(dplyr)
+  })
+
+  # Force serial execution to avoid BiocParallel crashes
+  BiocParallel::register(BiocParallel::SerialParam())
+
+  #-------------------------------
+  # 1. Validate Seurat input
+  #-------------------------------
+  # Ensure the required columns from FindMarkers exist
+  req_cols <- c("avg_log2FC", "p_val_adj")
+  if (!all(req_cols %in% colnames(markers_df))) {
+    stop(paste("Input must be a FindMarkers output containing:", paste(req_cols, collapse = ", ")))
+  }
+
+  # Remove rows with NA in the log2FC column
+  markers_df <- markers_df[!is.na(markers_df$avg_log2FC), ]
+
+  #-------------------------------
+  # 2. Build ranking vector (Using log2FC)
+  #-------------------------------
+  # Extract avg_log2FC as the ranking metric
+  rnk <- setNames(markers_df$avg_log2FC, rownames(markers_df))
+  
+  # fgsea prefers pre-sorted vectors
+  rnk <- sort(rnk, decreasing = TRUE)
+
+  if (length(rnk) < 1000) {
+    warning("Ranking vector is small (<1000 genes). fgsea may lack statistical power. Ensure logfc.threshold = 0 in FindMarkers.")
+  }
+
+  #-------------------------------
+  # 3. Load pathways
+  #-------------------------------
+  gmt <- fgsea::gmtPathways(gmt_path)
+
+  #-------------------------------
+  # 4. Run fgsea
+  #-------------------------------
+  gsea <- fgsea(
+    pathways = gmt,
+    stats = rnk,
+    minSize = 0,
+    maxSize = 500
+  )
+
+  gsea_df <- as.data.frame(gsea)
+
+  # Flatten list columns (leadingEdge) for CSV export
+  list_cols <- sapply(gsea_df, is.list)
+  gsea_df[list_cols] <- lapply(gsea_df[list_cols], function(x) sapply(x, paste, collapse = ";"))
+
+  #-------------------------------
+  # 5. Write outputs
+  #-------------------------------
+  write.csv(gsea_df, output_gsea, row.names = FALSE)
+
+  # DEG table (filtered for significance, padj < 0.1)
+  deg_df <- as.data.frame(markers_df) %>%
+    mutate(gene = rownames(markers_df)) %>%
+    filter(markers_df$p_val_adj < 0.1)
+
+  write.csv(deg_df, output_deg, row.names = FALSE)
+
+  #-------------------------------
+  # 6. Return objects invisibly
+  #-------------------------------
+  invisible(list(
+    gsea = gsea_df,
+    degs = deg_df,
+    ranking = rnk
+  ))
 }
 
-EnsIDReplace2 <- function(input, output){
-  gene_mapping <- read.csv("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
-  rna <- input
-  rnanames <- rownames(rna)
-  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
-  rnaname <- character(nrow(rna))
-  for (i in seq_len(nrow(rna))) {
-    ensembl_id <- rownames(rna)[i]
-    if (ensembl_id %in% names(id_list)) {
-      rnaname[i] <- id_list[[ensembl_id]]
-    } else{
-      rnaname[i] <- ensembl_id
-    }
+EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels.csv") {
+  #-----------------------------
+  # 1. Validate inputs
+  #-----------------------------
+  if (!is.matrix(input) && !is.data.frame(input)) {
+    stop("Input must be a matrix or data.frame with rownames.")
   }
-  rnaname[rnaname == ""] <- NA
+  if (is.null(rownames(input))) {
+    stop("Input must have rownames corresponding to Ensembl IDs.")
+  }
+  if (!file.exists(mapping_file)) {
+    stop(paste("Mapping file not found:", mapping_file))
+  }
+  #-----------------------------
+  # 2. Load mapping file
+  #-----------------------------
+  gene_mapping <- read.csv(mapping_file, stringsAsFactors = FALSE)
+  required_cols <- c("gene_id", "gene_name")
+  if (!all(required_cols %in% colnames(gene_mapping))) {
+    stop("Mapping file must contain columns: gene_id, gene_name")
+  }
+  #-----------------------------
+  # 3. Build lookup vector
+  #-----------------------------
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+  #-----------------------------
+  # 4. Vectorized name replacement
+  #-----------------------------
+  old_ids <- rownames(input)
   
-  rownames(rna) <- rnaname
-  output <- rna
-  rm(gene_mapping, id_list, ensembl_id, i, rnaname)
+  # Strip version suffixes (e.g. ENSMUSG00000022584.2 -> ENSMUSG00000022584)
+  stripped_ids <- sub("\\.\\d+$", "", old_ids)
+  
+  # Replace Ensembl IDs with gene names where available
+  new_names <- id_list[stripped_ids]
+  # For IDs not found in mapping, keep original (unstripped)
+  new_names[is.na(new_names)] <- old_ids[is.na(new_names)]
+  # Replace empty strings with NA
+  new_names[new_names == ""] <- NA
+  # Ensure syntactically valid + unique names
+  new_names <- make.names(new_names, unique = TRUE)
+  #-----------------------------
+  # 5. Apply new rownames
+  #-----------------------------
+  rownames(input) <- new_names
+  #-----------------------------
+  # 6. Return modified object
+  #-----------------------------
+  return(input)
 }
 ```
 
@@ -272,7 +373,7 @@ DimPlot(mpp3, group.by = "seurat_clusters")
 FeaturePlot(mpp3, features = c("rna_ENSMUSG00000005339"))
 
 VlnPlot(mpp3, features = c("adt_ESAM"))
-VlnPlot(mpp3, features = c("rna_ENSMUSG00000001946"))
+VlnPlot(mpp3, features = c("rna_ENSMUSG00000030336"))
 RidgePlot(mpp3, features = c("rna_ENSMUSG00000001946"))
 
 DimPlot(mpp3, group.by = "gate4")
@@ -427,6 +528,181 @@ rm(gene_mapping, id_list, ensembl_id, i, rnaname, rnanames)
 write.csv(mpp3markers, "mpp3markers.csv")
 
 ```
+
+# 04-16-2026 Incorporating CD27
+```{r gate mpp3 into quadrants}
+mpp3work <- FetchData(mpp3_filtered, vars = c("adt_ESAM", "rna_ENSMUSG00000030336"))
+mpp3_filtered <- subset(mpp3, adt_ESAM > 0 & rna_ENSMUSG00000030336 > 0)
+Idents(mpp3) <- "gate3"
+FeatureScatter(mpp3, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000030336") + 
+  scale_x_flowjo_biexp(pos = 5) + 
+  scale_y_flowjo_biexp(widthBasis = -150,
+                       pos = 3) 
+
+adtscatter <- FeatureScatter(mpp3_filtered, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000030336", group.by = "gate5") + 
+  scale_x_flowjo_biexp(pos = 5) + 
+  scale_y_flowjo_biexp(pos = 8,
+                       neg = 2,
+                       widthBasis = -500)+ 
+  geom_density_2d(bins = 15) + 
+  geom_hline(yintercept = cd27_cutoff, linetype = "solid", color = "black", linewidth = 1) +
+  geom_vline(xintercept = esam_cutoff, linetype = "solid", color = "black", linewidth = 1) + 
+  labs(title = "MPP3 ESAM vs CD27", x = "ESAM (ADT)", y = "CD27 (RNA)")
+adtscatter
+
+ggsave("mpp3esamcd27gate.png", adtscatter, dpi = 600)
+
+summary(mpp3work$adt_ESAM)
+summary (mpp3work$rna_ENSMUSG00000030336)
+hist(log10(mpp3work$adt_ESAM), breaks = 100)           # find the ESAM x-gate valley
+hist(mpp3work$rna_ENSMUSG00000030336, breaks = 100)  # find the CD27 y-gate valley
+
+esam_cutoff <- quantile(mpp3work$adt_ESAM, 0.25)  
+cd27_cutoff <- quantile(mpp3work$rna_ENSMUSG00000030336, 0.25)
+
+mpp3_filtered$gate5 <- NULL
+mpp3_filtered$gate5 <- ifelse(mpp3work$adt_ESAM > esam_cutoff & mpp3work$rna_ENSMUSG00000030336 < cd27_cutoff, "E+", 
+                         ifelse(mpp3work$adt_ESAM < esam_cutoff & mpp3work$rna_ENSMUSG00000030336 < cd27_cutoff, "DN",
+                                ifelse(mpp3work$adt_ESAM > esam_cutoff & mpp3work$rna_ENSMUSG00000030336 > cd27_cutoff, "DP", 
+                                       ifelse(mpp3work$adt_ESAM < esam_cutoff & mpp3work$rna_ENSMUSG00000030336 > cd27_cutoff, "27+", NA))))
+table(mpp3_filtered$gate5)
+
+FeatureScatter(mpp3_filtered, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000030336", group.by = "gate5") + 
+  scale_x_flowjo_biexp(pos = 5) + 
+  scale_y_flowjo_biexp(pos = 8,
+                       neg = 2,
+                       widthBasis = -500)+ 
+  geom_density_2d(bins = 15)
+```
+
+```{r geneset creation}
+Idents(mpp3_filtered) <- "gate5"
+genesets <- FindAllMarkers(mpp3_filtered, only.pos = TRUE, min.pct = 0.05)
+genesets <- EnsIDReplace2(genesets)
+write.csv(genesets, "mpp3genesetsv2.csv")
+```
+
+```{r gsea of DP}
+markers_DP <- FindMarkers(mpp3_filtered, 
+                          ident.1 = "DP", 
+                          ident.2 = c("DN", "27+", "E+"),
+                          logfc.threshold = 0,   # don't filter by FC
+                          min.pct = 0)           # don't filter by expression
+
+markers_DP <- EnsIDReplace2(markers_DP)
+run_gsea_seurat(markers_DP, 
+                "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/reactome_go_gsea.gmt",
+                "dp_gsea.csv",
+                "dp_deg.csv")
+write.csv(markers_DP, "dp_deg.csv")
+```
+
+```{r gsea of DN}
+markers_DN <- FindMarkers(mpp3_filtered, 
+                          ident.1 = "DN", 
+                          ident.2 = c("DP", "27+", "E+"),
+                          logfc.threshold = 0,   # don't filter by FC
+                          min.pct = 0)           # don't filter by expression
+
+markers_DN <- EnsIDReplace2(markers_DN)
+run_gsea_seurat(markers_DN, 
+                "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/reactome_go_gsea.gmt",
+                "DN_gsea.csv",
+                "DN_deg.csv")
+write.csv(markers_DN, "DN_deg.csv")
+```
+
+```{r gsea of E+}
+markers_E <- FindMarkers(mpp3_filtered, 
+                          ident.1 = "E+", 
+                          ident.2 = c("DN", "27+", "DP"),
+                          logfc.threshold = 0,   # don't filter by FC
+                          min.pct = 0)           # don't filter by expression
+
+markers_E <- EnsIDReplace2(markers_E)
+run_gsea_seurat(markers_E, 
+                "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/reactome_go_gsea.gmt",
+                "E+_gsea.csv",
+                "E+_deg.csv")
+write.csv(markers_E, "E+_deg.csv")
+```
+
+```{r gsea of 27+}
+markers_27 <- FindMarkers(mpp3_filtered, 
+                          ident.1 = "27+", 
+                          ident.2 = c("DN", "DP", "E+"),
+                          logfc.threshold = 0,   # don't filter by FC
+                          min.pct = 0)           # don't filter by expression
+
+markers_27 <- EnsIDReplace2(markers_27)
+run_gsea_seurat(markers_27, 
+                "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/reactome_go_gsea.gmt",
+                "27+_gsea.csv",
+                "27+_deg.csv")
+write.csv(markers_27, "27_deg.csv")
+```
+
+```{r myeloid gsea plot}
+table <- read.csv("myeloid_immunity.csv")
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 10)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="purple", high="red", midpoint=0, limits=c(-2.3,2.3)) + 
+  labs(x="-log(padj)", y="Population", title = "GOBP MYELOID LEUKOCYTE MEDIATED IMMUNITY
+") +
+  xlim(0,4) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gseaplot
+
+ggsave("myeloid.png", gseaplot, dpi = 600, height = 4, width = 6)
+```
+
+```{r DC gsea plot}
+table <- read.csv("dendriticcell.csv")
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 10)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="purple", high="red", midpoint=0, limits=c(-2.3,2.3)) + 
+  labs(x="-log(padj)", y="Population", title = "GOBP MYELOID DENDRITIC CELL DIFFERENTIATION") +
+  xlim(0,4) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gseaplot
+
+ggsave("dc.png", gseaplot, dpi = 600, height = 4, width = 6)
+```
+
+```{r platelet gsea plot}
+table <- read.csv("platelet.csv")
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 10)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="purple", high="red", midpoint=0, limits=c(-2.3,2.3)) + 
+  labs(x="-log(padj)", y="Population", title = "GOBP PLATELET ACTIVATION") +
+  xlim(0,4) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gseaplot
+
+ggsave("platelet.png", gseaplot, dpi = 600, height = 4, width = 6)
+```
+
 
 # Analysis Tools
 
