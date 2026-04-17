@@ -290,7 +290,7 @@ mpp3 <- SCTransform(mpp3, assay = "RNA", new.assay.name = "SCT", variable.featur
 
 mpp3$seurat_clusters <- factor(mpp3$seurat_clusters, levels = c(0, 6, 9, 7, 8, 1, 2, 3, 4, 5))
 Idents(mpp3) <- "seurat_clusters"
-newclusters <- c(1, 6, 7, 9, 8, 10, 2, 5, 4, 3)
+newclusters <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 clusters <- Idents(mpp3)
 names(newclusters) <- levels(clusters)
 mpp3 <- RenameIdents(mpp3, newclusters)
@@ -606,5 +606,22 @@ ggsave("fcgrumap.png", fcgrumap, dpi = 600, width = 8, height = 5)
 ggsave("cd27vln.png", cd27vln, dpi = 600, width = 8, height = 6.5)
 
 FeatureScatter(mpp3, feature1 = "Esam", feature2 = "Cd27", group.by = "subtype")
+
+```
+
+```{r stacked bar graph}
+subtype <- FetchData(mpp3, vars = c("newclusters", "subtype")) %>%
+  dplyr::count(newclusters, subtype)
+
+typeplot <- ggplot(subtype, aes(x = newclusters, y = n, fill = subtype)) +
+  geom_bar(stat = "identity", position = "fill", color = "black") +
+  theme_classic() + 
+  labs(x = "Cluster", y = "Fraction of Cluster", title = "Subtype per Cluster") + 
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  geom_hline(yintercept = 0, linetype = "solid", color = "black", linewidth = 1)
+typeplot
+
+ggsave("subtypebarproportion.png", typeplot, dpi = 600)
+
 
 ```

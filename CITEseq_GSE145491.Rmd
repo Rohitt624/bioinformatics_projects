@@ -644,7 +644,7 @@ write.csv(markers_27, "27_deg.csv")
 
 ```{r myeloid gsea plot}
 table <- read.csv("myeloid_immunity.csv")
-gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=pathway, fill = NES, size = size)) +
   geom_point(shape=21) + 
   scale_size(range = c(5, 10)) +
   theme(
@@ -660,12 +660,12 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), 
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 gseaplot
 
-ggsave("myeloid.png", gseaplot, dpi = 600, height = 4, width = 6)
+ggsave("myeloid.png", gseaplot, dpi = 600, height = 8, width = 6)
 ```
 
 ```{r DC gsea plot}
 table <- read.csv("dendriticcell.csv")
-gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=pathway, fill = NES, size = size)) +
   geom_point(shape=21) + 
   scale_size(range = c(5, 10)) +
   theme(
@@ -680,12 +680,12 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), 
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 gseaplot
 
-ggsave("dc.png", gseaplot, dpi = 600, height = 4, width = 6)
+ggsave("dc.png", gseaplot, dpi = 600, height = 8, width = 6)
 ```
 
 ```{r platelet gsea plot}
 table <- read.csv("platelet.csv")
-gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=pathway, fill = NES, size = size)) +
   geom_point(shape=21) + 
   scale_size(range = c(5, 10)) +
   theme(
@@ -700,7 +700,7 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), 
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 gseaplot
 
-ggsave("platelet.png", gseaplot, dpi = 600, height = 4, width = 6)
+ggsave("platelet.png", gseaplot, dpi = 600, height = 8, width = 6)
 ```
 
 
