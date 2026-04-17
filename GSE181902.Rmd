@@ -580,7 +580,7 @@ mpp3$subtype <- factor(final_subtypes, levels = c("DP", "DN", "E+", "27+", "Unde
 # 4. Verify the distribution
 print(table(mpp3$subtype))
 
-mpp3_colors = c("cyan3", "olivedrab3", "orchid", "coral1", "grey80")
+mpp3_colors = c("cyan3", "olivedrab3", "orchid", "coral1")
 
 # 5. Visualize on your UMAP
 sigplot <- DimPlot(mpp3, group.by = "subtype", cols = mpp3_colors) + 
@@ -615,6 +615,12 @@ subtype <- FetchData(mpp3, vars = c("newclusters", "subtype")) %>%
 
 typeplot <- ggplot(subtype, aes(x = newclusters, y = n, fill = subtype)) +
   geom_bar(stat = "identity", position = "fill", color = "black") +
+  scale_fill_manual(values = c(
+    "DP" = "cyan3",
+    "DN" = "olivedrab3",
+    "E+" = "orchid",
+    "27+" = "coral1"
+  )) + 
   theme_classic() + 
   labs(x = "Cluster", y = "Fraction of Cluster", title = "Subtype per Cluster") + 
   theme(plot.title = element_text(hjust = 0.5)) + 
