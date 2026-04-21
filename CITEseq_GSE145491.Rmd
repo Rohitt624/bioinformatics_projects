@@ -579,33 +579,38 @@ FeatureScatter(mpp3_filtered, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG0000
 # Fetch ESAM (ADT), CD27 (RNA), and Fcgr3 (RNA)
 plot_df <- FetchData(mpp3_filtered, vars = c("adt_ESAM", 
                                               "rna_ENSMUSG00000030336",   # CD27
-                                              "rna_ENSMUSG00000031162"))  # Fcgr3 — verify this ID
+                                              "rna_ENSMUSG00000022021"))  # Fcgr3 — verify this ID
 
 # Sort so low Fcgr3 cells plot first (high expression on top)
-plot_df <- plot_df[order(plot_df$rna_ENSMUSG00000031162), ]
+plot_df <- plot_df[order(plot_df$rna_ENSMUSG00000022021), ]
 
 # Plot
 fcgr3scatter <- ggplot(plot_df, aes(x = adt_ESAM, 
                                      y = rna_ENSMUSG00000030336, 
-                                     color = rna_ENSMUSG00000031162)) +
+                                     color = rna_ENSMUSG00000022021)) +
   geom_point(size = 0.5, alpha = 0.7) +
   scale_color_gradientn(
     colors = c("lightgrey", "blue", "darkblue"),
-    name = "Fcgr3 (RNA)"
+    name = "Diaph3 (RNA)"
   ) +
   scale_x_flowjo_biexp(pos = 5) +
   scale_y_flowjo_biexp(pos = 8, neg = 2, widthBasis = -500) +
   geom_hline(yintercept = cd27_cutoff, linetype = "solid", color = "black", linewidth = 1) +
   geom_vline(xintercept = esam_cutoff, linetype = "solid", color = "black", linewidth = 1) +
-  labs(title = "Fcgr3",
+  labs(title = "Diaph3",
        x = "ESAM (ADT)", 
        y = "CD27 (RNA)") +
   theme_classic() + 
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5),
+        text = element_text(size = 14))
 
 fcgr3scatter
-ggsave("mpp3esamcd27_fcgr3.png", fcgr3scatter, dpi = 600)
+ggsave("mpp3esamcd27_diaph3.png", fcgr3scatter, dpi = 600)
 ```
+
+Gp9 = rna_ENSMUSG00000030054
+Gata2 = rna_ENSMUSG00000015053
+Diaph3 = rna_ENSMUSG00000022021
 
 ```{r}
 install.packages("https://cran.r-project.org/src/contrib/Archive/grr/grr_0.9.5.tar.gz", 
@@ -747,8 +752,9 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=factor(pathway, levels = c("DN",
   theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
-    plot.title = element_text(hjust = 0.5), 
-    axis.text=element_text(color="black", face="bold")
+    plot.title = element_text(hjust = 0.5, size = 16), 
+    axis.text=element_text(color="black", face="bold"),
+    text = element_text(size = 18)
     ) +
   scale_fill_gradient2(low="blue", mid="purple", high="red", midpoint=0, limits=c(-2.3,2.3)) + 
   labs(x="-log(padj)", y="Population", title = "GOBP MYELOID LEUKOCYTE MEDIATED IMMUNITY
@@ -757,7 +763,7 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=factor(pathway, levels = c("DN",
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 gseaplot
 
-ggsave("myeloidv2.png", gseaplot, dpi = 600, height = 8, width = 6)
+ggsave("myeloidv3.png", gseaplot, dpi = 600, height = 8, width = 6)
 ```
 
 ```{r DC gsea plot}
@@ -768,8 +774,9 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=factor(pathway, levels = c("DN",
   theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
-    plot.title = element_text(hjust = 0.5), 
-    axis.text=element_text(color="black", face="bold")
+    plot.title = element_text(hjust = 0.5, size = 13), 
+    axis.text=element_text(color="black", face="bold"),
+    text = element_text(size = 15)
     ) +
   scale_fill_gradient2(low="blue", mid="purple", high="red", midpoint=0, limits=c(-2.3,2.3)) + 
   labs(x="-log(padj)", y="Population", title = "GOBP MYELOID DENDRITIC CELL DIFFERENTIATION") +
@@ -777,7 +784,7 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=factor(pathway, levels = c("DN",
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 gseaplot
 
-ggsave("dc.png", gseaplot, dpi = 600, height = 8, width = 6)
+ggsave("dcv3.png", gseaplot, dpi = 600, height = 8, width = 6)
 ```
 
 ```{r platelet gsea plot}
@@ -788,8 +795,9 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=factor(pathway, levels = c("DN",
   theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
-    plot.title = element_text(hjust = 0.5), 
-    axis.text=element_text(color="black", face="bold")
+    plot.title = element_text(hjust = 0.5, size = 16), 
+    axis.text=element_text(color="black", face="bold"),
+    text = element_text(size = 18)
     ) +
   scale_fill_gradient2(low="blue", mid="purple", high="red", midpoint=0, limits=c(-2.3,2.3)) + 
   labs(x="-log(padj)", y="Population", title = "GOBP PLATELET ACTIVATION") +
@@ -797,7 +805,7 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=factor(pathway, levels = c("DN",
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 gseaplot
 
-ggsave("plateletv2.png", gseaplot, dpi = 600, height = 8, width = 6)
+ggsave("plateletv3.png", gseaplot, dpi = 600, height = 8, width = 6)
 ```
 
 ```{r CC gsea plot}
@@ -811,8 +819,9 @@ gseaplot <- ggplot(table, aes(x=-log10(padj),
   theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
-    plot.title = element_text(hjust = 0.5), 
-    axis.text=element_text(color="black", face="bold")
+    plot.title = element_text(hjust = 0.5, size = 16), 
+    axis.text=element_text(color="black", face="bold"),
+    text = element_text(size = 18)
     ) +
   scale_fill_gradient2(low="blue", mid="purple", high="red", midpoint=0, limits=c(-2.3,2.3)) + 
   labs(x="-log(padj)", y="Population", title = "REACTOME CELL CYCLE CHECKPOINTS") +
@@ -820,7 +829,7 @@ gseaplot <- ggplot(table, aes(x=-log10(padj),
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 gseaplot
 
-ggsave("cellcyclev2.png", gseaplot, dpi = 600, height = 8, width = 6)
+ggsave("cellcyclev3.png", gseaplot, dpi = 600, height = 8, width = 6)
 ```
 
 ```{r Erythroid gsea plot}
@@ -831,8 +840,9 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=factor(pathway, levels = c("DN",
   theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
-    plot.title = element_text(hjust = 0.5), 
-    axis.text=element_text(color="black", face="bold")
+    plot.title = element_text(hjust = 0.4, size = 16), 
+    axis.text=element_text(color="black", face="bold"),
+    text = element_text(size = 18)
     ) +
   scale_fill_gradient2(low="blue", mid="purple", high="red", midpoint=0, limits=c(-2,2)) + 
   labs(x="-log(padj)", y="Population", title = "GOBP ENUCLEATE ERYTHROCYTE DIFFERENTIATION") +
@@ -841,7 +851,7 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=factor(pathway, levels = c("DN",
 gseaplot
 
 
-ggsave("erythroidv2.png", gseaplot, dpi = 600, height = 8, width = 6)
+ggsave("erythroidv3.png", gseaplot, dpi = 600, height = 8, width = 6)
 ```
 
 ```{r HSC gsea plot}
@@ -855,8 +865,9 @@ gseaplot <- ggplot(table, aes(x=-log10(padj),
   theme(
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
-    plot.title = element_text(hjust = 0.5), 
-    axis.text=element_text(color="black", face="bold")
+    plot.title = element_text(hjust = 0.5, size = 16), 
+    axis.text=element_text(color="black", face="bold"),
+    text = element_text(size = 18)
     ) +
   scale_fill_gradient2(low="blue", mid="purple", high="red", midpoint=0, limits=c(-2.3,2.3)) + 
   labs(x="-log(padj)", y="Population", title = "GOBP HEMATOPOIETIC STEM CELL HOMEOSTASIS") +
@@ -864,7 +875,7 @@ gseaplot <- ggplot(table, aes(x=-log10(padj),
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 gseaplot
 
-ggsave("stemcellv2.png", gseaplot, dpi = 600, height = 8, width = 6)
+ggsave("stemcellv3.png", gseaplot, dpi = 600, height = 8, width = 6)
 ```
 
 # Analysis Tools
