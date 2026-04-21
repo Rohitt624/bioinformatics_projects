@@ -575,6 +575,103 @@ FeatureScatter(mpp3_filtered, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG0000
   geom_density_2d(bins = 15)
 ```
 
+```{r CD16/32 FeaturePlot}
+# Fetch ESAM (ADT), CD27 (RNA), and Fcgr3 (RNA)
+plot_df <- FetchData(mpp3_filtered, vars = c("adt_ESAM", 
+                                              "rna_ENSMUSG00000030336",   # CD27
+                                              "rna_ENSMUSG00000031162"))  # Fcgr3 — verify this ID
+
+# Sort so low Fcgr3 cells plot first (high expression on top)
+plot_df <- plot_df[order(plot_df$rna_ENSMUSG00000031162), ]
+
+# Plot
+fcgr3scatter <- ggplot(plot_df, aes(x = adt_ESAM, 
+                                     y = rna_ENSMUSG00000030336, 
+                                     color = rna_ENSMUSG00000031162)) +
+  geom_point(size = 0.5, alpha = 0.7) +
+  scale_color_gradientn(
+    colors = c("lightgrey", "blue", "darkblue"),
+    name = "Fcgr3 (RNA)"
+  ) +
+  scale_x_flowjo_biexp(pos = 5) +
+  scale_y_flowjo_biexp(pos = 8, neg = 2, widthBasis = -500) +
+  geom_hline(yintercept = cd27_cutoff, linetype = "solid", color = "black", linewidth = 1) +
+  geom_vline(xintercept = esam_cutoff, linetype = "solid", color = "black", linewidth = 1) +
+  labs(title = "Fcgr3",
+       x = "ESAM (ADT)", 
+       y = "CD27 (RNA)") +
+  theme_classic() + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+fcgr3scatter
+ggsave("mpp3esamcd27_fcgr3.png", fcgr3scatter, dpi = 600)
+```
+
+```{r}
+install.packages("https://cran.r-project.org/src/contrib/Archive/grr/grr_0.9.5.tar.gz", 
+                 repos = NULL, 
+                 type = "source")
+remotes::install('cole-trapnell-lab/monocle3')
+remotes::install_github("satijalab/seurat-wrappers")
+```
+
+```{r}
+library(monocle3)
+library(SeuratWrappers)
+
+# --- Step 1: Convert to Monocle3 CDS ---
+cds <- as.cell_data_set(mpp3_filtered)
+cds <- cluster_cells(cds)
+cds <- learn_graph(cds)
+
+# --- Step 2: Set DP cells as the root ---
+# Get cell names of your DP population
+dp_cells <- rownames(mpp3_filtered@meta.data[mpp3_filtered$gate5 == "DP", ])
+
+# Order cells with DP as root
+cds <- order_cells(cds, root_cells = dp_cells)
+
+# --- Step 3: Pull pseudotime back into Seurat ---
+mpp3_filtered$pseudotime <- pseudotime(cds)
+
+# --- Step 4: Build your scatter plot colored by pseudotime ---
+plot_df <- FetchData(mpp3_filtered, vars = c("adt_ESAM", 
+                                              "rna_ENSMUSG00000030336"))  # CD27
+
+plot_df$pseudotime <- mpp3_filtered$pseudotime
+
+# Sort so early pseudotime plots on top
+plot_df <- plot_df[order(-plot_df$pseudotime), ]
+# Option 2: If still compressed, try log-scaling pseudotime
+plot_df$pseudotime_log <- log1p(plot_df$pseudotime_clipped)  # log1p handles zeros safely
+
+pseudotime_scatter_log <- ggplot(plot_df, aes(x = adt_ESAM, 
+                                               y = rna_ENSMUSG00000030336, 
+                                               color = pseudotime_log)) +
+  geom_point(size = 0.5, alpha = 0.7) +
+  scale_color_gradientn(
+    colors = c("blue", "cyan", "green3", "yellow"),
+    na.value = "lightgrey",
+    name = "Pseudotime\n(log)"
+  ) +
+  scale_x_flowjo_biexp(pos = 5) +
+  scale_y_flowjo_biexp(pos = 8, neg = 2, widthBasis = -500) +
+  geom_hline(yintercept = cd27_cutoff, linetype = "solid", color = "black", linewidth = 1) +
+  geom_vline(xintercept = esam_cutoff, linetype = "solid", color = "black", linewidth = 1) +
+  labs(title = "MPP3 ESAM vs CD27 — Pseudotime from DP",
+       x = "ESAM (ADT)", 
+       y = "CD27 (RNA)") +
+  theme_classic()
+pseudotime_scatter_log
+
+ggsave("mpp3esamcd27_pseudotime.png", pseudotime_scatter, dpi = 600)
+
+# Check your pseudotime distribution first
+summary(plot_df$pseudotime[is.finite(plot_df$pseudotime)])
+quantile(plot_df$pseudotime[is.finite(plot_df$pseudotime)], c(0.25, 0.5, 0.75, 0.9, 0.95))
+
+```
+
 ```{r geneset creation}
 Idents(mpp3_filtered) <- "gate5"
 genesets <- FindAllMarkers(mpp3_filtered, only.pos = TRUE, min.pct = 0.05)
@@ -644,7 +741,7 @@ write.csv(markers_27, "27_deg.csv")
 
 ```{r myeloid gsea plot}
 table <- read.csv("myeloid_immunity.csv")
-gseaplot <- ggplot(table, aes(x=-log10(padj), y=pathway, fill = NES, size = size)) +
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=factor(pathway, levels = c("DN", "27+", "DP", "E+")), fill = NES, size = size)) +
   geom_point(shape=21) + 
   scale_size(range = c(5, 10)) +
   theme(
@@ -660,12 +757,12 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=pathway, fill = NES, size = size
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 gseaplot
 
-ggsave("myeloid.png", gseaplot, dpi = 600, height = 8, width = 6)
+ggsave("myeloidv2.png", gseaplot, dpi = 600, height = 8, width = 6)
 ```
 
 ```{r DC gsea plot}
 table <- read.csv("dendriticcell.csv")
-gseaplot <- ggplot(table, aes(x=-log10(padj), y=pathway, fill = NES, size = size)) +
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=factor(pathway, levels = c("DN", "27+", "DP", "E+")), fill = NES, size = size)) +
   geom_point(shape=21) + 
   scale_size(range = c(5, 10)) +
   theme(
@@ -685,7 +782,7 @@ ggsave("dc.png", gseaplot, dpi = 600, height = 8, width = 6)
 
 ```{r platelet gsea plot}
 table <- read.csv("platelet.csv")
-gseaplot <- ggplot(table, aes(x=-log10(padj), y=pathway, fill = NES, size = size)) +
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=factor(pathway, levels = c("DN", "27+", "DP", "E+")), fill = NES, size = size)) +
   geom_point(shape=21) + 
   scale_size(range = c(5, 10)) +
   theme(
@@ -696,16 +793,19 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=pathway, fill = NES, size = size
     ) +
   scale_fill_gradient2(low="blue", mid="purple", high="red", midpoint=0, limits=c(-2.3,2.3)) + 
   labs(x="-log(padj)", y="Population", title = "GOBP PLATELET ACTIVATION") +
-  xlim(0,4) + 
+  xlim(0,2) + 
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 gseaplot
 
-ggsave("platelet.png", gseaplot, dpi = 600, height = 8, width = 6)
+ggsave("plateletv2.png", gseaplot, dpi = 600, height = 8, width = 6)
 ```
 
 ```{r CC gsea plot}
 table <- read.csv("cellcycle.csv")
-gseaplot <- ggplot(table, aes(x=-log10(padj), y=pathway, fill = NES, size = size)) +
+gseaplot <- ggplot(table, aes(x=-log10(padj), 
+                              y=factor(pathway, levels = c("DN", "27+", "DP", "E+")),
+                              fill = NES, 
+                              size = size)) +
   geom_point(shape=21) + 
   scale_size(range = c(5, 10)) +
   theme(
@@ -720,7 +820,51 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=pathway, fill = NES, size = size
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 gseaplot
 
-ggsave("cellcycle.png", gseaplot, dpi = 600, height = 8, width = 6)
+ggsave("cellcyclev2.png", gseaplot, dpi = 600, height = 8, width = 6)
+```
+
+```{r Erythroid gsea plot}
+table <- read.csv("erythroid.csv")
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=factor(pathway, levels = c("DN", "27+", "DP", "E+")), fill = NES, size = size)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 10)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="purple", high="red", midpoint=0, limits=c(-2,2)) + 
+  labs(x="-log(padj)", y="Population", title = "GOBP ENUCLEATE ERYTHROCYTE DIFFERENTIATION") +
+  xlim(0,2) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gseaplot
+
+
+ggsave("erythroidv2.png", gseaplot, dpi = 600, height = 8, width = 6)
+```
+
+```{r HSC gsea plot}
+table <- read.csv("stemcell.csv")
+gseaplot <- ggplot(table, aes(x=-log10(padj), 
+                              y=factor(pathway, levels = c("DN", "27+", "DP", "E+")), 
+                              fill = NES, 
+                              size = size)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 10)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="purple", high="red", midpoint=0, limits=c(-2.3,2.3)) + 
+  labs(x="-log(padj)", y="Population", title = "GOBP HEMATOPOIETIC STEM CELL HOMEOSTASIS") +
+  xlim(0,2) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gseaplot
+
+ggsave("stemcellv2.png", gseaplot, dpi = 600, height = 8, width = 6)
 ```
 
 # Analysis Tools

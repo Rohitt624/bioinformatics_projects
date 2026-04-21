@@ -539,6 +539,10 @@ mpp3_template <- EnsIDReplace2(mpp3_template)
 mpp3_template$probe <- rownames(mpp3_template)
 ```
 
+```{r record signatures}
+write.csv(mpp3_template, "mpp3_signatures.csv")
+```
+
 ```{r subtyping}
 mat <- as.matrix(GetAssayData(mpp3, assay = "RNA", layer = "data"))
 
