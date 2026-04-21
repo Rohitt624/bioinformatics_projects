@@ -14,7 +14,6 @@ library(tidyverse)
 library(DESeq2)
 library(rnaseqGene)
 library(pheatmap)
-library(ggalt)
 library(fgsea)
 library(biomaRt)
 library(ggVennDiagram)
@@ -29,11 +28,11 @@ library(ggpubr)
 library(GSEABase)
 library(CMScaller)
 
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/")
+setwd("E:/Zhang Lab/CRK HCC/")
 ```
 
 ```{r setup, include=FALSE}
-knitr::opts_knit$set(root.dir = 'C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/CRK HCC/')
+knitr::opts_knit$set(root.dir = 'E:/Zhang Lab/CRK HCC/')
 ```
 
 ```{r functions}
@@ -441,15 +440,19 @@ plot_data$Subtype <- vst$Hoshida_Subtype
 
 write.csv(plot_data, "plotdata.csv")
 
-vln <- ggplot(plot_data, aes(factor(Subtype), y = KEGG_FOCAL_ADHESION, fill = Subtype)) + 
+vln <- ggplot(plot_data_filtered, aes(factor(Subtype), y = KEGG_FOCAL_ADHESION, fill = Subtype)) + 
   geom_violin() + 
   geom_jitter(width = 0.1) + 
   labs(title = "FAK Expression by Hoshida Subtype", 
        x = "Hoshida Subtype", 
        y = "KEGG: Focal Adhesion") + 
-  theme(plot.title = element_text(hjust = 0.5)) + 
-  theme_bw() + 
-  theme(plot.title = element_text(hjust = 0.5))
+  theme_bw() +
+  scale_color_manual(values = subtype_colors) +
+  theme_bw(base_size = 18) +
+  theme(panel.grid.major = element_line(color = "grey90"),
+        panel.grid.minor = element_blank(),
+        legend.position  = "bottom",
+        plot.title = element_text(hjust = 0.5))
 vln
 
 ggsave("fakvlnplot.png", vln, dpi = 600)
@@ -487,12 +490,13 @@ vln_ccn2 <- ggplot(plot_data_filtered, aes(x = factor(Subtype), y = KEGG_FOCAL_A
   theme_bw() + 
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(), 
-        legend.position = "none")
+        legend.position = "none", 
+        text = element_text(size = 18))
 
 vln_ccn2
 
 # 4. Save the new version
-ggsave("kegg_hoshida_vln.png", vln_ccn2, dpi = 600)
+ggsave("kegg_hoshida_vln_v2.png", vln_ccn2, dpi = 600)
 ```
 
 
@@ -918,7 +922,7 @@ scatter
 ```
 
 ```{r}
-s1_plotdata <- subset(plot_data, plot_data$Subtype....vst.Hoshida_Subtype == "S1")
+s1_plotdata <- subset(plot_data_filtered, plot_data_filtered$Subtype == "S2")
 
 cor_list <- apply(gsva_s1, 1, function(gsva_scores) {
   test <- cor.test(gsva_scores, tbk1_vec,
@@ -938,11 +942,11 @@ cor_df$geneset <- rownames(res_gsva)
 cor_df <- cor_df[, c("geneset", "cor", "pval")]
 
 
-scatter <- ggplot(s1_plotdata, aes(x = GSVA, y = CCN2, color = Subtype....vst.Hoshida_Subtype)) +
+scatter <- ggplot(s1_plotdata, aes(x = KEGG_FOCAL_ADHESION, y = CCN2, color = Subtype)) +
   geom_point(alpha = 0.7, size = 2) +
   geom_smooth(method = "lm", color = "black", se = FALSE, fill = "gray80") +
   labs(x = "KEGG: Focal Adhesion",
-    y = "HIF1A"
+    y = "CTGF"
   ) +
   theme_bw() + 
   theme(panel.grid.major = element_line(color = "grey65"), 
@@ -1076,3 +1080,236 @@ gseaplot
 
 ggsave("3p24plot.png", gseaplot, dpi = 600, width = 6.5, height = 5)
 ```
+
+```{r gsva_subtype_scatter}
+library(ggplot2)
+library(dplyr)
+
+# ── 1. Build combined plot data (all subtypes) ────────────────────────────────
+plot_data_all <- data.frame(
+  KEGG_FOCAL_ADHESION = as.numeric(vst_extended["KEGG_FOCAL_ADHESION", ]),
+  CCN2                = as.numeric(vst_extended["CCN2", ]),
+  HIF1A               = as.numeric(vst_extended["HIF1A", ]),
+  Subtype             = vst$Hoshida_Subtype
+) %>%
+  filter(Subtype %in% c("S1", "S2", "S3"))
+
+# ── 2. Pre-compute global lm fits (used as the shared best-fit line) ──────────
+lm_ccn2  <- lm(CCN2  ~ KEGG_FOCAL_ADHESION, data = plot_data_all)
+lm_hif1a <- lm(HIF1A ~ KEGG_FOCAL_ADHESION, data = plot_data_all)
+
+# ── 3. Helper: Spearman stats label per subtype ───────────────────────────────
+spearman_label <- function(df, x_col, y_col) {
+  test <- cor.test(df[[x_col]], df[[y_col]], method = "spearman")
+  # Return a plain string that ggplot can parse as an expression
+  paste0("italic(rho)==", round(test$estimate, 3),
+         "~~ italic(P)==", signif(test$p.value, 3))
+}
+
+# ── 4. Factory function: one plot per subtype ─────────────────────────────────
+make_scatter <- function(subtype, y_col, y_label, color) {
+
+  df_sub <- filter(plot_data_all, Subtype == subtype)
+
+  # Subtype-specific Spearman correlation
+  cor_test <- cor.test(df_sub[["KEGG_FOCAL_ADHESION"]], df_sub[[y_col]], method = "spearman")
+  lbl <- paste0("italic(rho)==", round(cor_test$estimate, 3),
+                "~~ italic(P)==", signif(cor_test$p.value, 3))
+
+  # Subtype-specific fit line
+  lm_sub  <- lm(as.formula(paste(y_col, "~ KEGG_FOCAL_ADHESION")), data = df_sub)
+  x_seq   <- seq(min(df_sub$KEGG_FOCAL_ADHESION),
+                 max(df_sub$KEGG_FOCAL_ADHESION), length.out = 200)
+  pred    <- predict(lm_sub,
+                     newdata = data.frame(KEGG_FOCAL_ADHESION = x_seq),
+                     interval = "confidence")
+  line_df <- data.frame(x = x_seq, fit = pred[, "fit"],
+                        lwr = pred[, "lwr"], upr = pred[, "upr"])
+
+  ggplot(df_sub, aes(x = KEGG_FOCAL_ADHESION, y = .data[[y_col]])) +
+    geom_line(data = line_df,
+              aes(x = x, y = fit),
+              inherit.aes = FALSE,
+              color = "black", linewidth = 0.7, linetype = "dashed") +
+    geom_point(color = color, alpha = 0.75, size = 2.5) +
+    annotate("text", x = Inf, y = -Inf,
+             label = lbl,
+             parse = TRUE,
+             hjust = 1.1, vjust = -0.5, size = 3.5) +
+    labs(title = paste("Hoshida", subtype),
+         x = "KEGG: Focal Adhesion (GSVA)",
+         y = y_label) +
+    theme_bw() +
+    theme(plot.title       = element_text(hjust = 0.5, face = "bold"),
+          panel.grid.major = element_line(color = "grey90"),
+          panel.grid.minor = element_blank())
+}
+
+# ── 5. Color palette (match your existing darkred / grey scheme) ──────────────
+subtype_colors <- c(S1 = "darkred", S2 = "steelblue", S3 = "darkorange")
+
+# ── 6. Generate all 6 plots ───────────────────────────────────────────────────
+plots_ccn2 <- Map(
+  function(subtype, color) make_scatter(subtype, "CCN2",  "CTGF (CCN2)", color),
+  c("S1", "S2", "S3"),
+  unname(subtype_colors[c("S1", "S2", "S3")])
+)
+
+plots_hif1a <- Map(
+  function(subtype, color) make_scatter(subtype, "HIF1A", "HIF1A", color),
+  c("S1", "S2", "S3"),
+  unname(subtype_colors[c("S1", "S2", "S3")])
+)
+
+# ── 7. Save individual PNGs ───────────────────────────────────────────────────
+subtypes <- c("S1", "S2", "S3")
+
+for (i in seq_along(subtypes)) {
+  ggsave(paste0("gsva_ccn2_",  subtypes[i], ".png"),
+         plots_ccn2[[i]],  dpi = 600, width = 4, height = 4)
+  ggsave(paste0("gsva_hif1a_", subtypes[i], ".png"),
+         plots_hif1a[[i]], dpi = 600, width = 4, height = 4)
+}
+
+
+```
+
+```{r fak_subtype_scatter}
+library(ggplot2)
+library(dplyr)
+
+# ── 1. Build combined plot data (all subtypes) ────────────────────────────────
+plot_data_all <- data.frame(
+  PTK2    = as.numeric(vst_extended["PTK2", ]),
+  CCN2    = as.numeric(vst_extended["CCN2", ]),
+  HIF1A   = as.numeric(vst_extended["HIF1A", ]),
+  Subtype = vst$Hoshida_Subtype
+) %>%
+  filter(Subtype %in% c("S1", "S2", "S3"))
+
+# ── 2. Factory function: one plot per subtype ─────────────────────────────────
+make_scatter <- function(subtype, y_col, y_label, color) {
+
+  df_sub <- filter(plot_data_all, Subtype == subtype)
+
+  # Subtype-specific Spearman correlation
+  cor_test <- cor.test(df_sub[["PTK2"]], df_sub[[y_col]], method = "spearman")
+  lbl <- paste0("italic(rho)==", round(cor_test$estimate, 3),
+                "~~ italic(P)==", signif(cor_test$p.value, 3))
+
+  # Subtype-specific fit line
+  lm_sub  <- lm(as.formula(paste(y_col, "~ PTK2")), data = df_sub)
+  x_seq   <- seq(min(df_sub$PTK2), max(df_sub$PTK2), length.out = 200)
+  pred    <- predict(lm_sub,
+                     newdata = data.frame(PTK2 = x_seq),
+                     interval = "confidence")
+  line_df <- data.frame(x = x_seq, fit = pred[, "fit"],
+                        lwr = pred[, "lwr"], upr = pred[, "upr"])
+
+  ggplot(df_sub, aes(x = PTK2, y = .data[[y_col]])) +
+    geom_line(data = line_df,
+              aes(x = x, y = fit),
+              inherit.aes = FALSE,
+              color = "black", linewidth = 0.7, linetype = "dashed") +
+    geom_point(color = color, alpha = 0.75, size = 2.5) +
+    annotate("text", x = Inf, y = -Inf,
+             label = lbl,
+             parse = TRUE,
+             hjust = 1.1, vjust = -0.5, size = 3.5) +
+    labs(title = paste("Hoshida", subtype),
+         x = "FAK (PTK2)",
+         y = y_label) +
+    theme_bw() +
+    theme(plot.title       = element_text(hjust = 0.5, face = "bold"),
+          panel.grid.major = element_line(color = "grey90"),
+          panel.grid.minor = element_blank())
+}
+
+# ── 3. Color palette ──────────────────────────────────────────────────────────
+subtype_colors <- c(S1 = "darkred", S2 = "steelblue", S3 = "darkorange")
+
+# ── 4. Generate all 6 plots ───────────────────────────────────────────────────
+plots_ccn2 <- Map(
+  function(subtype, color) make_scatter(subtype, "CCN2",  "CTGF (CCN2)", color),
+  c("S1", "S2", "S3"),
+  unname(subtype_colors[c("S1", "S2", "S3")])
+)
+
+plots_hif1a <- Map(
+  function(subtype, color) make_scatter(subtype, "HIF1A", "HIF1A", color),
+  c("S1", "S2", "S3"),
+  unname(subtype_colors[c("S1", "S2", "S3")])
+)
+
+# ── 5. Save individual PNGs ───────────────────────────────────────────────────
+subtypes <- c("S1", "S2", "S3")
+
+for (i in seq_along(subtypes)) {
+  ggsave(paste0("ptk2_ccn2_",  subtypes[i], ".png"),
+         plots_ccn2[[i]],  dpi = 600, width = 4, height = 4)
+  ggsave(paste0("ptk2_hif1a_", subtypes[i], ".png"),
+         plots_hif1a[[i]], dpi = 600, width = 4, height = 4)
+}
+```
+
+```{r gsva_combined_scatter}
+library(ggforce)
+# ── 1. Build plot data ────────────────────────────────────────────────────────
+plot_data_all <- data.frame(
+  KEGG_FOCAL_ADHESION = as.numeric(vst_extended["KEGG_FOCAL_ADHESION", ]),
+  CCN2                = as.numeric(vst_extended["CCN2", ]),
+  HIF1A               = as.numeric(vst_extended["HIF1A", ]),
+  Subtype             = vst$Hoshida_Subtype
+) %>%
+  filter(Subtype %in% c("S1", "S2", "S3"))
+
+subtype_colors <- c(S1 = "darkred", S2 = "steelblue", S3 = "darkorange")
+
+# ── 2. Combined Spearman label (all subtypes) ─────────────────────────────────
+make_combined_label <- function(y_col) {
+  cor_test <- cor.test(plot_data_all[["KEGG_FOCAL_ADHESION"]],
+                       plot_data_all[[y_col]], method = "spearman")
+  paste0("italic(rho)==", round(cor_test$estimate, 3),
+         "~~ italic(P)==", signif(cor_test$p.value, 3))
+}
+
+# ── 3. Factory function ───────────────────────────────────────────────────────
+make_combined_scatter <- function(y_col, y_label) {
+
+  lbl <- make_combined_label(y_col)
+
+  ggplot(plot_data_all, aes(x = KEGG_FOCAL_ADHESION, y = .data[[y_col]])) +
+    # Single combined fit line over all data
+    geom_smooth(method = "lm", se = FALSE, color = "black", linewidth = 1,
+                linetype = "solid") +
+    # Points colored by subtype
+    geom_point(aes(color = Subtype), alpha = 0.6, size = 2) +
+    stat_ellipse(aes(group = Subtype, color = Subtype, fill = Subtype), 
+                 geom = "polygon",
+                 type = "norm", 
+                 linewidth = 1, 
+                 level = 0.8,
+                 alpha = 0.1) +
+    annotate("text", x = -Inf, y = Inf,
+             label = lbl, parse = TRUE,
+             hjust = -0.05, vjust = 1.5, size = 8) +
+    scale_color_manual(values = subtype_colors) +
+    scale_fill_manual(values = subtype_colors) + 
+    labs(x     = "KEGG: Focal Adhesion (GSVA)",
+         y     = y_label,
+         color = "Hoshida Subtype") +
+    theme_bw(base_size = 18) +
+    theme(panel.grid.major = element_line(color = "grey90"),
+          panel.grid.minor = element_blank(),
+          legend.position  = "bottom")
+}
+
+# ── 4. Generate and save ──────────────────────────────────────────────────────
+combined_ccn2  <- make_combined_scatter("CCN2",  "CTGF (CCN2)")
+combined_hif1a <- make_combined_scatter("HIF1A", "HIF1A")
+
+ggsave("gsva_ccn2_ellipse_filled.png",  combined_ccn2,  dpi = 600, height = 8, width = 8)
+ggsave("gsva_hif1a_ellipse_filled.png", combined_hif1a, dpi = 600, height = 8, width = 8)
+
+```
+
