@@ -6,7 +6,7 @@ editor_options:
 ---
 
 ```{r}
-remotes::install_local("E:/CytoExploreR-master.zip",
+remotes::install_local("CytoExploreR-master.zip",
                         dependencies = TRUE)
 install.packages(c("ggcyto", "uwot"))
 if (!requireNamespace("BiocManager", quietly = TRUE))
@@ -25,7 +25,7 @@ library(openCyto)
 library(uwot)
 library(CytoExploreR)
 library(gridExtra)
-setwd("Z:/Rohit Thalla/MDS/Data/Inflammatory Cytokines/Exp2/032426-SFSF2-TNFa-Single-Co-Culture-D7")
+setwd("D:/Zhang Lab/MDS Project/srsf2_exp2/040126-SFSF2-TNFa-IL-1B-Single-Co-Culture-D0/Unmixed")
 ```
 
 ```{r functions}
@@ -263,4 +263,49 @@ cyto_gatingTemplate_apply(gs, "my_gates.csv")
 cyto_stats_compute(gs,
                    alias = c("P1", "Singlets", "Live"),
                    stat  = "percent")
+```
+
+```{r gate mpp3 into quadrants}
+mpp3work <- FetchData(mpp3_filtered, vars = c("adt_ESAM", "rna_ENSMUSG00000030336"))
+mpp3_filtered <- subset(mpp3, adt_ESAM > 0 & rna_ENSMUSG00000030336 > 0)
+Idents(mpp3) <- "gate3"
+FeatureScatter(mpp3, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000030336") + 
+  scale_x_flowjo_biexp(pos = 5) + 
+  scale_y_flowjo_biexp(widthBasis = -150,
+                       pos = 3) 
+
+adtscatter <- FeatureScatter(mpp3_filtered, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000030336", group.by = "gate5") + 
+  scale_x_flowjo_biexp(pos = 5) + 
+  scale_y_flowjo_biexp(pos = 8,
+                       neg = 2,
+                       widthBasis = -500)+ 
+  geom_density_2d(bins = 15) + 
+  geom_hline(yintercept = cd27_cutoff, linetype = "solid", color = "black", linewidth = 1) +
+  geom_vline(xintercept = esam_cutoff, linetype = "solid", color = "black", linewidth = 1) + 
+  labs(title = "MPP3 ESAM vs CD27", x = "ESAM (ADT)", y = "CD27 (RNA)")
+adtscatter
+
+ggsave("mpp3esamcd27gate.png", adtscatter, dpi = 600)
+
+summary(mpp3work$adt_ESAM)
+summary (mpp3work$rna_ENSMUSG00000030336)
+hist(log10(mpp3work$adt_ESAM), breaks = 100)           # find the ESAM x-gate valley
+hist(mpp3work$rna_ENSMUSG00000030336, breaks = 100)  # find the CD27 y-gate valley
+
+esam_cutoff <- quantile(mpp3work$adt_ESAM, 0.25)  
+cd27_cutoff <- quantile(mpp3work$rna_ENSMUSG00000030336, 0.25)
+
+mpp3_filtered$gate5 <- NULL
+mpp3_filtered$gate5 <- ifelse(mpp3work$adt_ESAM > esam_cutoff & mpp3work$rna_ENSMUSG00000030336 < cd27_cutoff, "E+", 
+                         ifelse(mpp3work$adt_ESAM < esam_cutoff & mpp3work$rna_ENSMUSG00000030336 < cd27_cutoff, "DN",
+                                ifelse(mpp3work$adt_ESAM > esam_cutoff & mpp3work$rna_ENSMUSG00000030336 > cd27_cutoff, "DP", 
+                                       ifelse(mpp3work$adt_ESAM < esam_cutoff & mpp3work$rna_ENSMUSG00000030336 > cd27_cutoff, "27+", NA))))
+table(mpp3_filtered$gate5)
+
+FeatureScatter(mpp3_filtered, feature1 = "adt_ESAM", feature2 = "rna_ENSMUSG00000030336", group.by = "gate5") + 
+  scale_x_flowjo_biexp(pos = 5) + 
+  scale_y_flowjo_biexp(pos = 8,
+                       neg = 2,
+                       widthBasis = -500)+ 
+  geom_density_2d(bins = 15)
 ```
