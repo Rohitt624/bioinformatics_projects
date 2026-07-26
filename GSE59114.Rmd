@@ -1,0 +1,24 @@
+---
+title: "GSE59114"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r libraries, results='hide'}
+library(Seurat)
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(biomaRt)
+library(pheatmap)
+library(fgsea)
+library(patchwork)
+library(scales)
+library(ggbreak)
+library(ggcyto)
+library(DESeq2)
+library(CMScaller)
+options(future.globals.maxSize = 5000 * 1024^2)
+setwd("/rohit/OneDrive - Loyola University Chicago/ZhangLab/TBK1 Project/RNASeq/GSE59114")
+```
