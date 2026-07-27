@@ -178,29 +178,33 @@ mat_list <- lapply(files, function(f) {
 ```
 
 ```{r}
+library(Seurat)
+library(data.table)
+
 # 1. Load your conversion CSV
 gene_map <- fread("Ensembl_labels.csv")
+gene_lookup <- setNames(gene_map$gene_name, gene_map$gene_id)
 
-# 2. Process each matrix, convert IDs, and ensure unique names
+# 2. Process each matrix, convert IDs, and aggregate duplicates
 seurat_list <- lapply(names(mat_list), function(nm) {
   mat <- mat_list[[nm]]
-  
-  # Get current row names (Ensembl IDs) from the matrix
   current_ids <- rownames(mat)
   
-  # Match to gene names; fallback to original ID if no match found
-  matched_names <- gene_map$gene_name[match(current_ids, gene_map$gene_id)]
-  fallback_idx <- is.na(matched_names) | matched_names == ""
-  matched_names[fallback_idx] <- current_ids[fallback_idx]
+  # Map IDs to gene names; fallback to original ID if missing/blank
+  new_names <- gene_lookup[current_ids]
+  unmatched <- is.na(new_names) | new_names == ""
+  new_names[unmatched] <- current_ids[unmatched]
   
-  # CRITICAL: Force row names to character and make them strictly unique
-  rownames(mat) <- make.unique(as.character(matched_names))
-})
-
+  # Assign the mapped names temporarily
+  rownames(mat) <- as.character(new_names)
   
-  # Create the Seurat object
+  # Aggregate rows with identical gene names by summing their counts
+  # This completely removes duplicate row names mathematically
+  mat_aggregated <- rowsum(mat, group = rownames(mat), reorder = FALSE)
+  
+  # Create the Seurat object with clean, unique, aggregated matrix
   obj <- CreateSeuratObject(
-    counts = mat, 
+    counts = mat_aggregated, 
     project = nm, 
     min.cells = 3, 
     min.features = 200
