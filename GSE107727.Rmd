@@ -1,0 +1,226 @@
+---
+title: "GSE107727"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r libraries, results='hide'}
+library(Seurat)
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(pheatmap)
+library(fgsea)
+library(patchwork)
+library(scales)
+library(ggbreak)
+library(ggcyto)
+library(DESeq2)
+library(CMScaller)
+library(data.table)
+options(future.globals.maxSize = 5000 * 1024^2)
+setwd("/Users/rohit/Library/CloudStorage/OneDrive-LoyolaUniversityChicago/Zhang Lab/TBK1 Project/RNAseq/GSE107727")
+```
+
+```{r functions}
+run_gsea_seurat <- function(markers_df, gmt_path, output_gsea, output_deg) {
+  suppressPackageStartupMessages({
+    library(fgsea)
+    library(BiocParallel)
+    library(dplyr)
+  })
+
+  # Force serial execution to avoid BiocParallel crashes
+  BiocParallel::register(BiocParallel::SerialParam())
+
+  #-------------------------------
+  # 1. Validate Seurat input
+  #-------------------------------
+  # Ensure the required columns from FindMarkers exist
+  req_cols <- c("avg_log2FC", "p_val_adj")
+  if (!all(req_cols %in% colnames(markers_df))) {
+    stop(paste("Input must be a FindMarkers output containing:", paste(req_cols, collapse = ", ")))
+  }
+
+  # Remove rows with NA in the log2FC column
+  markers_df <- markers_df[!is.na(markers_df$avg_log2FC), ]
+
+  #-------------------------------
+  # 2. Build ranking vector (Using log2FC)
+  #-------------------------------
+  # Extract avg_log2FC as the ranking metric
+  rnk <- setNames(markers_df$avg_log2FC, rownames(markers_df))
+  
+  # fgsea prefers pre-sorted vectors
+  rnk <- sort(rnk, decreasing = TRUE)
+
+  if (length(rnk) < 1000) {
+    warning("Ranking vector is small (<1000 genes). fgsea may lack statistical power. Ensure logfc.threshold = 0 in FindMarkers.")
+  }
+
+  #-------------------------------
+  # 3. Load pathways
+  #-------------------------------
+  gmt <- fgsea::gmtPathways(gmt_path)
+
+  #-------------------------------
+  # 4. Run fgsea
+  #-------------------------------
+  gsea <- fgsea(
+    pathways = gmt,
+    stats = rnk,
+    minSize = 0,
+    maxSize = 500
+  )
+
+  gsea_df <- as.data.frame(gsea)
+
+  # Flatten list columns (leadingEdge) for CSV export
+  list_cols <- sapply(gsea_df, is.list)
+  gsea_df[list_cols] <- lapply(gsea_df[list_cols], function(x) sapply(x, paste, collapse = ";"))
+
+  #-------------------------------
+  # 5. Write outputs
+  #-------------------------------
+  write.csv(gsea_df, output_gsea, row.names = FALSE)
+
+  # DEG table (filtered for significance, padj < 0.1)
+  deg_df <- as.data.frame(markers_df) %>%
+    mutate(gene = rownames(markers_df)) %>%
+    filter(markers_df$p_val_adj < 0.1)
+
+  write.csv(deg_df, output_deg, row.names = FALSE)
+
+  #-------------------------------
+  # 6. Return objects invisibly
+  #-------------------------------
+  invisible(list(
+    gsea = gsea_df,
+    degs = deg_df,
+    ranking = rnk
+  ))
+}
+
+EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels.csv") {
+  #-----------------------------
+  # 1. Validate inputs
+  #-----------------------------
+  if (!is.matrix(input) && !is.data.frame(input)) {
+    stop("Input must be a matrix or data.frame with rownames.")
+  }
+  if (is.null(rownames(input))) {
+    stop("Input must have rownames corresponding to Ensembl IDs.")
+  }
+  if (!file.exists(mapping_file)) {
+    stop(paste("Mapping file not found:", mapping_file))
+  }
+  #-----------------------------
+  # 2. Load mapping file
+  #-----------------------------
+  gene_mapping <- read.csv(mapping_file, stringsAsFactors = FALSE)
+  required_cols <- c("gene_id", "gene_name")
+  if (!all(required_cols %in% colnames(gene_mapping))) {
+    stop("Mapping file must contain columns: gene_id, gene_name")
+  }
+  #-----------------------------
+  # 3. Build lookup vector
+  #-----------------------------
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+  #-----------------------------
+  # 4. Vectorized name replacement
+  #-----------------------------
+  old_ids <- rownames(input)
+  
+  # Strip version suffixes (e.g. ENSMUSG00000022584.2 -> ENSMUSG00000022584)
+  stripped_ids <- sub("\\.\\d+$", "", old_ids)
+  
+  # Replace Ensembl IDs with gene names where available
+  new_names <- id_list[stripped_ids]
+  # For IDs not found in mapping, keep original (unstripped)
+  new_names[is.na(new_names)] <- old_ids[is.na(new_names)]
+  # Replace empty strings with NA
+  new_names[new_names == ""] <- NA
+  # Ensure syntactically valid + unique names
+  new_names <- make.names(new_names, unique = TRUE)
+  #-----------------------------
+  # 5. Apply new rownames
+  #-----------------------------
+  rownames(input) <- new_names
+  #-----------------------------
+  # 6. Return modified object
+  #-----------------------------
+  return(input)
+}
+```
+
+```{r load-data}
+files <- list.files("GSE107727_raw", pattern = "_counts.txt.gz$", full.names = TRUE)
+names(files) <- sub("_counts.txt.gz", "", basename(files))
+
+# Read and format each file into a proper matrix inside lapply
+mat_list <- lapply(files, function(f) {
+  dt <- fread(f, header = TRUE, sep = "\t")
+  
+  # Extract gene IDs from the first column
+  gene_ids <- dt[[1]]
+  
+  # Convert the remaining columns to a data.frame/matrix
+  mat <- as.matrix(dt[, -1, with = FALSE])
+  
+  # Assign row names
+  rownames(mat) <- gene_ids
+  
+  return(mat)
+})
+
+
+```
+
+```{r}
+# 1. Load your conversion CSV
+gene_map <- fread("Ensembl_labels.csv")
+
+# 2. Process each matrix, convert IDs, and ensure unique names
+seurat_list <- lapply(names(mat_list), function(nm) {
+  mat <- mat_list[[nm]]
+  
+  # Get current row names (Ensembl IDs) from the matrix
+  current_ids <- rownames(mat)
+  
+  # Match to gene names; fallback to original ID if no match found
+  matched_names <- gene_map$gene_name[match(current_ids, gene_map$gene_id)]
+  fallback_idx <- is.na(matched_names) | matched_names == ""
+  matched_names[fallback_idx] <- current_ids[fallback_idx]
+  
+  # CRITICAL: Force row names to character and make them strictly unique
+  rownames(mat) <- make.unique(as.character(matched_names))
+})
+
+  
+  # Create the Seurat object
+  obj <- CreateSeuratObject(
+    counts = mat, 
+    project = nm, 
+    min.cells = 3, 
+    min.features = 200
+  )
+  
+  # Store the original sample name in metadata
+  obj$orig.ident <- nm
+  
+  return(obj)
+})
+
+names(seurat_list) <- names(mat_list)
+
+# 3. Merge them together safely
+combined_seurat <- merge(
+  x = seurat_list[[1]], 
+  y = seurat_list[-1], 
+  add.cell.ids = names(seurat_list)
+)
+
+print(combined_seurat)
+```
+
