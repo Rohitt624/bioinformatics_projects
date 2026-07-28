@@ -24,9 +24,9 @@ library(ggbreak)
 library(ggcyto)
 library(jsonlite)
 library(stringr)
-options(future.globals.maxSize = 5000 * 1024^2)
-setwd("E:/Zhang Lab/Archives/RNASeq/RNASeq/Cite-seq/GSE145491")
-setwd("/")
+options(future.globals.maxSize = 6000 * 1024^2)
+setwd("E:/Zhang Lab/Archives/RNASeq/RNASeq/RNASeq/Cite-seq/GSE145491")
+#setwd("/")
 ```
 
 ```{r functions}
@@ -76,7 +76,7 @@ run_gsea_seurat <- function(markers_df, gmt_path, output_gsea, output_deg) {
   gsea <- fgsea(
     pathways = gmt,
     stats = rnk,
-    minSize = 0,
+    minSize = 10,
     maxSize = 500
   )
 
@@ -105,6 +105,129 @@ run_gsea_seurat <- function(markers_df, gmt_path, output_gsea, output_deg) {
     gsea = gsea_df,
     degs = deg_df,
     ranking = rnk
+  ))
+}
+
+run_gsea_seurat_all <- function(all_markers_df, gmt_path, output_dir, output_deg_all,
+                                  logfc_col = "avg_log2FC", padj_col = "p_val_adj",
+                                  gsea_padj_cutoff = 0.05) {
+  suppressPackageStartupMessages({
+    library(fgsea)
+    library(BiocParallel)
+    library(dplyr)
+    library(tidyr)
+  })
+  BiocParallel::register(BiocParallel::SerialParam())
+
+  req_cols <- c(logfc_col, padj_col, "cluster")
+  if (!all(req_cols %in% colnames(all_markers_df))) {
+    stop(paste("Input must be a FindAllMarkers output containing:", 
+               paste(req_cols, collapse = ", ")))
+  }
+
+  all_markers_df$cluster <- as.character(all_markers_df$cluster)
+
+  # Overwrite gene column with de-suffixed rownames (restores original, possibly
+  # non-unique gene IDs collapsed by FindAllMarkers' automatic .1/.2 renaming)
+  all_markers_df$gene <- sub("\\.\\d+$", "", rownames(all_markers_df))
+
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+  write.csv(all_markers_df, output_deg_all, row.names = FALSE)
+
+  gmt <- fgsea::gmtPathways(gmt_path)
+
+  clusters <- unique(all_markers_df$cluster)
+  gsea_results_list <- list()
+  ranking_list <- list()
+
+  for (clust in clusters) {
+
+    message("Running GSEA for cluster: ", clust)
+
+    keep_rows <- all_markers_df$cluster == clust & !is.na(all_markers_df[[logfc_col]])
+    sub_df <- all_markers_df[keep_rows, , drop = FALSE]
+
+    if (nrow(sub_df) == 0) {
+      warning(paste("No valid markers for cluster", clust, "- skipping"))
+      next
+    }
+
+    # Deduplicate by gene, keeping strongest |log2FC| (now using the restored gene column)
+    sub_df <- sub_df[order(-abs(sub_df[[logfc_col]])), , drop = FALSE]
+    sub_df <- sub_df[!duplicated(sub_df$gene), , drop = FALSE]
+
+    rnk <- setNames(sub_df[[logfc_col]], sub_df$gene)
+    rnk <- sort(rnk, decreasing = TRUE)
+
+    if (length(rnk) < 1000) {
+      warning(paste0("Cluster '", clust, "': ranking vector is small (<1000 genes). ",
+                      "fgsea may lack statistical power. Ensure logfc.threshold = 0 in FindAllMarkers."))
+    }
+
+    ranking_list[[as.character(clust)]] <- rnk
+
+    gsea <- tryCatch({
+      fgsea(pathways = gmt, stats = rnk, minSize = 10, maxSize = 500)
+    }, error = function(e) {
+      warning(paste0("fgsea failed for cluster '", clust, "': ", e$message))
+      return(NULL)
+    })
+
+    if (is.null(gsea) || nrow(gsea) == 0) {
+      warning(paste0("No pathways passed size filters for cluster '", clust, 
+                      "' - check gene ID overlap with GMT. Skipping."))
+      next
+    }
+
+    gsea_df <- as.data.frame(gsea)
+    list_cols <- sapply(gsea_df, is.list)
+    gsea_df[list_cols] <- lapply(gsea_df[list_cols], function(x) sapply(x, paste, collapse = ";"))
+    gsea_df$cluster <- clust
+
+    gsea_results_list[[as.character(clust)]] <- gsea_df
+
+    safe_clust_name <- gsub("[^A-Za-z0-9_-]", "_", as.character(clust))
+    out_path <- file.path(output_dir, paste0("gsea_", safe_clust_name, ".csv"))
+    write.csv(gsea_df, out_path, row.names = FALSE)
+  }
+
+  combined_gsea <- do.call(rbind, gsea_results_list)
+  write.csv(combined_gsea, file.path(output_dir, "gsea_combined_all_clusters.csv"), row.names = FALSE)
+
+  sig_gsea <- combined_gsea[combined_gsea$padj < gsea_padj_cutoff & !is.na(combined_gsea$padj), , drop = FALSE]
+
+  overlap_matrix <- sig_gsea %>%
+    dplyr::select(pathway, cluster, NES, padj) %>%
+    tidyr::pivot_wider(names_from = cluster, values_from = c(NES, padj))
+
+  overlap_summary <- sig_gsea %>%
+    dplyr::group_by(pathway) %>%
+    dplyr::summarise(
+      n_clusters_significant = dplyr::n_distinct(cluster),
+      clusters = paste(sort(unique(cluster)), collapse = ";"),
+      mean_NES = mean(NES),
+      direction_consistent = length(unique(sign(NES))) == 1,
+      .groups = "drop"
+    ) %>%
+    dplyr::arrange(desc(n_clusters_significant), desc(abs(mean_NES)))
+
+  write.csv(overlap_matrix, file.path(output_dir, "gsea_overlap_matrix.csv"), row.names = FALSE)
+  write.csv(overlap_summary, file.path(output_dir, "gsea_overlap_summary.csv"), row.names = FALSE)
+
+  unique_pathways <- overlap_summary[overlap_summary$n_clusters_significant == 1, , drop = FALSE]
+  names(unique_pathways)[names(unique_pathways) == "clusters"] <- "cluster"
+
+  write.csv(unique_pathways, file.path(output_dir, "gsea_unique_by_cluster.csv"), row.names = FALSE)
+
+  invisible(list(
+    gsea_by_cluster = gsea_results_list,
+    combined_gsea = combined_gsea,
+    overlap_summary = overlap_summary,
+    overlap_matrix = overlap_matrix,
+    unique_pathways = unique_pathways,
+    rankings_by_cluster = ranking_list,
+    all_markers = all_markers_df
   ))
 }
 
@@ -257,7 +380,13 @@ FeatureScatter(filter, feature1 = "adt_CD150", feature2 = "adt_CD135") +
                        pos = 4.3,
                        neg = 0)
 
-adtscatter <- FeatureScatter(filter, feature1 = "adt_CD150", feature2 = "adt_CD135") + 
+filter$gate2 <- NA
+filter$gate2 <- ifelse(cd135$adt_CD135 > 250 & cd135$adt_CD150 < 270, "MPP4", 
+                       ifelse(cd135$adt_CD135 < 250, "CD135-", NA))
+cd135neg <- subset(filter, gate2 == "CD135-")
+
+rm(cd135)
+adtscatter <- FeatureScatter(filter, feature1 = "adt_CD150", feature2 = "adt_CD135", group.by = "gate2") + 
   scale_x_flowjo_biexp(maxValue = 8100,
                        widthBasis = -30,
                        pos = 4.4) + 
@@ -265,57 +394,31 @@ adtscatter <- FeatureScatter(filter, feature1 = "adt_CD150", feature2 = "adt_CD1
                        widthBasis = -170,
                        pos = 4.3,
                        neg = 0)
-filter <- CellSelector(adtscatter, object = filter, ident = "MPP4")
-
-filter$gates <- ifelse(Idents(filter) == "MPP4", "MPP4",
-                       ifelse(Idents(filter) == "CD135neg", "CD135neg", NA))
-mpp4 <- subset(filter, gates == "MPP4")
-mpp4thresholds <- FetchData(mpp4, vars = c("adt_CD135", "adt_CD150"))
-cd135neg <- subset(filter, gate2 == "CD135-")
-cd135thresholds <- FetchData(cd135neg, vars = c("adt_CD135", "adt_CD150"))
-rownames(mpp4[["ADT"]])
-
-filter$gate2 <- NA
-filter$gate2 <- ifelse(cd135$adt_CD135 > 140 & cd135$adt_CD150 < 270, "MPP4", 
-                       ifelse(cd135$adt_CD135 < 140, "CD135-", NA))
-mpp4 <- subset(filter, gate2 == "MPP4")
-FeatureScatter(mpp4, feature1 = "rna_ENSMUSG00000026581", feature2 = "adt_CD48") + 
-  scale_x_flowjo_biexp(widthBasis = -100) + 
-  scale_y_flowjo_biexp()
-cd62l <- FetchData(mpp4, vars = c("rna_ENSMUSG00000026581"))
-sum(cd62l$rna_ENSMUSG00000026581 > 0)
-mpp4$gate5 <- ifelse(cd62l$rna_ENSMUSG00000026581 > top40, "MPP4", 
-                     ifelse(cd62l$rna_ENSMUSG00000026581 == bottom40, "MPP4", "MPP4"))
-rm(mpp4, mpp4thresholds, cd135thresholds, cd135neg, cd135)
+adtscatter
 
 ```
 
-```{r}
+```{r rest of lsk gating}
 cd135work <- FetchData(cd135neg, vars = c("adt_CD48", "adt_CD150"))
 Idents(cd135neg) <- "gate3"
 FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_CD48") + 
   scale_x_flowjo_biexp(pos = 5) + 
   scale_y_flowjo_biexp(widthBasis = -150,
                        pos = 3)
-
-adtscatter <- FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_CD48") + 
-  scale_x_flowjo_biexp(pos = 5) + 
-  scale_y_flowjo_biexp(widthBasis = -150,
-                       pos = 3)
-
-cd135neg$gate3 <- ifelse(Idents(cd135neg) == "MPP3", "MPP3", NA)
-
-
-
 cd135neg$gate3 <- NULL
 cd135neg$gate3 <- ifelse(cd135work$adt_CD48 > 5000 & cd135work$adt_CD150 < 270, "MPP3", 
                          ifelse(cd135work$adt_CD48 < 5000 & cd135work$adt_CD150 < 270, "MPP1",
                                 ifelse(cd135work$adt_CD48 > 5000 & cd135work$adt_CD150 > 270, "MPP2", 
                                        ifelse(cd135work$adt_CD48 < 5000 & cd135work$adt_CD150 > 270, "HSC", NA))))
+
+FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_CD48", group.by = "gate3") + 
+  scale_x_flowjo_biexp(pos = 5) + 
+  scale_y_flowjo_biexp(widthBasis = -150,
+                       pos = 3)
 ```
 
-```{r}
-filter <- subset(filter, adt_CD150<0 & act_CD135>0 & adt_CD48>0)
+```{r add gates back to original filtered seurat object}
+filter <- subset(filter, adt_CD150>0 & adt_CD135>0 & adt_CD48>0)
 # start with NA for every cell in the full object
 final_gates <- rep(NA_character_, ncol(filter))
 names(final_gates) <- colnames(filter)
@@ -336,10 +439,12 @@ filter <- AddMetaData(filter, metadata = final_gates, col.name = "gating")
 table(filter$gating, useNA = "ifany")
 ```
 
-```{r}
-markers <- FindAllMarkers(seurat_object, group.by = "gating")
+```{r just filter}
+rm(cd135neg, cd135work, seurat_object)
+```
 
-tbk1scatter <- FeatureScatter(filter, feature1 = "adt_CD150", feature2 = "adt_CD48") + 
+```{r TBK1 + OPTN FeaturePlots}
+adtscatter <- FeatureScatter(filter, feature1 = "adt_CD150", feature2 = "adt_CD48", group.by = "gating") + 
   scale_x_flowjo_biexp(pos = 5) + 
   scale_y_flowjo_biexp(widthBasis = -150,
                        pos = 3)+ 
@@ -347,13 +452,15 @@ tbk1scatter <- FeatureScatter(filter, feature1 = "adt_CD150", feature2 = "adt_CD
   geom_hline(yintercept = 5000, linetype = "solid", color = "black", linewidth = 1) +
   geom_vline(xintercept = 270, linetype = "solid", color = "black", linewidth = 1) + 
   labs(title = "LSKs CD48 vs CD150", x = "CD150", y = "CD48")
-tbk1scatter
+adtscatter
+ggsave("TBK1 work/LSKgating.png", adtscatter, dpi = 600)
+
 
 #Fetch ESAM (ADT), CD27 (RNA), and Fcgr3 (RNA)
-plot_df <- FetchData(mpp3_filtered, vars = c("adt_CD48", 
-                                              "adt_CD150",   # CD27
+plot_df <- FetchData(filter, vars = c("adt_CD48", 
+                                              "adt_CD150",   
                                               "rna_ENSMUSG00000020115", #TBK1
-                                             "rna_ENMUSG00000026672" #OPTN
+                                             "rna_ENSMUSG00000026672" #OPTN
                                              ))  
 
 # Sort so low Fcgr3 cells plot first (high expression on top)
@@ -369,7 +476,7 @@ tbk1scatter <- ggplot(plot_df, aes(x = adt_CD150,
     name = "TBK1"
   ) +
   scale_x_flowjo_biexp(pos = 5) +
-  scale_y_flowjo_biexp(pos = 8, neg = 2, widthBasis = -500) +
+  scale_y_flowjo_biexp(pos = 3, widthBasis = -150) +
   geom_hline(yintercept = 5000, linetype = "solid", color = "black", linewidth = 1) +
   geom_vline(xintercept = 270, linetype = "solid", color = "black", linewidth = 1) +
   labs(title = "TBK1",
@@ -380,7 +487,7 @@ tbk1scatter <- ggplot(plot_df, aes(x = adt_CD150,
         text = element_text(size = 14))
 
 tbk1scatter
-ggsave("tbk1scatter.png", tbk1scatter, dpi = 600)
+ggsave("TBK1 work/tbk1scatter.png", tbk1scatter, dpi = 600)
 
 plot_df <- plot_df[order(plot_df$rna_ENSMUSG00000026672), ]
 
@@ -390,10 +497,12 @@ optnscatter <- ggplot(plot_df, aes(x = adt_CD150,
   geom_point(size = 0.5, alpha = 0.7) +
   scale_color_gradientn(
     colors = c("lightgrey", "blue", "darkblue"),
+    values = scales::rescale(c(0, 0.22, 1)),
+    limits = c(0, 1),
     name = "OPTN"
   ) +
   scale_x_flowjo_biexp(pos = 5) +
-  scale_y_flowjo_biexp(pos = 8, neg = 2, widthBasis = -500) +
+  scale_y_flowjo_biexp(pos = 3, widthBasis = -150) +
   geom_hline(yintercept = 5000, linetype = "solid", color = "black", linewidth = 1) +
   geom_vline(xintercept = 270, linetype = "solid", color = "black", linewidth = 1) +
   labs(title = "OPTN",
@@ -403,17 +512,91 @@ optnscatter <- ggplot(plot_df, aes(x = adt_CD150,
   theme(plot.title = element_text(hjust = 0.5),
         text = element_text(size = 14))
 
-tbk1scatter
-ggsave("optnscatter.png", optnscatter, dpi = 600)
+optnscatter
+ggsave("TBK1 work/optnscatter.png", optnscatter, dpi = 600)
 ```
 
-```{r}
-tbk1vln <- VlnPlot(filter, features = c("rna_ENSMUSG00000020115"))
+```{r TBK1 + OPTN expression data}
+tbk1vln <- VlnPlot(filter, features = c("rna_ENSMUSG00000020115"), group.by = "gating")
 tbk1vln
-optnvln <- VlnPlot(filter, features = ("rna_ENSMUSG00000026672"))
+optnvln <- VlnPlot(filter, features = ("rna_ENSMUSG00000026672"), group.by = "gating")
 optnvln
+
+plot_df <- FetchData(filter, vars = c("rna_ENSMUSG00000020115", #TBK1
+                                      "rna_ENSMUSG00000026672", #OPTN
+                                      "gating"
+                                             ))
+mean <- AverageExpression(filter, 
+                          features = c("ENSMUSG00000020115", "ENSMUSG00000026672"), 
+                          group.by = "gating")
+tbk1bar <- ggplot(mean, aes(x=gating, y=ENSMUSG00000020115, fill=gating)) + 
+  geom_bar(color="black") + 
+  labs(title="Average TBK1 Expression in LSKs", y="TBK1 expression")
+tbk1bar
+
+genes <- c("ENSMUSG00000020115", "ENSMUSG00000026672", "ENSMUSG00000028756", "ENSMUSG00000023826", "ENSMUSG00000015837")
+gene_labels <- c("ENSMUSG00000020115" = "TBK1", 
+                  "ENSMUSG00000026672" = "OPTN",
+                 "ENSMUSG00000028756" = "PINK1",
+                 "ENSMUSG00000023826" = "PARKIN",
+                 "ENSMUSG00000015837" = "P62")
+
+expr_data <- FetchData(filter, vars = c(genes, "gating")) %>%
+  dplyr::filter(!is.na(gating), gating != "NA")
+
+summary_df <- expr_data %>%
+  pivot_longer(cols = all_of(genes), names_to = "gene", values_to = "expression") %>%
+  group_by(gene, gating) %>%
+  summarise(
+    mean_expr = mean(expression),
+    sd_expr = sd(expression),
+    sem_expr = sd(expression) / sqrt(n()),
+    n = n(),
+    .groups = "drop"
+  ) %>%
+  mutate(gene_label = recode(gene, !!!gene_labels))
+
+# TBK1 plot
+tbk1_df <- summary_df %>% dplyr::filter(gene_label == "TBK1")
+
+p_tbk1 <- ggplot(tbk1_df, aes(x = gating, y = mean_expr, fill = gating)) +
+  geom_bar(stat = "identity", color = "black", width = 0.7) +
+  geom_errorbar(aes(ymin = mean_expr - sem_expr, ymax = mean_expr + sem_expr), width = 0.2) +
+  geom_text(aes(y = mean_expr + sem_expr, label = paste0("n=", n)), 
+            vjust = -0.5, size = 3) +
+  labs(title = "TBK1", x = "Identity", y = "Average Expression Level") +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+
+# OPTN plot
+optn_df <- summary_df %>% dplyr::filter(gene_label == "OPTN")
+
+p_optn <- ggplot(optn_df, aes(x = gating, y = mean_expr, fill = gating)) +
+  geom_bar(stat = "identity", color = "black", width = 0.7) +
+  geom_errorbar(aes(ymin = mean_expr - sem_expr, ymax = mean_expr + sem_expr), width = 0.2) +
+  geom_text(aes(y = mean_expr + sem_expr, label = paste0("n=", n)), 
+            vjust = -0.5, size = 3) +
+  labs(title = "OPTN", x = "Identity", y = "Average Expression Level") +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+
+p_tbk1
+p_optn
+
+write.csv(summary_df, "TBK1 work/geneexpression.csv")
+
 ```
 
+```{r gsea}
+markers <- FindAllMarkers(filter, group.by = "gating")
+markers <- EnsIDReplace2(markers)
+run_gsea_seurat_all(all_markers_df = markers,
+                    gmt_path = "mouse_autophagypathways_gsea.gmt",
+                    output_dir = "TBK1 work",
+                    output_deg_all = "lskmarkers.csv")
+```
 
 ```{r}
 mpp3 <- subset(cd135neg, gate3 == "MPP3")
