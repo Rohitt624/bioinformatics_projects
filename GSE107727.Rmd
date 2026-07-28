@@ -279,7 +279,6 @@ template <- as.data.frame(do.call(rbind, list(hsc_genes, mpp1_genes, mpp2_genes,
 rownames(template) <- c("HSC", "MPP1", "MPP2", "MPP3", "MPP4")
 VlnPlot(obj, features=genelist)
 DoHeatmap(obj, features=genelist)
-
 ```
 
 ```{r}
@@ -310,4 +309,10 @@ obj_colors = c("cyan3", "olivedrab3", "orchid", "coral1")
 # 5. Visualize on your UMAP
 sigplot <- DimPlot(obj, group.by = "subtype", cols = mpp3_colors) + 
   labs(title = "LSK Predicted by NTP")
+```
+
+```{r}
+FeaturePlot(obj, features = c("Tbk1"))
+FeaturePlot(obj, features = c("Optn"))
+VlnPlot(obj, features = c("Tbk1", "Optn"))
 ```
