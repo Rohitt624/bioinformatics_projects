@@ -20,7 +20,7 @@ library(DESeq2)
 library(CMScaller)
 library(data.table)
 options(future.globals.maxSize = 5000 * 1024^2)
-setwd("/Users/rohit/Library/CloudStorage/OneDrive-LoyolaUniversityChicago/Zhang Lab/TBK1 Project/RNAseq/GSE107727")
+setwd("C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/TBK1 Project/RNAseq/GSE107727")
 ```
 
 ```{r functions}
@@ -155,76 +155,159 @@ EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rthalla/OneDrive - Loy
 ```
 
 ```{r load-data}
-files <- list.files("GSE107727_raw", pattern = "_counts.txt.gz$", full.names = TRUE)
-names(files) <- sub("_counts.txt.gz", "", basename(files))
+mat1 <- read.table("GSE107727_RAW/GSM2877127_SIGAB1_counts.txt.gz")
+mat2 <- read.table("GSE107727_RAW/GSM2877128_SIGAC1_counts.txt.gz")
+mat3 <- read.table("GSE107727_RAW/GSM2877129_SIGAD1_counts.txt.gz")
+mat4 <- read.table("GSE107727_RAW/GSM2877130_SIGAF1_counts.txt.gz")
+mat5 <- read.table("GSE107727_RAW/GSM2877131_SIGAG1_counts.txt.gz")
+mat6 <- read.table("GSE107727_RAW/GSM2877132_SIGAH1_counts.txt.gz")
 
-# Read and format each file into a proper matrix inside lapply
-mat_list <- lapply(files, function(f) {
-  dt <- fread(f, header = TRUE, sep = "\t")
-  
-  # Extract gene IDs from the first column
-  gene_ids <- dt[[1]]
-  
-  # Convert the remaining columns to a data.frame/matrix
-  mat <- as.matrix(dt[, -1, with = FALSE])
-  
-  # Assign row names
-  rownames(mat) <- gene_ids
-  
-  return(mat)
-})
+```
 
+```{r EnsID Replace}
+mat1 <- EnsIDReplace2(mat1)
+mat2 <- EnsIDReplace2(mat2)
+mat3 <- EnsIDReplace2(mat3)
+mat4 <- EnsIDReplace2(mat4)
+mat5 <- EnsIDReplace2(mat5)
+mat6 <- EnsIDReplace2(mat6)
+
+write.csv(mat1, "GSE107727_RAW/SIGAB1_genenames.csv")
+write.csv(mat2, "GSE107727_RAW/SIGAC1_genenames.csv")
+write.csv(mat3, "GSE107727_RAW/SIGAD1_genenames.csv")
+write.csv(mat4, "GSE107727_RAW/SIGAF1_genenames.csv")
+write.csv(mat5, "GSE107727_RAW/SIGAG1_genenames.csv")
+write.csv(mat6, "GSE107727_RAW/SIGAH1_genenames.csv")
+```
+
+```{r new load data}
+mat1 <- read.csv("GSE107727_RAW/SIGAB1_genenames.csv")
+mat2 <- read.csv("GSE107727_RAW/SIGAC1_genenames.csv")
+mat3 <- read.csv("GSE107727_RAW/SIGAD1_genenames.csv")
+mat4 <- read.csv("GSE107727_RAW/SIGAF1_genenames.csv")
+mat5 <- read.csv("GSE107727_RAW/SIGAG1_genenames.csv")
+mat6 <- read.csv("GSE107727_RAW/SIGAH1_genenames.csv")
+```
+
+```{r create seurat object}
+obj1 <- CreateSeuratObject(
+  counts = mat1, 
+  project = "B", 
+  min.cells = 3, 
+  min.features = 200,
+)
+
+obj2 <- CreateSeuratObject(
+  counts = mat2, 
+  project = "C", 
+  min.cells = 3, 
+  min.features = 200,
+)
+
+obj3 <- CreateSeuratObject(
+  counts = mat3, 
+  project = "D", 
+  min.cells = 3, 
+  min.features = 200,
+)
+
+obj4 <- CreateSeuratObject(
+  counts = mat4, 
+  project = "F", 
+  min.cells = 3, 
+  min.features = 200,
+)
+
+obj5 <- CreateSeuratObject(
+  counts = mat5, 
+  project = "G", 
+  min.cells = 3, 
+  min.features = 200,
+)
+
+obj6 <- CreateSeuratObject(
+  counts = mat6, 
+  project = "H", 
+  min.cells = 3, 
+  min.features = 200,
+)
+
+
+obj <- merge(obj1, y=c(obj2, obj3, obj4, obj5, obj6),
+             add.cell.ids=c("B", "C", "D", "F", "G", "H"),
+             project = "LSK")
+
+```
+
+```{r cleanup}
+rm(mat1, mat2, mat3, mat4, mat5, mat6, obj1, obj2, obj3, obj4, obj5, obj6)
+```
+
+```{r process}
+obj[["RNA"]] <- split(obj[["RNA"]], f=obj$orig.ident)
+obj <- NormalizeData(obj)
+obj <- FindVariableFeatures(obj)
+obj <- ScaleData(obj)
+obj <- RunPCA(obj)
+obj <- FindNeighbors(obj, dims=1:30, reduction="pca")
+obj <- FindClusters(obj, resolution = 2, cluster.name="unintegrated_clusters")
+obj <- RunUMAP(obj, dims=1:30, reduction="pca", reduction.name="unintegrated_umap")
+
+DimPlot(obj, reduction="unintegrated_umap", group.by=c("orig.ident", "unintegrated_clusters"))
+```
+
+```{r integrate}
+obj <- IntegrateLayers(obj, method=HarmonyIntegration, orig.reduction="pca", new.reduction="integrated.pca")
+obj <- FindNeighbors(obj, dims=1:30, reduction="integrated.pca")
+obj <- FindClusters(obj, resolution = 0.5, cluster.name="harmony_clusters")
+obj <- RunUMAP(obj, dims=1:30, reduction="integrated.pca", reduction.name="harmony_umap")
+
+DimPlot(obj, reduction="harmony_umap", group.by=c("orig.ident", "harmony_clusters"))
+
+obj <- JoinLayers(obj)
+```
+
+```{r identifying cell types}
+hsc_genes <- c("Procr", "Fgd5", "Slamf1", "Vwf")
+mpp1_genes <- c("Cd34", "Ccnd1", "Clu", "Pclaf")
+mpp2_genes <- c("Pf4", "Gata1", "Ppbp", "Itga2b")
+mpp3_genes <- c("Mpo", "Ctsg", "Elane", "Prtn3")
+mpp4_genes <- c("Flt3", "Irf8", "Rag1", "Dntt")
+
+genelist <- c(hsc_genes, mpp1_genes, mpp2_genes, mpp3_genes, mpp4_genes)
+template <- as.data.frame(do.call(rbind, list(hsc_genes, mpp1_genes, mpp2_genes, mpp3_genes, mpp4_genes)))
+rownames(template) <- c("HSC", "MPP1", "MPP2", "MPP3", "MPP4")
+VlnPlot(obj, features=genelist)
+DoHeatmap(obj, features=genelist)
 
 ```
 
 ```{r}
-library(Seurat)
-library(data.table)
+mat <- as.matrix(GetAssayData(obj, assay = "RNA", layer = "data"))
 
-# 1. Load your conversion CSV
-gene_map <- fread("Ensembl_labels.csv")
-gene_lookup <- setNames(gene_map$gene_name, gene_map$gene_id)
+mat <- CMScaller::ematAdjust(mat)
 
-# 2. Process each matrix, convert IDs, and aggregate duplicates
-seurat_list <- lapply(names(mat_list), function(nm) {
-  mat <- mat_list[[nm]]
-  current_ids <- rownames(mat)
-  
-  # Map IDs to gene names; fallback to original ID if missing/blank
-  new_names <- gene_lookup[current_ids]
-  unmatched <- is.na(new_names) | new_names == ""
-  new_names[unmatched] <- current_ids[unmatched]
-  
-  # Assign the mapped names temporarily
-  rownames(mat) <- as.character(new_names)
-  
-  # Aggregate rows with identical gene names by summing their counts
-  # This completely removes duplicate row names mathematically
-  mat_aggregated <- rowsum(mat, group = rownames(mat), reorder = FALSE)
-  
-  # Create the Seurat object with clean, unique, aggregated matrix
-  obj <- CreateSeuratObject(
-    counts = mat_aggregated, 
-    project = nm, 
-    min.cells = 3, 
-    min.features = 200
-  )
-  
-  # Store the original sample name in metadata
-  obj$orig.ident <- nm
-  
-  return(obj)
-})
-
-names(seurat_list) <- names(mat_list)
-
-# 3. Merge them together safely
-combined_seurat <- merge(
-  x = seurat_list[[1]], 
-  y = seurat_list[-1], 
-  add.cell.ids = names(seurat_list)
+ntp_res <- CMScaller::ntp(
+  emat = as.matrix(mat),
+  templates = template,
+  seed = 123,
+  doPlot = TRUE
 )
+table(ntp_res$prediction)
 
-print(combined_seurat)
+fdr_threshold <- 0.05
+
+final_subtypes <- as.character(ntp_res$prediction)
+final_subtypes[ntp_res$fdr > fdr_threshold] <- "Undetermined"
+
+obj$subtype <- factor(final_subtypes, levels = c("HSC", "MPP1", "MPP2", "MPP3", "MPP4"))
+
+# 4. Verify the distribution
+print(table(obj$subtype))
+
+obj_colors = c("cyan3", "olivedrab3", "orchid", "coral1")
+
+# 5. Visualize on your UMAP
+sigplot <- DimPlot(obj, group.by = "subtype", cols = mpp3_colors) + 
+  labs(title = "LSK Predicted by NTP")
 ```
-
