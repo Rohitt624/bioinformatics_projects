@@ -26,6 +26,7 @@ library(jsonlite)
 library(stringr)
 options(future.globals.maxSize = 5000 * 1024^2)
 setwd("E:/Zhang Lab/Archives/RNASeq/RNASeq/Cite-seq/GSE145491")
+setwd("/")
 ```
 
 ```{r functions}
@@ -301,18 +302,122 @@ adtscatter <- FeatureScatter(cd135neg, feature1 = "adt_CD150", feature2 = "adt_C
   scale_x_flowjo_biexp(pos = 5) + 
   scale_y_flowjo_biexp(widthBasis = -150,
                        pos = 3)
-cd135neg <- CellSelector(adtscatter, object = cd135neg, ident = "MPP3")
 
 cd135neg$gate3 <- ifelse(Idents(cd135neg) == "MPP3", "MPP3", NA)
 
-mpp3 <- subset(cd135neg, gate3 == "MPP3")
-mpp3threshold <- FetchData(mpp3, vars = c("adt_ESAM"))
+
 
 cd135neg$gate3 <- NULL
 cd135neg$gate3 <- ifelse(cd135work$adt_CD48 > 5000 & cd135work$adt_CD150 < 270, "MPP3", 
                          ifelse(cd135work$adt_CD48 < 5000 & cd135work$adt_CD150 < 270, "MPP1",
                                 ifelse(cd135work$adt_CD48 > 5000 & cd135work$adt_CD150 > 270, "MPP2", 
                                        ifelse(cd135work$adt_CD48 < 5000 & cd135work$adt_CD150 > 270, "HSC", NA))))
+```
+
+```{r}
+filter <- subset(filter, adt_CD150<0 & act_CD135>0 & adt_CD48>0)
+# start with NA for every cell in the full object
+final_gates <- rep(NA_character_, ncol(filter))
+names(final_gates) <- colnames(filter)
+
+# MPP4 cells came from filter$gate2 (before you subsetted to cd135neg)
+mpp4_cells <- colnames(filter)[!is.na(filter$gate2) & filter$gate2 == "MPP4"]
+final_gates[mpp4_cells] <- "MPP4"
+
+# MPP1/MPP2/MPP3/HSC cells came from cd135neg$gate3
+gate3_named <- setNames(cd135neg$gate3, colnames(cd135neg))
+gate3_named <- gate3_named[!is.na(gate3_named)]
+final_gates[names(gate3_named)] <- gate3_named
+
+# attach back to the original object, matched by cell name
+filter <- AddMetaData(filter, metadata = final_gates, col.name = "gating")
+
+# sanity check
+table(filter$gating, useNA = "ifany")
+```
+
+```{r}
+markers <- FindAllMarkers(seurat_object, group.by = "gating")
+
+tbk1scatter <- FeatureScatter(filter, feature1 = "adt_CD150", feature2 = "adt_CD48") + 
+  scale_x_flowjo_biexp(pos = 5) + 
+  scale_y_flowjo_biexp(widthBasis = -150,
+                       pos = 3)+ 
+  geom_density_2d(bins = 15) + 
+  geom_hline(yintercept = 5000, linetype = "solid", color = "black", linewidth = 1) +
+  geom_vline(xintercept = 270, linetype = "solid", color = "black", linewidth = 1) + 
+  labs(title = "LSKs CD48 vs CD150", x = "CD150", y = "CD48")
+tbk1scatter
+
+#Fetch ESAM (ADT), CD27 (RNA), and Fcgr3 (RNA)
+plot_df <- FetchData(mpp3_filtered, vars = c("adt_CD48", 
+                                              "adt_CD150",   # CD27
+                                              "rna_ENSMUSG00000020115", #TBK1
+                                             "rna_ENMUSG00000026672" #OPTN
+                                             ))  
+
+# Sort so low Fcgr3 cells plot first (high expression on top)
+plot_df <- plot_df[order(plot_df$rna_ENSMUSG00000020115), ]
+
+# Plot
+tbk1scatter <- ggplot(plot_df, aes(x = adt_CD150, 
+                                     y = adt_CD48, 
+                                     color = rna_ENSMUSG00000020115)) +
+  geom_point(size = 0.5, alpha = 0.7) +
+  scale_color_gradientn(
+    colors = c("lightgrey", "blue", "darkblue"),
+    name = "TBK1"
+  ) +
+  scale_x_flowjo_biexp(pos = 5) +
+  scale_y_flowjo_biexp(pos = 8, neg = 2, widthBasis = -500) +
+  geom_hline(yintercept = 5000, linetype = "solid", color = "black", linewidth = 1) +
+  geom_vline(xintercept = 270, linetype = "solid", color = "black", linewidth = 1) +
+  labs(title = "TBK1",
+       x = "CD150", 
+       y = "CD48") +
+  theme_classic() + 
+  theme(plot.title = element_text(hjust = 0.5),
+        text = element_text(size = 14))
+
+tbk1scatter
+ggsave("tbk1scatter.png", tbk1scatter, dpi = 600)
+
+plot_df <- plot_df[order(plot_df$rna_ENSMUSG00000026672), ]
+
+optnscatter <- ggplot(plot_df, aes(x = adt_CD150, 
+                                     y = adt_CD48, 
+                                     color = rna_ENSMUSG00000026672)) +
+  geom_point(size = 0.5, alpha = 0.7) +
+  scale_color_gradientn(
+    colors = c("lightgrey", "blue", "darkblue"),
+    name = "OPTN"
+  ) +
+  scale_x_flowjo_biexp(pos = 5) +
+  scale_y_flowjo_biexp(pos = 8, neg = 2, widthBasis = -500) +
+  geom_hline(yintercept = 5000, linetype = "solid", color = "black", linewidth = 1) +
+  geom_vline(xintercept = 270, linetype = "solid", color = "black", linewidth = 1) +
+  labs(title = "OPTN",
+       x = "CD150", 
+       y = "CD48") +
+  theme_classic() + 
+  theme(plot.title = element_text(hjust = 0.5),
+        text = element_text(size = 14))
+
+tbk1scatter
+ggsave("optnscatter.png", optnscatter, dpi = 600)
+```
+
+```{r}
+tbk1vln <- VlnPlot(filter, features = c("rna_ENSMUSG00000020115"))
+tbk1vln
+optnvln <- VlnPlot(filter, features = ("rna_ENSMUSG00000026672"))
+optnvln
+```
+
+
+```{r}
+mpp3 <- subset(cd135neg, gate3 == "MPP3")
+mpp3threshold <- FetchData(mpp3, vars = c("adt_ESAM"))
 
 top40 <- quantile(mpp3threshold$adt_ESAM, 0.6)
 bottom40 <- quantile(mpp3threshold$adt_ESAM, 0.4)
