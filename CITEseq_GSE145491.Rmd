@@ -534,12 +534,26 @@ tbk1bar <- ggplot(mean, aes(x=gating, y=ENSMUSG00000020115, fill=gating)) +
   labs(title="Average TBK1 Expression in LSKs", y="TBK1 expression")
 tbk1bar
 
-genes <- c("ENSMUSG00000020115", "ENSMUSG00000026672", "ENSMUSG00000028756", "ENSMUSG00000023826", "ENSMUSG00000015837")
+genes <- c("ENSMUSG00000020115",
+           "ENSMUSG00000026672",
+           "ENSMUSG00000028756",
+           "ENSMUSG00000023826",
+           "ENSMUSG00000015837",
+           "ENSMUSG00000078566",
+           "ENSMUSG00000022051",
+           "ENSMUSG00000025040",
+           "ENSMUSG00000029512",
+           "ENSMUSG00000004535")
 gene_labels <- c("ENSMUSG00000020115" = "TBK1", 
                   "ENSMUSG00000026672" = "OPTN",
                  "ENSMUSG00000028756" = "PINK1",
                  "ENSMUSG00000023826" = "PARKIN",
-                 "ENSMUSG00000015837" = "P62")
+                 "ENSMUSG00000015837" = "P62",
+                 "ENSMUSG00000078566" = "BNIP3",
+                 "ENSMUSG00000022051" = "NIX",
+                 "ENSMUSG00000025040" = "FUNDC1",
+                 "ENSMUSG00000029512" = "ULK1",
+                 "ENSMUSG00000004535" = "TAX1BP1")
 
 expr_data <- FetchData(filter, vars = c(genes, "gating")) %>%
   dplyr::filter(!is.na(gating), gating != "NA")
