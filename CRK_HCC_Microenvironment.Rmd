@@ -1,0 +1,236 @@
+---
+title: "CRK HCC Immune Microenvironment"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r libraries}
+library(tidyverse)
+library(DESeq2)
+library(rnaseqGene)
+library(pheatmap)
+library(fgsea)
+library(biomaRt)
+library(ggVennDiagram)
+library(VennDiagram)
+library(ggrepel)
+library(jsonlite)
+library(stringr)
+library(fs)
+library(dplyr)
+library(GSVA)
+library(ggpubr)
+library(GSEABase)
+library(CMScaller)
+
+setwd("E:/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
+```
+
+```{r functions}
+run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
+  suppressPackageStartupMessages({
+    library(DESeq2)
+    library(fgsea)
+    library(BiocParallel)
+    library(dplyr)
+  })
+
+  # Force serial execution to avoid BiocParallel crashes
+  BiocParallel::register(BiocParallel::SerialParam())
+
+  #-------------------------------
+  # 1. Validate contrast levels
+  #-------------------------------
+  if (!"condition" %in% colnames(colData(dds))) {
+    stop("Column 'condition' not found in colData(dds).")
+  }
+
+  mut_levels <- levels(dds$condition)
+
+  if (!(condition1 %in% mut_levels)) {
+    stop(paste("Condition1 not found in Mutation levels:", condition1))
+  }
+  if (!(condition2 %in% mut_levels)) {
+    stop(paste("Condition2 not found in Mutation levels:", condition2))
+  }
+
+  #-------------------------------
+  # 2. Run DESeq2 contrast
+  #-------------------------------
+  res <- DESeq2::results(
+    dds,
+    contrast = c("condition", condition1, condition2),
+    independentFiltering = TRUE,
+    alpha = 0.1,
+    parallel = FALSE
+  )
+
+  # Remove rows with NA statistics
+  res <- res[complete.cases(res$stat), ]
+
+  #-------------------------------
+  # 3. Build ranking vector
+  #-------------------------------
+  rnk <- setNames(res$stat, rownames(res))
+
+  if (length(rnk) < 1000) {
+    stop("Ranking vector too small (<1000 genes). Likely no signal in this contrast.")
+  }
+
+  #-------------------------------
+  # 4. Load pathways
+  #-------------------------------
+  gmt <- fgsea::gmtPathways(gmt_path)
+
+  #-------------------------------
+  # 5. Run fgsea
+  #-------------------------------
+  gsea <- fgsea(
+    pathways = gmt,
+    stats = rnk,
+    minSize = 0,
+    maxSize = 500
+  )
+
+  gsea_df <- as.data.frame(gsea)
+  
+
+  # Flatten list columns (leadingEdge)
+  list_cols <- sapply(gsea_df, is.list)
+  gsea_df[list_cols] <- lapply(gsea_df[list_cols], function(x) sapply(x, paste, collapse = ";"))
+
+  #-------------------------------
+  # 6. Write outputs
+  #-------------------------------
+  write.csv(gsea_df, output_gsea, row.names = FALSE)
+
+  # DEG table (filtered for significance)
+  deg_df <- as.data.frame(res) %>%
+    mutate(gene = rownames(res)) %>%
+    filter(padj < 0.1)
+
+  write.csv(deg_df, output_deg, row.names = FALSE)
+
+  #-------------------------------
+  # 7. Return objects invisibly
+  #-------------------------------
+  invisible(list(
+    gsea = gsea_df,
+    degs = deg_df,
+    ranking = rnk
+  ))
+}
+
+EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv") {
+  #-----------------------------
+  # 1. Validate inputs
+  #-----------------------------
+  if (!is.matrix(input) && !is.data.frame(input)) {
+    stop("Input must be a matrix or data.frame with rownames.")
+  }
+  if (is.null(rownames(input))) {
+    stop("Input must have rownames corresponding to Ensembl IDs.")
+  }
+  if (!file.exists(mapping_file)) {
+    stop(paste("Mapping file not found:", mapping_file))
+  }
+
+  #-----------------------------
+  # 2. Load mapping file
+  #-----------------------------
+  gene_mapping <- read.csv(mapping_file, stringsAsFactors = FALSE)
+
+  required_cols <- c("gene_id", "gene_name")
+  if (!all(required_cols %in% colnames(gene_mapping))) {
+    stop("Mapping file must contain columns: gene_id, gene_name")
+  }
+
+  #-----------------------------
+  # 3. Build lookup vector
+  #-----------------------------
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+
+  #-----------------------------
+  # 4. Vectorized name replacement
+  #-----------------------------
+  old_ids <- rownames(input)
+
+  # Replace Ensembl IDs with gene names where available
+  new_names <- id_list[old_ids]
+
+  # For IDs not found in mapping, keep original
+  new_names[is.na(new_names)] <- old_ids[is.na(new_names)]
+
+  # Replace empty strings with NA
+  new_names[new_names == ""] <- NA
+
+  # Ensure syntactically valid + unique names
+  new_names <- make.names(new_names, unique = TRUE)
+
+  #-----------------------------
+  # 5. Apply new rownames
+  #-----------------------------
+  rownames(input) <- new_names
+
+  #-----------------------------
+  # 6. Return modified object
+  #-----------------------------
+  return(input)
+}
+```
+
+```{r load data}
+cts <- read.csv("gene_count.csv")
+rownames(cts) <- make.unique(cts[,1])
+cts<- cts[,-1]
+cd <- read.csv("cd.csv")
+dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~condition)
+
+write.table(cts, "gene_count_uniquenames.txt")
+```
+
+```{r convert fpkm to tpm}
+
+fpkm <- read.csv("gene_fpkm.csv")
+gene_col <- fpkm[[1]]                 # gene symbols
+expr_mat <- as.matrix(fpkm[, -1])     # numeric FPKM matrix, samples in columns
+
+# Rescale FPKM -> TPM per sample (per-column sum to 1e6)
+tpm_mat <- sweep(expr_mat, 2, colSums(expr_mat, na.rm = TRUE), FUN = "/") * 1e6
+
+# Collapse duplicate gene symbols by averaging (CIBERSORTx requires unique gene IDs)
+tpm_df <- data.frame(GeneSymbol = gene_col, tpm_mat, check.names = FALSE) %>%
+  group_by(GeneSymbol) %>%
+  summarise(across(everything(), mean, na.rm = TRUE)) %>%
+  ungroup()
+
+# Export as tab-delimited txt for CIBERSORTx
+write.table(tpm_df, "gene_tpm.txt",
+            sep = "\t", quote = FALSE, row.names = FALSE)
+```
+
+```{r}
+dds <- estimateSizeFactors(dds)
+norm <- counts(dds, normalized = TRUE) 
+```
+
+```{r vst normalize}
+dds <- DESeqDataSetFromMatrix(countData = cts,
+                              colData = cd,
+                              design = ~ condition) # Use intercept-only for normalization
+
+# Apply VST
+vst <- vst(dds, blind = TRUE)
+
+# Extract the normalized matrix for NTP
+vst_mat <- assay(vst)
+
+rlog <- rlog(dds)
+rlog_mat <- assay(rlog)
+write.table(rlog_mat, "rlognormalized_matrix.txt")
+```
