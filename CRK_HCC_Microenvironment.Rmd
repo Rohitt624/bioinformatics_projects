@@ -23,7 +23,6 @@ library(GSVA)
 library(ggpubr)
 library(GSEABase)
 library(CMScaller)
-library(IOBR)
 library(immunedeconv)
 
 #setwd("E:/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
