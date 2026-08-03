@@ -5,10 +5,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
-
 ```{r libraries}
 library(tidyverse)
 library(DESeq2)
@@ -27,9 +23,47 @@ library(GSVA)
 library(ggpubr)
 library(GSEABase)
 library(CMScaller)
+library(IOBR)
+library(immunedeconv)
 
-setwd("E:/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
+#setwd("E:/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
+setwd("/Volumes/NO NAME/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
 ```
+
+```{r}
+# --- CRAN packages ---
+install.packages(c(
+  "tidyverse",     # includes dplyr, stringr, ggplot2, etc.
+  "pheatmap",
+  "ggVennDiagram",
+  "VennDiagram",
+  "ggrepel",
+  "jsonlite",
+  "stringr",
+  "fs",
+  "ggpubr"
+))
+
+# --- Bioconductor packages ---
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install(c(
+  "DESeq2",
+  "rnaseqGene",
+  "fgsea",
+  "biomaRt",
+  "GSVA",
+  "GSEABase"
+))
+
+# --- GitHub package(s) ---
+if (!require("remotes", quietly = TRUE))
+  install.packages("remotes")
+
+remotes::install_github("peterawe/CMScaller")
+```
+
 
 ```{r functions}
 run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
@@ -186,12 +220,20 @@ EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rohit/OneDrive - Loyol
 
 ```{r load data}
 cts <- read.csv("gene_count.csv")
-rownames(cts) <- make.unique(cts[,1])
+cts <- data.frame(GeneSymbol = cts$gene_name, cts, check.names = FALSE) %>%
+  dplyr::select(-gene_name) %>%
+  dplyr::group_by(GeneSymbol) %>%
+  dplyr::summarise(across(where(is.numeric), sum, na.rm = TRUE)) %>%
+  dplyr::ungroup()
+cts <- as.data.frame(cts)
+rownames(cts) <- cts[,1]
 cts<- cts[,-1]
 cd <- read.csv("cd.csv")
 dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~condition)
 
-write.table(cts, "gene_count_uniquenames.txt")
+write.csv(cts, "gene_count_uniquenames.csv")
+
+rm(cts, cd)
 ```
 
 ```{r convert fpkm to tpm}
@@ -210,20 +252,22 @@ tpm_df <- data.frame(GeneSymbol = gene_col, tpm_mat, check.names = FALSE) %>%
   ungroup()
 
 # Export as tab-delimited txt for CIBERSORTx
-write.table(tpm_df, "gene_tpm.txt",
+write.csv(tpm_df, "gene_tpm.csv",
             sep = "\t", quote = FALSE, row.names = FALSE)
 ```
 
 ```{r}
-dds <- estimateSizeFactors(dds)
-norm <- counts(dds, normalized = TRUE) 
+cts <- read.csv("gene_count_uniquenames.csv", row.names = 1)
+cd <- read.csv("cd.csv")
+dds <- DESeqDataSetFromMatrix(countData = cts, colData = cd, design = ~condition)
+
+```
+
+```{r}
+dds <- DESeq(dds)
 ```
 
 ```{r vst normalize}
-dds <- DESeqDataSetFromMatrix(countData = cts,
-                              colData = cd,
-                              design = ~ condition) # Use intercept-only for normalization
-
 # Apply VST
 vst <- vst(dds, blind = TRUE)
 
@@ -233,4 +277,56 @@ vst_mat <- assay(vst)
 rlog <- rlog(dds)
 rlog_mat <- assay(rlog)
 write.table(rlog_mat, "rlognormalized_matrix.txt")
+```
+
+```{r gsva}
+gmt <- gmtPathways("m7.all.v2026.1.Mm.symbols.gmt")
+
+ssgseaPar <- ssgseaParam(rlog_mat, gmt, alpha = 0.25, normalize = TRUE)
+res_gsva <- gsva(ssgseaPar, verbose = TRUE)
+
+run_gsea(dds, "MCKO", "MCWT", "m7.all.v2026.1.Mm.symbols.gmt", "immunecellchange.csv", "immunecelldeg.csv")
+
+write.csv(res_gsva, "relativeimmunecell.csv")
+```
+
+```{r immunedeconv}
+tpm <- read.csv("gene_tpm.csv", row.names = 1)
+
+mmcp_res <- immunedeconv::deconvolute_mouse(tpm, "mmcp_counter")
+write.csv(mmcp_res, "mmcp_deconv.csv")
+
+seqimmucc <- deconvolute_mouse(cts, "seqimmucc", algorithm = "LLSR")
+write.csv(seqimmucc, "seqimmucc.csv")
+```
+
+```{r}
+library(biomaRt)
+
+mouse <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+human <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+
+orthologs <- getLDS(
+  attributes = "mgi_symbol",
+  filters = "mgi_symbol",
+  values = rownames(cts),
+  mart = mouse,
+  attributesL = "hgnc_symbol",
+  martL = human,
+  uniqueRows = TRUE
+)
+
+colnames(orthologs) <- c("mouse_gene", "human_gene")
+
+# Merge and collapse to human symbols
+tpm_human <- tpm %>%
+  tibble::rownames_to_column("mouse_gene") %>%
+  inner_join(orthologs, by = "mouse_gene") %>%
+  dplyr::select(-mouse_gene) %>%
+  filter(human_gene != "") %>%
+  group_by(human_gene) %>%
+  summarise(across(where(is.numeric), sum, na.rm = TRUE)) %>%   # same collapse logic as before, since orthology mapping is also many-to-one/one-to-many
+  tibble::column_to_rownames("human_gene")
+
+res_quantiseq <- immunedeconv::deconvolute(tpm_human, "quantiseq")
 ```
