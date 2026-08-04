@@ -295,8 +295,10 @@ tpm <- read.csv("gene_tpm.csv", row.names = 1)
 mmcp_res <- immunedeconv::deconvolute_mouse(tpm, "mmcp_counter")
 write.csv(mmcp_res, "mmcp_deconv.csv")
 
-seqimmucc <- deconvolute_mouse(cts, "seqimmucc", algorithm = "LLSR")
-write.csv(seqimmucc, "seqimmucc.csv")
+set_cibersort_binary("CIBERSORT.R")
+set_cibersort_mat("LS22.txt")
+cibersort <- deconvolute_mouse(cts, "seqimmucc", algorithm = "SVR")
+write.csv(cibersort, "cibersort.csv")
 ```
 
 ```{r}
