@@ -331,3 +331,12 @@ tpm_human <- tpm %>%
 
 res_quantiseq <- immunedeconv::deconvolute(tpm_human, "quantiseq")
 ```
+
+```{r cell cycle}
+run_gsea(dds,
+         condition1 = "MCKO",
+         condition2 = "MCWT",
+         gmt_path = "selectedhallmark.gmt",
+         output_gsea = "hallmarkgsea.csv",
+         output_deg = "mc_deg.csv")
+```
