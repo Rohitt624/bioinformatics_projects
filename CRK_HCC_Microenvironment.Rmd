@@ -284,9 +284,32 @@ gmt <- gmtPathways("m7.all.v2026.1.Mm.symbols.gmt")
 ssgseaPar <- ssgseaParam(rlog_mat, gmt, alpha = 0.25, normalize = TRUE)
 res_gsva <- gsva(ssgseaPar, verbose = TRUE)
 
-run_gsea(dds, "MCKO", "MCWT", "m7.all.v2026.1.Mm.symbols.gmt", "immunecellchange.csv", "immunecelldeg.csv")
-
 write.csv(res_gsva, "relativeimmunecell.csv")
+```
+
+```{r immune activity gsea}
+run_gsea(dds, 
+         "MCKO", 
+         "MCWT", 
+         "immunepathways_up.gmt", 
+         "mc_immunecellchange_up.csv", 
+         "mc_deg.csv")
+
+run_gsea(dds, 
+         "DMSO", 
+         "FP", 
+         "immunepathways_up.gmt", 
+         "fp_immunecellchange_up.csv", 
+         "fp_deg.csv")
+
+run_gsea(dds, 
+         "NTWT", 
+         "NTKO", 
+         "immunepathways_up.gmt", 
+         "ko_immunecellchange_up.csv", 
+         "ko_deg.csv")
+
+
 ```
 
 ```{r immunedeconv}
@@ -301,42 +324,87 @@ cibersort <- deconvolute_mouse(cts, "seqimmucc", algorithm = "SVR")
 write.csv(cibersort, "cibersort.csv")
 ```
 
-```{r}
-library(biomaRt)
-
-mouse <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
-human <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
-
-orthologs <- getLDS(
-  attributes = "mgi_symbol",
-  filters = "mgi_symbol",
-  values = rownames(cts),
-  mart = mouse,
-  attributesL = "hgnc_symbol",
-  martL = human,
-  uniqueRows = TRUE
-)
-
-colnames(orthologs) <- c("mouse_gene", "human_gene")
-
-# Merge and collapse to human symbols
-tpm_human <- tpm %>%
-  tibble::rownames_to_column("mouse_gene") %>%
-  inner_join(orthologs, by = "mouse_gene") %>%
-  dplyr::select(-mouse_gene) %>%
-  filter(human_gene != "") %>%
-  group_by(human_gene) %>%
-  summarise(across(where(is.numeric), sum, na.rm = TRUE)) %>%   # same collapse logic as before, since orthology mapping is also many-to-one/one-to-many
-  tibble::column_to_rownames("human_gene")
-
-res_quantiseq <- immunedeconv::deconvolute(tpm_human, "quantiseq")
-```
-
-```{r cell cycle}
+```{r cell cycle gsea}
 run_gsea(dds,
          condition1 = "MCKO",
          condition2 = "MCWT",
          gmt_path = "selectedhallmark.gmt",
-         output_gsea = "hallmarkgsea.csv",
+         output_gsea = "mc_cellcyclegsea.csv",
          output_deg = "mc_deg.csv")
+
+run_gsea(dds,
+         condition1 = "DMSO",
+         condition2 = "FP",
+         gmt_path = "selectedhallmark.gmt",
+         output_gsea = "fp_cellcyclegsea.csv",
+         output_deg = "fp_deg.csv")
+
+run_gsea(dds,
+         condition1 = "NTWT",
+         condition2 = "NTKO",
+         gmt_path = "selectedhallmark.gmt",
+         output_gsea = "ko_cellcyclegsea.csv",
+         output_deg = "ko_deg.csv")
+```
+
+```{r overlapping DEGs}
+mcdeg <- read.csv("mc_deg.csv")
+rownames(mcdeg) <- mcdeg$gene
+fpdeg <- read.csv("fp_deg.csv")
+rownames(fpdeg) <- fpdeg$gene
+kodeg <- read.csv("ko_deg.csv")
+rownames(kodeg) <- kodeg$gene
+
+filter_genes <- function(df, direction = "up", p_thresh = 0.1, fc_thresh = 0.1) {
+  df$gene <- sub("\\..*", "", rownames(df))
+  
+  if (direction == "up") {
+    subset_df <- df[which(df$log2FoldChange > fc_thresh & df$padj < p_thresh), ]
+  } else {
+    subset_df <- df[which(df$log2FoldChange < -fc_thresh & df$padj < p_thresh), ]
+  }
+  return(subset_df$gene)
+}
+
+up_mc <- filter_genes(mcdeg, "up")
+up_ko  <- filter_genes(kodeg,  "up")
+up_fp  <- filter_genes(fpdeg,  "up")
+
+down_mc <- filter_genes(mcdeg, "down")
+down_ko  <- filter_genes(kodeg,  "down")
+down_fp  <- filter_genes(fpdeg,  "down")
+
+overlap_up <- Reduce(intersect, list(up_ko, up_fp))
+overlap_down <- Reduce(intersect, list(down_ko, down_fp))
+
+final_list <- data.frame(
+  gene = c(overlap_up, overlap_down),
+  direction = c(rep("Consistent_Up", length(overlap_up)), 
+                rep("Consistent_Down", length(overlap_down)))
+)
+
+write.csv(final_list, "deg_overlap_ko_fp.csv", row.names = FALSE)
+```
+
+```{r gsea plot}
+table <- read.csv("selected3p24.csv")
+table$pathway <- gsub("_", " ", table$pathway)
+table <- table[c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), ]
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 10)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", face="bold")
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.1,2.1)) + 
+  labs(x="-log(padj)", y="Genesets") +
+  xlim(0,11.5) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gseaplot
+
+ggsave("3p24plot.png", gseaplot, dpi = 600, width = 6.5, height = 5)
 ```
