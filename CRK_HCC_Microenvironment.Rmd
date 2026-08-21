@@ -25,8 +25,8 @@ library(GSEABase)
 library(CMScaller)
 library(immunedeconv)
 
-#setwd("E:/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
-setwd("/Volumes/NO NAME/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
+setwd("E:/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
+#setwd("/Volumes/NO NAME/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
 ```
 
 ```{r}
@@ -61,6 +61,8 @@ if (!require("remotes", quietly = TRUE))
   install.packages("remotes")
 
 remotes::install_github("peterawe/CMScaller")
+
+remotes::install_github("omnideconv/immunedeconv")
 ```
 
 
