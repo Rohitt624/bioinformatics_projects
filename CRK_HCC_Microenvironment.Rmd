@@ -298,15 +298,15 @@ run_gsea(dds,
          "mc_deg.csv")
 
 run_gsea(dds, 
-         "DMSO", 
          "FP", 
+         "DMSO", 
          "immunepathways_up.gmt", 
          "fp_immunecellchange_up.csv", 
          "fp_deg.csv")
 
 run_gsea(dds, 
-         "NTWT", 
          "NTKO", 
+         "NTWT", 
          "immunepathways_up.gmt", 
          "ko_immunecellchange_up.csv", 
          "ko_deg.csv")
@@ -335,17 +335,40 @@ run_gsea(dds,
          output_deg = "mc_deg.csv")
 
 run_gsea(dds,
-         condition1 = "DMSO",
-         condition2 = "FP",
+         condition1 = "FP",
+         condition2 = "DMSO",
          gmt_path = "selectedhallmark.gmt",
          output_gsea = "fp_cellcyclegsea.csv",
          output_deg = "fp_deg.csv")
 
 run_gsea(dds,
-         condition1 = "NTWT",
-         condition2 = "NTKO",
+         condition1 = "NTKO",
+         condition2 = "NTWT",
          gmt_path = "selectedhallmark.gmt",
          output_gsea = "ko_cellcyclegsea.csv",
+         output_deg = "ko_deg.csv")
+```
+
+```{r hallmark gsea}
+run_gsea(dds,
+         condition1 = "MCKO",
+         condition2 = "MCWT",
+         gmt_path = "hallmarkpathways.gmt",
+         output_gsea = "mc_allhallmark.csv",
+         output_deg = "mc_deg.csv")
+
+run_gsea(dds,
+         condition1 = "FP",
+         condition2 = "DMSO",
+         gmt_path = "hallmarkpathways.gmt",
+         output_gsea = "fp_allhallmark.csv",
+         output_deg = "fp_deg.csv")
+
+run_gsea(dds,
+         condition1 = "NTKO",
+         condition2 = "NTWT",
+         gmt_path = "hallmarkpathways.gmt",
+         output_gsea = "ko_allhallmark.csv",
          output_deg = "ko_deg.csv")
 ```
 
@@ -376,8 +399,8 @@ down_mc <- filter_genes(mcdeg, "down")
 down_ko  <- filter_genes(kodeg,  "down")
 down_fp  <- filter_genes(fpdeg,  "down")
 
-overlap_up <- Reduce(intersect, list(up_ko, up_fp))
-overlap_down <- Reduce(intersect, list(down_ko, down_fp))
+overlap_up <- Reduce(intersect, list(up_mc, up_ko))
+overlap_down <- Reduce(intersect, list(down_mc, down_ko))
 
 final_list <- data.frame(
   gene = c(overlap_up, overlap_down),
@@ -385,13 +408,13 @@ final_list <- data.frame(
                 rep("Consistent_Down", length(overlap_down)))
 )
 
-write.csv(final_list, "deg_overlap_ko_fp.csv", row.names = FALSE)
+write.csv(final_list, "deg_overlap_mcko_ntko.csv", row.names = FALSE)
 ```
 
-```{r gsea plot}
-table <- read.csv("selected3p24.csv")
+```{r hallmark}
+#Met/Cat KO
+table <- read.csv("mc_hallmark.csv")
 table$pathway <- gsub("_", " ", table$pathway)
-table <- table[c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), ]
 gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
   geom_point(shape=21) + 
   scale_size(range = c(5, 10)) +
@@ -400,13 +423,138 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), 
     panel.background = element_rect(fill = "white"), 
     panel.border = element_rect(color = "black", fill = NA), 
     plot.title = element_text(hjust = 0.5), 
-    axis.text=element_text(color="black", face="bold")
+    axis.text=element_text(color="black", size = 18),
+    axis.title = element_text(face = "bold", size = 24),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 16)
     ) +
-  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.1,2.1)) + 
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.25,2.25)) + 
   labs(x="-log(padj)", y="Genesets") +
-  xlim(0,11.5) + 
+  xlim(0,12) + 
   geom_vline(xintercept = -log10(0.25), linetype = "dashed")
 gseaplot
 
-ggsave("3p24plot.png", gseaplot, dpi = 600, width = 6.5, height = 5)
+ggsave("mc_hallmark.png", gseaplot, dpi = 600, width = 10, height = 7)
+
+#NTKO
+table <- read.csv("ko_hallmark.csv")
+table$pathway <- gsub("_", " ", table$pathway)
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 10)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", size = 18),
+    axis.title = element_text(face = "bold", size = 24),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 16)
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.25,2.25)) + 
+  labs(x="-log(padj)", y="Genesets") +
+  xlim(0,12) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gseaplot
+
+ggsave("ko_hallmark.png", gseaplot, dpi = 600, width = 10, height = 7)
+
+#FP
+table <- read.csv("fp_hallmark.csv")
+table$pathway <- gsub("_", " ", table$pathway)
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 10)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", size = 18),
+    axis.title = element_text(face = "bold", size = 24),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 16)
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.25,2.25)) + 
+  labs(x="-log(padj)", y="Genesets") +
+  xlim(0,12) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gseaplot
+
+ggsave("fp_hallmark.png", gseaplot, dpi = 600, width = 10, height = 7)
+```
+
+```{r macrophage}
+#MCKO
+table <- read.csv("mc_macrophage.csv")
+table$pathway <- gsub("_", " ", table$pathway)
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 10)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 37)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", size = 18),
+    axis.title = element_text(face = "bold", size = 24),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 16)
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
+  labs(x="-log(padj)", y="Genesets") +
+  xlim(0,15) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gseaplot
+
+ggsave("mc_macrophage.png", gseaplot, dpi = 600, width = 10, height = 12)
+
+#NTKO
+table <- read.csv("ko_macrophage.csv")
+table$pathway <- gsub("_", " ", table$pathway)
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 10)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 37)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", size = 18),
+    axis.title = element_text(face = "bold", size = 24),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 16)
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
+  labs(x="-log(padj)", y="Genesets") +
+  xlim(0,15) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gseaplot
+
+ggsave("ko_macrophage.png", gseaplot, dpi = 600, width = 10, height = 12)
+
+#FP
+table <- read.csv("fp_macrophage.csv")
+table$pathway <- gsub("_", " ", table$pathway)
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 10)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 37)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", size = 18),
+    axis.title = element_text(face = "bold", size = 24),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 16)
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
+  labs(x="-log(padj)", y="Genesets") +
+  xlim(0,15) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gseaplot
+
+ggsave("fp_macrophage.png", gseaplot, dpi = 600, width = 10, height = 12)
 ```
