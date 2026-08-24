@@ -543,7 +543,8 @@ genes <- c("ENSMUSG00000020115",
            "ENSMUSG00000022051",
            "ENSMUSG00000025040",
            "ENSMUSG00000029512",
-           "ENSMUSG00000004535")
+           "ENSMUSG00000004535",
+           "ENSMUSG00000021408")
 gene_labels <- c("ENSMUSG00000020115" = "TBK1", 
                   "ENSMUSG00000026672" = "OPTN",
                  "ENSMUSG00000028756" = "PINK1",
@@ -553,7 +554,8 @@ gene_labels <- c("ENSMUSG00000020115" = "TBK1",
                  "ENSMUSG00000022051" = "NIX",
                  "ENSMUSG00000025040" = "FUNDC1",
                  "ENSMUSG00000029512" = "ULK1",
-                 "ENSMUSG00000004535" = "TAX1BP1")
+                 "ENSMUSG00000004535" = "TAX1BP1",
+                 "ENSMUSG00000021408" = "RIPK1")
 
 expr_data <- FetchData(filter, vars = c(genes, "gating")) %>%
   dplyr::filter(!is.na(gating), gating != "NA")
@@ -607,8 +609,8 @@ write.csv(summary_df, "TBK1 work/geneexpression.csv")
 markers <- FindAllMarkers(filter, group.by = "gating")
 markers <- EnsIDReplace2(markers)
 run_gsea_seurat_all(all_markers_df = markers,
-                    gmt_path = "mouse_autophagypathways_gsea.gmt",
-                    output_dir = "TBK1 work",
+                    gmt_path = "mousepathways_gsea.gmt",
+                    output_dir = "TBK1 work/allpathwaysgsea",
                     output_deg_all = "lskmarkers.csv")
 ```
 
