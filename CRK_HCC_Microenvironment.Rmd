@@ -25,7 +25,7 @@ library(GSEABase)
 library(CMScaller)
 library(immunedeconv)
 
-setwd("E:/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
+setwd("D:/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
 #setwd("/Volumes/NO NAME/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
 ```
 
@@ -349,6 +349,22 @@ run_gsea(dds,
          output_deg = "ko_deg.csv")
 ```
 
+```{r additional cell cycle gsea}
+run_gsea(dds,
+         condition1 = "MCKO",
+         condition2 = "NTWT",
+         gmt_path = "selectedhallmark.gmt",
+         output_gsea = "mcko_ntwt_cellcyclegsea.csv",
+         output_deg = "mcko_ntwt_deg.csv")
+
+run_gsea(dds,
+         condition1 = "MCKO",
+         condition2 = "NTKO",
+         gmt_path = "selectedhallmark.gmt",
+         output_gsea = "mcko_ntko_cellcyclegsea.csv",
+         output_deg = "mcko_ntko_deg.csv")
+```
+
 ```{r hallmark gsea}
 run_gsea(dds,
          condition1 = "MCKO",
@@ -370,6 +386,22 @@ run_gsea(dds,
          gmt_path = "hallmarkpathways.gmt",
          output_gsea = "ko_allhallmark.csv",
          output_deg = "ko_deg.csv")
+```
+
+```{r additional hallmark gsea}
+run_gsea(dds,
+         condition1 = "MCKO",
+         condition2 = "NTWT",
+         gmt_path = "hallmarkpathways.gmt",
+         output_gsea = "mcko_ntwt_allhallmarkgsea.csv",
+         output_deg = "mcko_ntwt_deg.csv")
+
+run_gsea(dds,
+         condition1 = "MCKO",
+         condition2 = "NTKO",
+         gmt_path = "hallmarkpathways.gmt",
+         output_gsea = "mcko_ntko_allhallmarkgsea.csv",
+         output_deg = "mcko_ntko_deg.csv")
 ```
 
 ```{r overlapping DEGs}
@@ -557,4 +589,76 @@ gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), 
 gseaplot
 
 ggsave("fp_macrophage.png", gseaplot, dpi = 600, width = 10, height = 12)
+```
+
+```{r more overlapping deg}
+mcdeg <- read.csv("mc_deg.csv")
+rownames(mcdeg) <- mcdeg$gene
+mc_wt_deg <- read.csv("New/mcko_ntwt_deg.csv")
+rownames(mc_wt_deg) <- mc_wt_deg$gene
+
+
+filter_genes <- function(df, direction = "up", p_thresh = 0.1, fc_thresh = 0.1) {
+  df$gene <- sub("\\..*", "", rownames(df))
+  
+  if (direction == "up") {
+    subset_df <- df[which(df$log2FoldChange > fc_thresh & df$padj < p_thresh), ]
+  } else {
+    subset_df <- df[which(df$log2FoldChange < -fc_thresh & df$padj < p_thresh), ]
+  }
+  return(subset_df$gene)
+}
+
+up_mc <- filter_genes(mcdeg, "up")
+up_wt  <- filter_genes(mc_wt_deg,  "up")
+
+down_mc <- filter_genes(mcdeg, "down")
+down_wt  <- filter_genes(mc_wt_deg,  "down")
+
+overlap_up <- Reduce(intersect, list(up_mc, up_wt))
+overlap_down <- Reduce(intersect, list(down_mc, down_wt))
+
+final_list <- data.frame(
+  gene = c(overlap_up, overlap_down),
+  direction = c(rep("Consistent_Up", length(overlap_up)), 
+                rep("Consistent_Down", length(overlap_down)))
+)
+
+write.csv(final_list, "New/deg_overlap_mckomcwt_mckontwt.csv", row.names = FALSE)
+```
+
+```{r overlapping pathways}
+mc_wt_gsea <- read.csv("New/mcko_ntwt_cellcyclegsea.csv")
+rownames(mc_wt_gsea) <- mc_wt_gsea$pathway
+mc_gsea <- read.csv("mc_cellcyclegsea.csv")
+rownames(mc_gsea) <- mc_gsea$pathway
+
+
+filter_genes <- function(df, direction = "up", p_thresh = 0.25, fc_thresh = 0.1) {
+  df$gene <- sub("\\..*", "", rownames(df))
+  
+  if (direction == "up") {
+    subset_df <- df[which(df$NES > fc_thresh & df$padj < p_thresh), ]
+  } else {
+    subset_df <- df[which(df$NES < -fc_thresh & df$padj < p_thresh), ]
+  }
+  return(subset_df$gene)
+}
+
+up_mc <- filter_genes(mc_gsea, "up")
+up_wt  <- filter_genes(mc_wt_gsea,  "up")
+
+down_mc <- filter_genes(mc_gsea, "down")
+down_wt  <- filter_genes(mc_wt_gsea,  "down")
+
+overlap_up <- Reduce(intersect, list(up_mc, up_wt))
+overlap_down <- Reduce(intersect, list(down_mc, down_wt))
+
+final_list <- data.frame(
+  gene = c(overlap_up, overlap_down),
+  direction = c(rep("Consistent_Up", length(overlap_up)), 
+                rep("Consistent_Down", length(overlap_down)))
+)
+
+write.csv(final_list, "New/gsea_overlap_mckomcwt_mckontwt.csv", row.names = FALSE)
 ```
