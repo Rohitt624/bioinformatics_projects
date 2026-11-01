@@ -25,8 +25,8 @@ library(GSEABase)
 library(CMScaller)
 library(immunedeconv)
 
-#setwd("D:/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
-setwd("/Volumes/T7/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
+setwd("D:/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
+#setwd("/Volumes/T7/Zhang Lab/Archives/CRK HCC/Microenvironment Analysis/")
 ```
 
 ```{r}
@@ -722,3 +722,46 @@ pca <- plotPCA(rlog) +
 pca
 ```
 
+```{r all pathways gsea}
+run_gsea(dds, 
+         "FP", 
+         "DMSO", 
+         "mousepathways_gsea.gmt", 
+         "fp_allpathways.csv", 
+         "fp_deg.csv")
+```
+
+```{r pharma stress gsea}
+run_gsea(dds, 
+         "FP", 
+         "DMSO", 
+         "pharmastress.gmt", 
+         "fp_pharmastress.csv", 
+         "fp_deg.csv")
+
+```
+
+```{r pharmastress gsea plot}
+table <- read.csv("fp_pharmastress.csv")
+table$pathway <- gsub("_", " ", table$pathway)
+gseaplot <- ggplot(table, aes(x=-log10(padj), y=reorder(pathway, -log10(padj)), fill = NES, size = size)) +
+  geom_point(shape=21) + 
+  scale_size(range = c(5, 15)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 25)) +
+  theme(
+    panel.background = element_rect(fill = "white"), 
+    panel.border = element_rect(color = "black", fill = NA), 
+    plot.title = element_text(hjust = 0.5), 
+    axis.text=element_text(color="black", size = 18),
+    axis.title = element_text(face = "bold", size = 24),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 16)
+    ) +
+  scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=0, limits=c(-2.5,2.5)) + 
+  labs(x="-log(padj)", y="Genesets") +
+  xlim(0,4) + 
+  geom_vline(xintercept = -log10(0.25), linetype = "dashed")
+gseaplot
+
+ggsave("fp_pharmastress.png", gseaplot, dpi = 600, width = 10, height = 6)
+```
