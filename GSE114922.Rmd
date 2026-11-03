@@ -10,7 +10,6 @@ library(tidyverse)
 library(DESeq2)
 library(rnaseqGene)
 library(pheatmap)
-library(ggalt)
 library(fgsea)
 library(biomaRt)
 library(ggVennDiagram)
@@ -23,7 +22,7 @@ library(dplyr)
 library(GSVA)
 
 
-setwd("C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/MDS Project/RNA Seq/GSE114922/")
+setwd("D:/Zhang Lab/MDS Project/RNASeq/GSE114922/")
 ```
 
 ```{r functions}
@@ -42,7 +41,7 @@ run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_
   # 1. Validate contrast levels
   #-------------------------------
   if (!"Mutation" %in% colnames(colData(dds))) {
-    stop("Column 'Mutation' not found in colData(dds).")
+    stop("Column 'condition' not found in colData(dds).")
   }
 
   mut_levels <- levels(dds$Mutation)
@@ -88,11 +87,12 @@ run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_
   gsea <- fgsea(
     pathways = gmt,
     stats = rnk,
-    minSize = 15,
+    minSize = 0,
     maxSize = 500
   )
 
   gsea_df <- as.data.frame(gsea)
+  
 
   # Flatten list columns (leadingEdge)
   list_cols <- sapply(gsea_df, is.list)
@@ -106,7 +106,7 @@ run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_
   # DEG table (filtered for significance)
   deg_df <- as.data.frame(res) %>%
     mutate(gene = rownames(res)) %>%
-    filter(padj < 0.1)
+    filter(padj < 1.1)
 
   write.csv(deg_df, output_deg, row.names = FALSE)
 
@@ -120,7 +120,7 @@ run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_
   ))
 }
 
-EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv") {
+EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv") {
   #-----------------------------
   # 1. Validate inputs
   #-----------------------------
@@ -176,8 +176,6 @@ EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rthalla/OneDrive - Loy
   #-----------------------------
   return(input)
 }
-
-
 ```
 
 ```{r gene names}
@@ -202,7 +200,7 @@ dds <- estimateSizeFactors(dds)
 norm <- counts(dds, normalized = TRUE) 
 vst <- vst(dds)
 vst_mat <- assay(vst)
-tbk1_vec <- vst_mat["MAP3K7", ]
+tbk1_vec <- vst_mat["IL6R", ]
 
 df <- data.frame( sample = names(tbk1_vec), tbk1 = as.numeric(tbk1_vec) ) 
 df_ordered <- df %>% arrange(tbk1)
@@ -219,13 +217,13 @@ df_ordered2 <- df_ordered %>%
 
 tbk1plot <- ggplot(df_ordered2, aes(x = reorder(sample, tbk1), y = tbk1, fill = Mutation)) + 
   geom_col() + 
-  labs(title = "Caspase 8 Expression in MDS", x = "Sample", y = "Caspase 8 Expression (vst)") + 
+  labs(title = "IL6R Expression in MDS", x = "Sample", y = "IL6R Expression (vst)") + 
   theme_bw() + 
   theme(axis.text.x = element_blank(),
         axis.ticks.x = element_blank())
 tbk1plot
 
-ggsave("casp8_patientsamples_vst.png", tbk1plot, dpi = 600)
+ggsave("il6r_patientsamples_vst.png", tbk1plot, dpi = 600)
 
 ```
 
@@ -262,6 +260,14 @@ ggsave("pca.png", allpca, dpi = 600)
 ```
 
 ```{r gsea}
+run_gsea(dds, "SF3B1", "Healthy", "humangseapathways.gmt", "sf3b1gsea.csv", "sf3b1deg.csv")
+
+run_gsea(dds, "SF3B1", "Other", "humangseapathways.gmt", "sf3b1mdsgsea.csv", "sf3b1mdsdeg.csv")
+
+run_gsea(dds, "U2AF1", "Healthy", "humangseapathways.gmt", "u2af1gsea.csv", "u2af1deg.csv")
+
+run_gsea(dds, "U2AF1", "Other", "humangseapathways.gmt", "u2af1mdsgsea.csv", "u2af1mdsdeg.csv")
+
 run_gsea(dds, "SRSF2", "Healthy", "humangseapathways.gmt", "srsf2gsea.csv", "srsf2deg.csv")
 
 run_gsea(dds, "SRSF2", "Other", "humangseapathways.gmt", "srsf2mdsgsea.csv", "srsf2mdsdeg.csv")
