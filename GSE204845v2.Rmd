@@ -1,0 +1,105 @@
+---
+title: "GSE204845"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+library(Seurat)
+library(Matrix)
+library(data.table)
+
+setwd("D:/Zhang Lab/MDS Project/RNASeq/GSE204845/Data")
+```
+
+```{r}
+data_dir <- "D:/Zhang Lab/MDS Project/RNASeq/GSE204845/Data"   # extracted folder
+
+# ---- Sample sheet: prefix = everything before ".barcodes.tsv.gz" ----
+meta <- data.frame(
+  prefix = c("GSM6198721_MDS01", "GSM6198722_MDS02A", "GSM6198722_MDS02B",
+             "GSM6198723_MDS03", "GSM6198724_MDS04", "GSM6198725_MDS05",
+             "GSM6198726_MDS06", "GSM6198727_CH01",   "GSM6198728_CH02",
+             "GSM7703583_CH03",  "GSM7703588_CH04",
+             "GSM7703602_AML01A","GSM7703609_AML01B"),
+  stringsAsFactors = FALSE
+)
+meta$sample  <- sub("^GSM[0-9]+_", "", meta$prefix)
+meta$gsm     <- sub("_.*$", "", meta$prefix)
+meta$patient <- sub("[AB]$", "", meta$sample)
+meta$disease <- ifelse(grepl("^MDS", meta$sample), "MDS",
+                ifelse(grepl("^CH",  meta$sample), "CH", "AML"))
+
+# ---- Generic 10x triplet reader ----
+read_triplet <- function(mtx, feat, bc) {
+  m     <- readMM(mtx)
+  genes <- fread(feat, header = FALSE)
+  rownames(m) <- make.unique(if (ncol(genes) >= 2) genes$V2 else genes$V1)
+  colnames(m) <- fread(bc, header = FALSE)$V1
+  as(m, "CsparseMatrix")
+}
+
+# ---- RNA ----
+seu_list <- lapply(seq_len(nrow(meta)), function(i) {
+  p <- file.path(data_dir, meta$prefix[i])
+  m <- read_triplet(paste0(p, ".matrix.mtx.gz"),
+                    paste0(p, ".features.tsv.gz"),
+                    paste0(p, ".barcodes.tsv.gz"))
+  obj <- CreateSeuratObject(m, project = meta$sample[i], min.cells = 3, min.features = 200)
+  obj$sample  <- meta$sample[i]
+  obj$patient <- meta$patient[i]
+  obj$gsm     <- meta$gsm[i]
+  obj$disease <- meta$disease[i]
+  obj
+})
+names(seu_list) <- meta$sample
+
+# QC each sample before merging
+seu_list <- lapply(seu_list, function(x) {
+  x[["percent.mt"]] <- PercentageFeatureSet(x, pattern = "^MT-")
+  subset(x, subset = nFeature_RNA > 500 & nCount_RNA > 1000 & percent.mt < 20)
+})
+sapply(seu_list, ncol)   # should be a few thousand each, not tens of thousands
+gc()
+
+seu <- merge(seu_list[[1]], y = seu_list[-1],
+             add.cell.ids = names(seu_list), project = "GSE204845")
+seu <- JoinLayers(seu)   # Seurat v5; drop for v4
+seu[["percent.mt"]] <- PercentageFeatureSet(seu, pattern = "^MT-")
+table(seu$sample)
+
+# ---- ADT (CITE-seq) for MDS02A, MDS02B, MDS03 ----
+adt_meta <- data.frame(
+  gsm    = c("GSM7703566", "GSM7703573", "GSM7703578"),
+  sample = c("MDS02A", "MDS02B", "MDS03"),
+  stringsAsFactors = FALSE
+)
+
+adt_list <- lapply(seq_len(nrow(adt_meta)), function(i) {
+  p   <- file.path(data_dir, paste0(adt_meta$gsm[i], "_", adt_meta$sample[i], ".ADT"))
+  mtx <- Sys.glob(c(paste0(p, ".matrix.mtx.gz"), paste0(p, ".mtx.gz")))[1]
+  m   <- read_triplet(mtx, paste0(p, ".features.tsv.gz"), paste0(p, ".barcodes.tsv.gz"))
+  colnames(m) <- paste0(adt_meta$sample[i], "_", colnames(m))   # match RNA cell names
+  m
+})
+
+# Check orientation: rows should be proteins (a few dozen), not barcodes
+sapply(adt_list, dim)
+
+# Keep only cells present in the RNA object
+adt_all <- do.call(cbind, lapply(adt_list, function(m) m[rownames(adt_list[[1]]), ]))
+shared  <- intersect(colnames(seu), colnames(adt_all))
+length(shared)   # should be thousands; if ~0, barcode formats differ (e.g. "-1" suffix)
+
+seu_cite <- subset(seu, cells = shared)
+seu_cite[["ADT"]] <- CreateAssayObject(counts = adt_all[, shared])
+```
+
+```{r}
+sapply(seu_list, ncol)          # cells per sample
+sapply(seu_list, function(x) median(x$nFeature_RNA))
+format(object.size(seu_list), units = "GB")
+```
+
