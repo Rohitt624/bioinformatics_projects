@@ -10,11 +10,166 @@ editor_options:
 library(Seurat)
 library(Matrix)
 library(data.table)
+library(glmGamPoi)
 
-setwd("D:/Zhang Lab/MDS Project/RNASeq/GSE204845/Data")
+setwd("D:/Zhang Lab/MDS Project/RNASeq/GSE204845")
 ```
 
-```{r}
+```{r functions}
+run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
+  suppressPackageStartupMessages({
+    library(DESeq2)
+    library(fgsea)
+    library(BiocParallel)
+    library(dplyr)
+  })
+
+  # Force serial execution to avoid BiocParallel crashes
+  BiocParallel::register(BiocParallel::SerialParam())
+
+  #-------------------------------
+  # 1. Validate contrast levels
+  #-------------------------------
+  if (!"condition" %in% colnames(colData(dds))) {
+    stop("Column 'condition' not found in colData(dds).")
+  }
+
+  mut_levels <- levels(dds$condition)
+
+  if (!(condition1 %in% mut_levels)) {
+    stop(paste("Condition1 not found in Mutation levels:", condition1))
+  }
+  if (!(condition2 %in% mut_levels)) {
+    stop(paste("Condition2 not found in Mutation levels:", condition2))
+  }
+
+  #-------------------------------
+  # 2. Run DESeq2 contrast
+  #-------------------------------
+  res <- DESeq2::results(
+    dds,
+    contrast = c("condition", condition1, condition2),
+    independentFiltering = TRUE,
+    alpha = 0.1,
+    parallel = FALSE
+  )
+
+  # Remove rows with NA statistics
+  res <- res[complete.cases(res$stat), ]
+
+  #-------------------------------
+  # 3. Build ranking vector
+  #-------------------------------
+  rnk <- setNames(res$stat, rownames(res))
+
+  if (length(rnk) < 1000) {
+    stop("Ranking vector too small (<1000 genes). Likely no signal in this contrast.")
+  }
+
+  #-------------------------------
+  # 4. Load pathways
+  #-------------------------------
+  gmt <- fgsea::gmtPathways(gmt_path)
+
+  #-------------------------------
+  # 5. Run fgsea
+  #-------------------------------
+  gsea <- fgsea(
+    pathways = gmt,
+    stats = rnk,
+    minSize = 0,
+    maxSize = 500
+  )
+
+  gsea_df <- as.data.frame(gsea)
+  
+
+  # Flatten list columns (leadingEdge)
+  list_cols <- sapply(gsea_df, is.list)
+  gsea_df[list_cols] <- lapply(gsea_df[list_cols], function(x) sapply(x, paste, collapse = ";"))
+
+  #-------------------------------
+  # 6. Write outputs
+  #-------------------------------
+  write.csv(gsea_df, output_gsea, row.names = FALSE)
+
+  # DEG table (filtered for significance)
+  deg_df <- as.data.frame(res) %>%
+    mutate(gene = rownames(res)) %>%
+    filter(padj < 0.1)
+
+  write.csv(deg_df, output_deg, row.names = FALSE)
+
+  #-------------------------------
+  # 7. Return objects invisibly
+  #-------------------------------
+  invisible(list(
+    gsea = gsea_df,
+    degs = deg_df,
+    ranking = rnk
+  ))
+}
+
+EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv") {
+  #-----------------------------
+  # 1. Validate inputs
+  #-----------------------------
+  if (!is.matrix(input) && !is.data.frame(input)) {
+    stop("Input must be a matrix or data.frame with rownames.")
+  }
+  if (is.null(rownames(input))) {
+    stop("Input must have rownames corresponding to Ensembl IDs.")
+  }
+  if (!file.exists(mapping_file)) {
+    stop(paste("Mapping file not found:", mapping_file))
+  }
+
+  #-----------------------------
+  # 2. Load mapping file
+  #-----------------------------
+  gene_mapping <- read.csv(mapping_file, stringsAsFactors = FALSE)
+
+  required_cols <- c("gene_id", "gene_name")
+  if (!all(required_cols %in% colnames(gene_mapping))) {
+    stop("Mapping file must contain columns: gene_id, gene_name")
+  }
+
+  #-----------------------------
+  # 3. Build lookup vector
+  #-----------------------------
+  id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+
+  #-----------------------------
+  # 4. Vectorized name replacement
+  #-----------------------------
+  old_ids <- rownames(input)
+
+  # Replace Ensembl IDs with gene names where available
+  new_names <- id_list[old_ids]
+
+  # For IDs not found in mapping, keep original
+  new_names[is.na(new_names)] <- old_ids[is.na(new_names)]
+
+  # Replace empty strings with NA
+  new_names[new_names == ""] <- NA
+
+  # Ensure syntactically valid + unique names
+  new_names <- make.names(new_names, unique = TRUE)
+
+  #-----------------------------
+  # 5. Apply new rownames
+  #-----------------------------
+  rownames(input) <- new_names
+
+  #-----------------------------
+  # 6. Return modified object
+  #-----------------------------
+  return(input)
+}
+```
+
+
+```{r create seurat object}
 data_dir <- "D:/Zhang Lab/MDS Project/RNASeq/GSE204845/Data"   # extracted folder
 
 # ---- Sample sheet: prefix = everything before ".barcodes.tsv.gz" ----
@@ -97,9 +252,129 @@ seu_cite <- subset(seu, cells = shared)
 seu_cite[["ADT"]] <- CreateAssayObject(counts = adt_all[, shared])
 ```
 
+```{r add genotyping}
+gt_files <- list.files(data_dir, pattern = "\\.(SF3B1|DNMT3A|U2AF1)\\.tsv\\.gz$", full.names = TRUE)
+
+# first existing column from a list of candidate names, else NA
+pick <- function(d, opts, na = NA_character_) {
+  o <- intersect(opts, names(d))
+  if (length(o)) d[[o[1]]] else rep(na, nrow(d))
+}
+
+read_gt <- function(f) {
+  d <- suppressWarnings(fread(f))
+  smp <- sub("^GSM[0-9]+_([A-Za-z0-9]+)\\..*$", "\\1", basename(f))
+  data.table(
+    sample        = smp,
+    mut_gene      = sub(".*\\.(SF3B1|DNMT3A|U2AF1)\\.tsv\\.gz$", "\\1", basename(f)),
+    barcode       = d[[1]],
+    wt_calls      = as.integer(pick(d, c("WT.calls", "num.wt.calls", "num.wt.calls_10x"), NA_integer_)),
+    mut_calls     = as.integer(pick(d, c("MUT.calls", "num.mut.calls", "num.mut.calls_10x"), NA_integer_)),
+    total_calls   = as.integer(pick(d, c("Total.calls", "total.calls", "total_10x"), NA_integer_)),
+    genotype      = pick(d, c("Genotype", "Genotype_1UMI")),
+    genotype_2UMI = pick(d, "Genotype_2UMI"),
+    got_celltype  = pick(d, "Cell.Assignment")
+  )
+}
+
+gt_all <- rbindlist(lapply(gt_files, read_gt))
+gt_all[, key := paste0(sample, "_", sub("[-_][0-9]+$", "", barcode))]
+
+# checks
+table(gt_all$sample, gt_all$genotype, useNA = "ifany")
+sum(duplicated(gt_all$key))     # should be 0
+
+# ---- Add to Seurat ----
+cell_key <- sub("[-_][0-9]+$", "", colnames(seu))
+idx <- match(cell_key, gt_all$key)
+
+seu$genotype      <- gt_all$genotype[idx]
+seu$genotype_2UMI <- gt_all$genotype_2UMI[idx]
+seu$mut_gene      <- gt_all$mut_gene[idx]
+seu$WT_calls      <- gt_all$wt_calls[idx]
+seu$MUT_calls     <- gt_all$mut_calls[idx]
+seu$got_celltype  <- gt_all$got_celltype[idx]
+
+# match rate per sample (fraction of RNA cells found in the GoT table)
+round(tapply(!is.na(idx), seu$sample, mean), 3)
+table(seu$sample, seu$genotype, useNA = "ifany")
+```
+
+```{r subset mds}
+seu_mds <- subset(seu, subset = disease == "MDS" & !is.na(genotype))
+
+table(seu_mds$sample, seu_mds$genotype)
+seu_mds <- subset(seu_mds, subset = patient != "MDS06")
+```
+
+```{r cleanup}
+keep <- c("seu", "seu_cite", "seu_mds")
+keep <- keep[sapply(keep, exists)]        # seu_cite may not exist
+rm(list = setdiff(ls(), keep))
+gc()
+ls()
+```
+
+```{r processing}
+# one layer per patient
+seu_mds[["RNA"]] <- split(seu_mds[["RNA"]], f = seu_mds$patient)
+seu_mds <- SCTransform(seu_mds, vst.flavor = "v2", method = "glmGamPoi",
+                       vars.to.regress = "percent.mt", variable.features.n = 3000)
+seu_mds <- RunPCA(seu_mds, verbose = FALSE)
+
+seu_mds <- IntegrateLayers(seu_mds, method = HarmonyIntegration,
+                           normalization.method = "SCT", new.reduction = "int.harmony")
+
+dims <- 1:30
+for (r in c("int.harmony", "int.rpca")) {
+  seu_mds <- RunUMAP(seu_mds, reduction = r, dims = dims,
+                     reduction.name = paste0("umap.", sub("int\\.", "", r)))
+}
+
+# compare
+p1 <- DimPlot(seu_mds, reduction = "umap.harmony", group.by = "patient")      + ggtitle("Harmony: patient")
+p2 <- DimPlot()
+p3 <- DimPlot(seu_mds, reduction = "umap.harmony", group.by = "got_celltype", label = TRUE)
+(p1 | p3)
+
+seu_mds <- FindNeighbors(seu_mds, reduction = "int.harmony", dims = 1:30)
+seu_mds <- FindClusters(seu_mds, resolution = 0.5)
+DimPlot(seu_mds, reduction = "umap.harmony", group.by = "genotype")
+```
+
 ```{r}
-sapply(seu_list, ncol)          # cells per sample
-sapply(seu_list, function(x) median(x$nFeature_RNA))
-format(object.size(seu_list), units = "GB")
+DimPlot(seu_mds)
+FeaturePlot(seu_mds, features = "TBK1", split.by = "genotype")
+VlnPlot(seu_mds, features = "TBK1", group.by = "got_celltype", split.by = "genotype", assay = "SCT")
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+expr <- FetchData(seu_mds, vars = c("TBK1", "got_celltype", "genotype", "patient"),
+                  assay = "SCT", layer = "data") %>%
+  filter(!is.na(got_celltype), !is.na(genotype))
+
+# keep cell types with enough cells
+keep_ct <- expr %>% count(got_celltype) %>% filter(n >= 100) %>% pull(got_celltype)
+
+# one value per patient x cell type x genotype (avoids pseudoreplication)
+pb <- expr %>%
+  filter(got_celltype %in% keep_ct) %>%
+  group_by(patient, got_celltype, genotype) %>%
+  summarise(TBK1 = mean(TBK1), n = n(), .groups = "drop") %>%
+  filter(n >= 10)
+
+bar <- ggplot(pb, aes(got_celltype, TBK1, fill = genotype)) +
+  stat_summary(fun = mean, geom = "col", position = position_dodge(0.8), width = 0.7) +
+  stat_summary(fun.data = mean_se, geom = "errorbar",
+               position = position_dodge(0.8), width = 0.2) +
+  geom_point(position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.8),
+             size = 1, alpha = 0.6) +
+  labs(y = "TBK1 (mean SCT-corrected expression per patient)", x = NULL) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+bar
 ```
 
