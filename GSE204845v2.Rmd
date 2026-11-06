@@ -11,14 +11,16 @@ library(Seurat)
 library(Matrix)
 library(data.table)
 library(glmGamPoi)
+library(dplyr)
+library(tidyr)
+
 
 setwd("D:/Zhang Lab/MDS Project/RNASeq/GSE204845")
 ```
 
 ```{r functions}
-run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_deg) {
+run_gsea_seurat <- function(markers_df, gmt_path, output_gsea, output_deg) {
   suppressPackageStartupMessages({
-    library(DESeq2)
     library(fgsea)
     library(BiocParallel)
     library(dplyr)
@@ -28,80 +30,65 @@ run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_
   BiocParallel::register(BiocParallel::SerialParam())
 
   #-------------------------------
-  # 1. Validate contrast levels
+  # 1. Validate Seurat input
   #-------------------------------
-  if (!"condition" %in% colnames(colData(dds))) {
-    stop("Column 'condition' not found in colData(dds).")
+  # Ensure the required columns from FindMarkers exist
+  req_cols <- c("avg_log2FC", "p_val_adj")
+  if (!all(req_cols %in% colnames(markers_df))) {
+    stop(paste("Input must be a FindMarkers output containing:", paste(req_cols, collapse = ", ")))
   }
 
-  mut_levels <- levels(dds$condition)
-
-  if (!(condition1 %in% mut_levels)) {
-    stop(paste("Condition1 not found in Mutation levels:", condition1))
-  }
-  if (!(condition2 %in% mut_levels)) {
-    stop(paste("Condition2 not found in Mutation levels:", condition2))
-  }
+  # Remove rows with NA in the log2FC column
+  markers_df <- markers_df[!is.na(markers_df$avg_log2FC), ]
 
   #-------------------------------
-  # 2. Run DESeq2 contrast
+  # 2. Build ranking vector (Using log2FC)
   #-------------------------------
-  res <- DESeq2::results(
-    dds,
-    contrast = c("condition", condition1, condition2),
-    independentFiltering = TRUE,
-    alpha = 0.1,
-    parallel = FALSE
-  )
-
-  # Remove rows with NA statistics
-  res <- res[complete.cases(res$stat), ]
-
-  #-------------------------------
-  # 3. Build ranking vector
-  #-------------------------------
-  rnk <- setNames(res$stat, rownames(res))
+  # Extract avg_log2FC as the ranking metric
+  rnk <- setNames(markers_df$avg_log2FC, rownames(markers_df))
+  
+  # fgsea prefers pre-sorted vectors
+  rnk <- sort(rnk, decreasing = TRUE)
 
   if (length(rnk) < 1000) {
-    stop("Ranking vector too small (<1000 genes). Likely no signal in this contrast.")
+    warning("Ranking vector is small (<1000 genes). fgsea may lack statistical power. Ensure logfc.threshold = 0 in FindMarkers.")
   }
 
   #-------------------------------
-  # 4. Load pathways
+  # 3. Load pathways
   #-------------------------------
   gmt <- fgsea::gmtPathways(gmt_path)
 
   #-------------------------------
-  # 5. Run fgsea
+  # 4. Run fgsea
   #-------------------------------
   gsea <- fgsea(
     pathways = gmt,
     stats = rnk,
-    minSize = 0,
+    minSize = 10,
     maxSize = 500
   )
 
   gsea_df <- as.data.frame(gsea)
-  
 
-  # Flatten list columns (leadingEdge)
+  # Flatten list columns (leadingEdge) for CSV export
   list_cols <- sapply(gsea_df, is.list)
   gsea_df[list_cols] <- lapply(gsea_df[list_cols], function(x) sapply(x, paste, collapse = ";"))
 
   #-------------------------------
-  # 6. Write outputs
+  # 5. Write outputs
   #-------------------------------
   write.csv(gsea_df, output_gsea, row.names = FALSE)
 
-  # DEG table (filtered for significance)
-  deg_df <- as.data.frame(res) %>%
-    mutate(gene = rownames(res)) %>%
-    filter(padj < 0.1)
+  # DEG table (filtered for significance, padj < 0.1)
+  deg_df <- as.data.frame(markers_df) %>%
+    mutate(gene = rownames(markers_df)) %>%
+    filter(markers_df$p_val_adj < 1.1)
 
   write.csv(deg_df, output_deg, row.names = FALSE)
 
   #-------------------------------
-  # 7. Return objects invisibly
+  # 6. Return objects invisibly
   #-------------------------------
   invisible(list(
     gsea = gsea_df,
@@ -110,7 +97,130 @@ run_gsea <- function(dds, condition1, condition2, gmt_path, output_gsea, output_
   ))
 }
 
-EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rohit/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels_human.csv") {
+run_gsea_seurat_all <- function(all_markers_df, gmt_path, output_dir, output_deg_all,
+                                  logfc_col = "avg_log2FC", padj_col = "p_val_adj",
+                                  gsea_padj_cutoff = 0.05) {
+  suppressPackageStartupMessages({
+    library(fgsea)
+    library(BiocParallel)
+    library(dplyr)
+    library(tidyr)
+  })
+  BiocParallel::register(BiocParallel::SerialParam())
+
+  req_cols <- c(logfc_col, padj_col, "cluster")
+  if (!all(req_cols %in% colnames(all_markers_df))) {
+    stop(paste("Input must be a FindAllMarkers output containing:", 
+               paste(req_cols, collapse = ", ")))
+  }
+
+  all_markers_df$cluster <- as.character(all_markers_df$cluster)
+
+  # Overwrite gene column with de-suffixed rownames (restores original, possibly
+  # non-unique gene IDs collapsed by FindAllMarkers' automatic .1/.2 renaming)
+  all_markers_df$gene <- sub("\\.\\d+$", "", rownames(all_markers_df))
+
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+  write.csv(all_markers_df, output_deg_all, row.names = FALSE)
+
+  gmt <- fgsea::gmtPathways(gmt_path)
+
+  clusters <- unique(all_markers_df$cluster)
+  gsea_results_list <- list()
+  ranking_list <- list()
+
+  for (clust in clusters) {
+
+    message("Running GSEA for cluster: ", clust)
+
+    keep_rows <- all_markers_df$cluster == clust & !is.na(all_markers_df[[logfc_col]])
+    sub_df <- all_markers_df[keep_rows, , drop = FALSE]
+
+    if (nrow(sub_df) == 0) {
+      warning(paste("No valid markers for cluster", clust, "- skipping"))
+      next
+    }
+
+    # Deduplicate by gene, keeping strongest |log2FC| (now using the restored gene column)
+    sub_df <- sub_df[order(-abs(sub_df[[logfc_col]])), , drop = FALSE]
+    sub_df <- sub_df[!duplicated(sub_df$gene), , drop = FALSE]
+
+    rnk <- setNames(sub_df[[logfc_col]], sub_df$gene)
+    rnk <- sort(rnk, decreasing = TRUE)
+
+    if (length(rnk) < 1000) {
+      warning(paste0("Cluster '", clust, "': ranking vector is small (<1000 genes). ",
+                      "fgsea may lack statistical power. Ensure logfc.threshold = 0 in FindAllMarkers."))
+    }
+
+    ranking_list[[as.character(clust)]] <- rnk
+
+    gsea <- tryCatch({
+      fgsea(pathways = gmt, stats = rnk, minSize = 10, maxSize = 500)
+    }, error = function(e) {
+      warning(paste0("fgsea failed for cluster '", clust, "': ", e$message))
+      return(NULL)
+    })
+
+    if (is.null(gsea) || nrow(gsea) == 0) {
+      warning(paste0("No pathways passed size filters for cluster '", clust, 
+                      "' - check gene ID overlap with GMT. Skipping."))
+      next
+    }
+
+    gsea_df <- as.data.frame(gsea)
+    list_cols <- sapply(gsea_df, is.list)
+    gsea_df[list_cols] <- lapply(gsea_df[list_cols], function(x) sapply(x, paste, collapse = ";"))
+    gsea_df$cluster <- clust
+
+    gsea_results_list[[as.character(clust)]] <- gsea_df
+
+    safe_clust_name <- gsub("[^A-Za-z0-9_-]", "_", as.character(clust))
+    out_path <- file.path(output_dir, paste0("gsea_", safe_clust_name, ".csv"))
+    write.csv(gsea_df, out_path, row.names = FALSE)
+  }
+
+  combined_gsea <- do.call(rbind, gsea_results_list)
+  write.csv(combined_gsea, file.path(output_dir, "gsea_combined_all_clusters.csv"), row.names = FALSE)
+
+  sig_gsea <- combined_gsea[combined_gsea$padj < gsea_padj_cutoff & !is.na(combined_gsea$padj), , drop = FALSE]
+
+  overlap_matrix <- sig_gsea %>%
+    dplyr::select(pathway, cluster, NES, padj) %>%
+    tidyr::pivot_wider(names_from = cluster, values_from = c(NES, padj))
+
+  overlap_summary <- sig_gsea %>%
+    dplyr::group_by(pathway) %>%
+    dplyr::summarise(
+      n_clusters_significant = dplyr::n_distinct(cluster),
+      clusters = paste(sort(unique(cluster)), collapse = ";"),
+      mean_NES = mean(NES),
+      direction_consistent = length(unique(sign(NES))) == 1,
+      .groups = "drop"
+    ) %>%
+    dplyr::arrange(desc(n_clusters_significant), desc(abs(mean_NES)))
+
+  write.csv(overlap_matrix, file.path(output_dir, "gsea_overlap_matrix.csv"), row.names = FALSE)
+  write.csv(overlap_summary, file.path(output_dir, "gsea_overlap_summary.csv"), row.names = FALSE)
+
+  unique_pathways <- overlap_summary[overlap_summary$n_clusters_significant == 1, , drop = FALSE]
+  names(unique_pathways)[names(unique_pathways) == "clusters"] <- "cluster"
+
+  write.csv(unique_pathways, file.path(output_dir, "gsea_unique_by_cluster.csv"), row.names = FALSE)
+
+  invisible(list(
+    gsea_by_cluster = gsea_results_list,
+    combined_gsea = combined_gsea,
+    overlap_summary = overlap_summary,
+    overlap_matrix = overlap_matrix,
+    unique_pathways = unique_pathways,
+    rankings_by_cluster = ranking_list,
+    all_markers = all_markers_df
+  ))
+}
+
+EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels.csv") {
   #-----------------------------
   # 1. Validate inputs
   #-----------------------------
@@ -123,44 +233,38 @@ EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rohit/OneDrive - Loyol
   if (!file.exists(mapping_file)) {
     stop(paste("Mapping file not found:", mapping_file))
   }
-
   #-----------------------------
   # 2. Load mapping file
   #-----------------------------
   gene_mapping <- read.csv(mapping_file, stringsAsFactors = FALSE)
-
   required_cols <- c("gene_id", "gene_name")
   if (!all(required_cols %in% colnames(gene_mapping))) {
     stop("Mapping file must contain columns: gene_id, gene_name")
   }
-
   #-----------------------------
   # 3. Build lookup vector
   #-----------------------------
   id_list <- setNames(gene_mapping$gene_name, gene_mapping$gene_id)
-
   #-----------------------------
   # 4. Vectorized name replacement
   #-----------------------------
   old_ids <- rownames(input)
-
+  
+  # Strip version suffixes (e.g. ENSMUSG00000022584.2 -> ENSMUSG00000022584)
+  stripped_ids <- sub("\\.\\d+$", "", old_ids)
+  
   # Replace Ensembl IDs with gene names where available
-  new_names <- id_list[old_ids]
-
-  # For IDs not found in mapping, keep original
+  new_names <- id_list[stripped_ids]
+  # For IDs not found in mapping, keep original (unstripped)
   new_names[is.na(new_names)] <- old_ids[is.na(new_names)]
-
   # Replace empty strings with NA
   new_names[new_names == ""] <- NA
-
   # Ensure syntactically valid + unique names
   new_names <- make.names(new_names, unique = TRUE)
-
   #-----------------------------
   # 5. Apply new rownames
   #-----------------------------
   rownames(input) <- new_names
-
   #-----------------------------
   # 6. Return modified object
   #-----------------------------
@@ -316,6 +420,9 @@ ls()
 ```
 
 ```{r processing}
+seu_mds <- JoinLayers(seu_mds)
+seu_mds[["SCT"]] <- NULL
+seu_mds[["RNA"]] <- subset(seu_mds[["RNA"]], features = setdiff(rownames(seu_mds[["RNA"]]), adt_feats))
 # one layer per patient
 seu_mds[["RNA"]] <- split(seu_mds[["RNA"]], f = seu_mds$patient)
 seu_mds <- SCTransform(seu_mds, vst.flavor = "v2", method = "glmGamPoi",
@@ -343,7 +450,7 @@ DimPlot(seu_mds, reduction = "umap.harmony", group.by = "genotype")
 ```
 
 ```{r}
-DimPlot(seu_mds)
+DimPlot(seu_mds, group.by = "got_celltype")
 FeaturePlot(seu_mds, features = "TBK1", split.by = "genotype")
 VlnPlot(seu_mds, features = "TBK1", group.by = "got_celltype", split.by = "genotype", assay = "SCT")
 ```
@@ -352,7 +459,7 @@ VlnPlot(seu_mds, features = "TBK1", group.by = "got_celltype", split.by = "genot
 library(dplyr)
 library(ggplot2)
 
-expr <- FetchData(seu_mds, vars = c("TBK1", "got_celltype", "genotype", "patient"),
+expr <- FetchData(seu_mds, vars = c("OPTN", "got_celltype", "genotype", "patient"),
                   assay = "SCT", layer = "data") %>%
   filter(!is.na(got_celltype), !is.na(genotype))
 
@@ -363,18 +470,55 @@ keep_ct <- expr %>% count(got_celltype) %>% filter(n >= 100) %>% pull(got_cellty
 pb <- expr %>%
   filter(got_celltype %in% keep_ct) %>%
   group_by(patient, got_celltype, genotype) %>%
-  summarise(TBK1 = mean(TBK1), n = n(), .groups = "drop") %>%
+  summarise(OPTN = mean(OPTN), n = n(), .groups = "drop") %>%
   filter(n >= 10)
 
-bar <- ggplot(pb, aes(got_celltype, TBK1, fill = genotype)) +
+bar <- ggplot(pb, aes(got_celltype, OPTN, fill = genotype)) +
   stat_summary(fun = mean, geom = "col", position = position_dodge(0.8), width = 0.7) +
   stat_summary(fun.data = mean_se, geom = "errorbar",
                position = position_dodge(0.8), width = 0.2) +
   geom_point(position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.8),
              size = 1, alpha = 0.6) +
-  labs(y = "TBK1 (mean SCT-corrected expression per patient)", x = NULL) +
+  labs(y = "OPTN (mean SCT-corrected expression per patient)", x = NULL) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 bar
 ```
 
+```{r DEG and GSEA in each cell type}
+seu_g <- subset(seu_mds, subset = !is.na(genotype) & !is.na(got_celltype))
+seu_g <- PrepSCTFindMarkers(seu_g)
+Idents(seu_g) <- "got_celltype"
+
+# only cell types with enough cells in both groups
+tab <- table(seu_g$got_celltype, seu_g$genotype)
+cts <- rownames(tab)[tab[, "MUT"] >= 30 & tab[, "WT"] >= 30]
+
+# one table per cell type, as a named list
+deg_list <- lapply(cts, function(ct) {
+  fm <- FindMarkers(seu_g, ident.1 = "MUT", ident.2 = "WT",
+                    group.by = "genotype", subset.ident = ct,
+                    recorrect_umi = FALSE, min.pct = 0.1)
+  fm$gene <- rownames(fm)
+  fm <- fm[order(fm$p_val_adj, fm$p_val), c("gene", "avg_log2FC", "pct.1", "pct.2", "p_val", "p_val_adj")]
+  fm
+})
+names(deg_list) <- cts
+
+for (ct in names(deg_list)) {
+  assign(paste0(gsub("[^A-Za-z0-9]", "_", ct), "_deg"), deg_list[[ct]])
+}
+ls(pattern = "_deg$")
+
+run_gsea_seurat(EP_deg, "humangseapathways.gmt", "gsea_ep.csv", "deg_ep.csv")
+run_gsea_seurat(Bcells_deg, "humangseapathways.gmt", "gsea_bcells.csv", "deg_bcells.csv")
+run_gsea_seurat(DC_deg, "humangseapathways.gmt", "gsea_dc.csv", "deg_dc.csv")
+run_gsea_seurat(HSPC_deg, "humangseapathways.gmt", "gsea_hspc.csv", "deg_hspc.csv")
+run_gsea_seurat(IMP_deg, "humangseapathways.gmt", "gsea_imp.csv", "deg_imp.csv")
+run_gsea_seurat(Mat_Mono_deg, "humangseapathways.gmt", "gsea_matmono.csv", "deg_matmono.csv")
+run_gsea_seurat(MEP_deg, "humangseapathways.gmt", "gsea_mep.csv", "deg_mep.csv")
+run_gsea_seurat(MkP_deg, "humangseapathways.gmt", "gsea_mkp.csv", "deg_mkp.csv")
+run_gsea_seurat(MonoDC_deg, "humangseapathways.gmt", "gsea_monodc.csv", "deg_monodc.csv")
+run_gsea_seurat(NP_deg, "humangseapathways.gmt", "gsea_np.csv", "deg_np.csv")
+run_gsea_seurat(Tcells_deg, "humangseapathways.gmt", "gsea_tcells.csv", "deg_tcells.csv")
+```
