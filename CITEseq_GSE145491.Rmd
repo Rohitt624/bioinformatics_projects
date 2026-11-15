@@ -24,9 +24,10 @@ library(ggbreak)
 library(ggcyto)
 library(jsonlite)
 library(stringr)
+library(tidyr)
 options(future.globals.maxSize = 6000 * 1024^2)
-setwd("E:/Zhang Lab/Archives/RNASeq/RNASeq/RNASeq/Cite-seq/GSE145491")
-#setwd("/")
+#setwd("E:/Zhang Lab/Archives/RNASeq/RNASeq/RNASeq/Cite-seq/GSE145491")
+setwd("/Volumes/T7/Zhang Lab/Archives/RNASeq/RNASeq/RNASeq/Cite-seq/GSE145491")
 ```
 
 ```{r functions}
@@ -76,7 +77,7 @@ run_gsea_seurat <- function(markers_df, gmt_path, output_gsea, output_deg) {
   gsea <- fgsea(
     pathways = gmt,
     stats = rnk,
-    minSize = 10,
+    minSize = 3,
     maxSize = 500
   )
 
@@ -110,7 +111,7 @@ run_gsea_seurat <- function(markers_df, gmt_path, output_gsea, output_deg) {
 
 run_gsea_seurat_all <- function(all_markers_df, gmt_path, output_dir, output_deg_all,
                                   logfc_col = "avg_log2FC", padj_col = "p_val_adj",
-                                  gsea_padj_cutoff = 0.05) {
+                                  gsea_padj_cutoff = 0.25) {
   suppressPackageStartupMessages({
     library(fgsea)
     library(BiocParallel)
@@ -231,7 +232,7 @@ run_gsea_seurat_all <- function(all_markers_df, gmt_path, output_dir, output_deg
   ))
 }
 
-EnsIDReplace2 <- function(input, mapping_file = "C:/Users/rthalla/OneDrive - Loyola University Chicago/Zhang Lab/Ensembl_labels.csv") {
+EnsIDReplace2 <- function(input, mapping_file = "/Volumes/T7/Zhang Lab/Archives/RNASeq/RNASeq/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv") {
   #-----------------------------
   # 1. Validate inputs
   #-----------------------------
@@ -517,6 +518,7 @@ ggsave("TBK1 work/optnscatter.png", optnscatter, dpi = 600)
 ```
 
 ```{r TBK1 + OPTN expression data}
+library(dplyr)
 tbk1vln <- VlnPlot(filter, features = c("rna_ENSMUSG00000020115"), group.by = "gating")
 tbk1vln
 optnvln <- VlnPlot(filter, features = ("rna_ENSMUSG00000026672"), group.by = "gating")
@@ -544,7 +546,14 @@ genes <- c("ENSMUSG00000020115",
            "ENSMUSG00000025040",
            "ENSMUSG00000029512",
            "ENSMUSG00000004535",
-           "ENSMUSG00000021408")
+           "ENSMUSG00000021408",
+           "ENSMUSG00000028646",
+           "ENSMUSG00000032633",
+           "ENSMUSG00000007891",
+           "ENSMUSG00000083282",
+           "ENSMUSG00000033793",
+           "ENSMUSG00000022295",
+           "ENSMUSG00000024413")
 gene_labels <- c("ENSMUSG00000020115" = "TBK1", 
                   "ENSMUSG00000026672" = "OPTN",
                  "ENSMUSG00000028756" = "PINK1",
@@ -555,7 +564,14 @@ gene_labels <- c("ENSMUSG00000020115" = "TBK1",
                  "ENSMUSG00000025040" = "FUNDC1",
                  "ENSMUSG00000029512" = "ULK1",
                  "ENSMUSG00000004535" = "TAX1BP1",
-                 "ENSMUSG00000021408" = "RIPK1")
+                 "ENSMUSG00000021408" = "RIPK1",
+                 "ENSMUSG00000028646" = "RRAGC",
+                 "ENSMUSG00000032633" = "FLCN",
+                 "ENSMUSG00000007891" = "CTSD",
+                 "ENSMUSG00000083282" = "CTSF",
+                 "ENSMUSG00000033793" = "ATP6V1H",
+                 "ENSMUSG00000022295" = "ATP6V1C1",
+                 "ENSMUSG00000024413" = "NPC1")
 
 expr_data <- FetchData(filter, vars = c(genes, "gating")) %>%
   dplyr::filter(!is.na(gating), gating != "NA")
@@ -573,7 +589,7 @@ summary_df <- expr_data %>%
   mutate(gene_label = recode(gene, !!!gene_labels))
 
 # TBK1 plot
-tbk1_df <- summary_df %>% dplyr::filter(gene_label == "TBK1")
+tbk1_df <- summary_df %>% dplyr::filter(gene_label == "CTSN")
 
 p_tbk1 <- ggplot(tbk1_df, aes(x = gating, y = mean_expr, fill = gating)) +
   geom_bar(stat = "identity", color = "black", width = 0.7) +
@@ -584,6 +600,7 @@ p_tbk1 <- ggplot(tbk1_df, aes(x = gating, y = mean_expr, fill = gating)) +
   theme_classic() +
   theme(legend.position = "none",
         axis.text.x = element_text(angle = 45, hjust = 1))
+p_tbk1
 
 # OPTN plot
 optn_df <- summary_df %>% dplyr::filter(gene_label == "OPTN")
@@ -609,8 +626,8 @@ write.csv(summary_df, "TBK1 work/geneexpression.csv")
 markers <- FindAllMarkers(filter, group.by = "gating")
 markers <- EnsIDReplace2(markers)
 run_gsea_seurat_all(all_markers_df = markers,
-                    gmt_path = "mousepathways_gsea.gmt",
-                    output_dir = "TBK1 work/allpathwaysgsea",
+                    gmt_path = "mousepathways_gsea_fixed.gmt",
+                    output_dir = "TBK1 work/allpathwaysgsea_v2",
                     output_deg_all = "lskmarkers.csv")
 ```
 
