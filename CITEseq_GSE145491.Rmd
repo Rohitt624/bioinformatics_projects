@@ -25,6 +25,7 @@ library(ggcyto)
 library(jsonlite)
 library(stringr)
 library(tidyr)
+library(ComplexHeatmap)
 options(future.globals.maxSize = 6000 * 1024^2)
 #setwd("E:/Zhang Lab/Archives/RNASeq/RNASeq/RNASeq/Cite-seq/GSE145491")
 setwd("/Volumes/T7/Zhang Lab/Archives/RNASeq/RNASeq/RNASeq/Cite-seq/GSE145491")
@@ -536,6 +537,8 @@ tbk1bar <- ggplot(mean, aes(x=gating, y=ENSMUSG00000020115, fill=gating)) +
   labs(title="Average TBK1 Expression in LSKs", y="TBK1 expression")
 tbk1bar
 
+filter <- ScaleData(filter, features = genes)
+
 genes <- c("ENSMUSG00000020115",
            "ENSMUSG00000026672",
            "ENSMUSG00000028756",
@@ -553,11 +556,21 @@ genes <- c("ENSMUSG00000020115",
            "ENSMUSG00000083282",
            "ENSMUSG00000033793",
            "ENSMUSG00000022295",
-           "ENSMUSG00000024413")
+           "ENSMUSG00000024413",
+           "ENSMUSG00000031447",
+           "ENSMUSG00000061175",
+           "ENSMUSG00000079477",
+           "ENSMUSG00000026029",
+           "ENSMUSG00000030793",
+           "ENSMUSG00000041849",
+           "ENSMUSG00000037860",
+           "ENSMUSG00000024401",
+           "ENSMUSG00000022221",
+           "ENSMUSG00000012519")
 gene_labels <- c("ENSMUSG00000020115" = "TBK1", 
                   "ENSMUSG00000026672" = "OPTN",
                  "ENSMUSG00000028756" = "PINK1",
-                 "ENSMUSG00000023826" = "PARKIN",
+                 "ENSMUSG00000023826" = "PRKN",
                  "ENSMUSG00000015837" = "P62",
                  "ENSMUSG00000078566" = "BNIP3",
                  "ENSMUSG00000022051" = "NIX",
@@ -571,10 +584,35 @@ gene_labels <- c("ENSMUSG00000020115" = "TBK1",
                  "ENSMUSG00000083282" = "CTSF",
                  "ENSMUSG00000033793" = "ATP6V1H",
                  "ENSMUSG00000022295" = "ATP6V1C1",
-                 "ENSMUSG00000024413" = "NPC1")
+                 "ENSMUSG00000024413" = "NPC1",
+                 "ENSMUSG00000031447" = "LAMP1",
+                 "ENSMUSG00000061175" = "FNIP2",
+                 "ENSMUSG00000079477" = "RAB7",
+                 "ENSMUSG00000026029" = "CASP8",
+                 "ENSMUSG00000030793" = "PYCARD",
+                 "ENSMUSG00000041849" = "CARD6",
+                 "ENSMUSG00000037860" = "AIM2",
+                 "ENSMUSG00000024401" = "TNF",
+                 "ENSMUSG00000022221" = "RIPK3",
+                 "ENSMUSG00000012519" = "MLKL")
+
+filter2 <- subset(filter, cells = colnames(filter)[!is.na(filter$gating)])
+filter2$gating <- droplevels(factor(filter2$gating))
+Idents(filter2) <- "gating"
+
+sub <- subset(filter2, downsample = 500)
+sub <- ScaleData(sub, features = genes)
+
+DoHeatmap(sub, features = genes, group.by = "gating") +
+  scale_y_discrete(labels = gene_labels)
+
+DoHeatmap(filter2, features = genes, group.by = "gating") + 
+  scale_y_discrete(labels = gene_labels)
+
 
 expr_data <- FetchData(filter, vars = c(genes, "gating")) %>%
   dplyr::filter(!is.na(gating), gating != "NA")
+
 
 summary_df <- expr_data %>%
   pivot_longer(cols = all_of(genes), names_to = "gene", values_to = "expression") %>%
@@ -620,6 +658,233 @@ p_optn
 
 write.csv(summary_df, "TBK1 work/geneexpression.csv")
 
+```
+
+```{r}
+library(pheatmap)
+
+filter2 <- subset(filter, cells = colnames(filter)[!is.na(filter$gating)])
+filter2$gating <- factor(filter2$gating, levels = c("HSC", "MPP1", "MPP2", "MPP3", "MPP4"))
+
+# sum counts per group over ALL genes (needed for correct library-size normalization)
+pb <- AggregateExpression(filter2, assays = "RNA", group.by = "gating",
+                          return.seurat = TRUE)
+pb <- NormalizeData(pb)   # log-normalize the pseudobulk profiles
+
+genes_use <- intersect(genes, rownames(pb))
+mat <- GetAssayData(pb, layer = "data")[genes_use, c("HSC", "MPP1", "MPP2", "MPP3", "MPP4")]
+rownames(mat) <- gene_labels[rownames(mat)]
+
+groups <- list(
+  Autophagy    = c("OPTN", "PINK1", "PRKN", "P62", "BNIP3", "NIX", "FUNDC1", "ULK1", "TAX1BP1"),
+  `TFEB/vATPase` = c("RRAGC", "FLCN", "FNIP2", "ATP6V1H", "ATP6V1C1", "CTSD", "CTSF", "NPC1", "LAMP1", "RAB7"),
+  `Cell death` = c("RIPK1", "CASP8", "RIPK3", "MLKL", "PYCARD", "CARD6", "AIM2", "TNF")
+)
+
+# |HSC - mean of other cell types| on the log-normalized pseudobulk values
+others <- setdiff(colnames(mat), "HSC")
+diff_hsc <- abs(mat[, "HSC"] - rowMeans(mat[, others]))
+
+# order within each group by that difference (largest first)
+gene_order <- unname(unlist(lapply(groups, function(g) {
+  g <- intersect(g, rownames(mat))
+  g[order(diff_hsc[g], decreasing = TRUE)]
+})))
+
+# gaps between groups
+gaps <- head(cumsum(sapply(groups, function(g) length(intersect(g, rownames(mat))))), -1)
+mat <- as.matrix(mat)
+pheatmap(mat[gene_order, ],
+         scale = "none",
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,
+         gaps_row = gaps,
+         border_color = NA)
+
+mat <- as.matrix(mat)
+m <- mat[gene_order, ]
+mid <- median(m)   # white = this value; change as you like
+
+col_fun <- colorRamp2(c(min(m), mid, max(m)), c("navy", "white", "firebrick3"))
+
+
+
+Heatmap(m,
+        name = "log-norm\nexpression",
+        col = col_fun,
+        cluster_rows = FALSE,
+        cluster_columns = FALSE,
+        row_split = row_group,
+        row_title = NULL,
+        row_gap = unit(0, "mm"),
+        rect_gp = gpar(col = "black", lwd = 1),
+        border = "black",
+        border_gp = gpar(col = "black", lwd = 3),
+        width  = ncol(m) * cell,
+        height = nrow(m) * cell)
+```
+
+```{r}
+pb <- ScaleData(pb, features = genes_use)   # make sure all your genes are in scale.data
+
+sc <- as.matrix(GetAssayData(pb, layer = "scale.data"))[genes_use, c("HSC", "MPP1", "MPP2", "MPP3", "MPP4")]
+rownames(sc) <- gene_labels[rownames(sc)]
+m <- sc[gene_order, ]
+
+row_group <- factor(
+  rep(names(groups), sapply(groups, function(g) length(intersect(g, rownames(sc))))),
+  levels = names(groups)
+)
+
+lim <- max(abs(m))
+col_fun <- colorRamp2(c(-lim, 0, lim), c("navy", "white", "firebrick3"))
+cell <- unit(8, "mm")
+markers <- read.csv("/Volumes/T7/Zhang Lab/Archives/RNASeq/RNASeq/RNASeq/Cite-seq/GSE145491/TBK1 work/lskmarkers.csv")
+markers$sym <- toupper(markers$gene)
+
+# heatmap label -> symbol in the file
+alias <- c(P62 = "SQSTM1", NIX = "BNIP3L")
+lookup_sym <- ifelse(rownames(m) %in% names(alias), alias[rownames(m)], rownames(m))
+names(lookup_sym) <- rownames(m)
+
+markers$label <- names(lookup_sym)[match(markers$sym, lookup_sym)]
+sig <- markers[!is.na(markers$label) & markers$cluster %in% colnames(m), ]
+
+stars <- matrix("", nrow(m), ncol(m), dimnames = dimnames(m))
+sym <- ifelse(sig$p_val_adj < 0.001, "***",
+       ifelse(sig$p_val_adj < 0.01,  "**",
+       ifelse(sig$p_val_adj < 0.05,  "*", "")))
+stars[cbind(sig$label, as.character(sig$cluster))] <- sym
+
+ht <- Heatmap(m,
+              name = "Scaled\nexpression",
+              col = col_fun,
+              cluster_rows = FALSE,
+              cluster_columns = FALSE,
+              row_split = row_group,
+              row_title = NULL,
+              row_gap = unit(0, "mm"),
+              rect_gp = gpar(col = "black", lwd = 1),
+              border = "black",
+              border_gp = gpar(col = "black", lwd = 3),
+              width  = ncol(m) * cell,
+              height = nrow(m) * cell,
+              layer_fun = function(j, i, x, y, w, h, fill) {
+                grid.text(pindex(stars, i, j), x, y - unit(1, "mm"),
+                          gp = gpar(fontsize = 16, col = "black"))
+              })
+
+png("tbk1_heatmap_sig.png", width = 5, height = 10, units = "in", res = 600)
+draw(ht)
+dev.off()
+```
+
+```{r}
+markers <- read.csv("/Volumes/T7/Zhang Lab/Archives/RNASeq/RNASeq/RNASeq/Cite-seq/GSE145491/TBK1 work/lskmarkers.csv")
+head(markers)
+unique(markers$cluster)   # should be HSC, MPP1-4
+
+```
+
+```{r}
+library(ComplexHeatmap)
+library(circlize)
+library(grid)
+
+cts <- c("HSC", "MPP1", "MPP2", "MPP3", "MPP4")
+
+# ---- 1. Gene sets (mouse symbols; original + added) ----
+sets <- list(
+  Autophagy = c("Optn", "Pink1", "Prkn", "Sqstm1", "Bnip3", "Bnip3l", "Fundc1", "Ulk1", "Tax1bp1",
+                "Atg5", "Atg7", "Atg12", "Atg16l1", "Atg9a", "Atg13", "Becn1", "Rb1cc1", "Ulk2",
+                "Map1lc3b", "Gabarap", "Nbr1", "Calcoco2"),
+  TFEB = c("Rragc", "Flcn", "Fnip2", "Atp6v1h", "Atp6v1c1", "Ctsd", "Ctsf", "Npc1", "Lamp1", "Rab7",
+           "Tfeb", "Tfe3", "Mitf", "Mtor", "Rraga", "Rragb",
+           "Lamtor1", "Lamtor2", "Lamtor3", "Lamtor4", "Lamtor5", "Ppp3ca",
+           "Atp6v1a", "Atp6v1b2", "Atp6v1d", "Atp6v0d1", "Atp6ap1", "Atp6ap2",
+           "Lamp2", "Ctsb", "Ctsl", "Gba", "Hexa", "Hexb", "Mcoln1"),
+  `Cell death` = c("Ripk1", "Casp8", "Ripk3", "Mlkl", "Pycard", "Card6", "Aim2", "Tnf",
+                   "Zbp1", "Nlrp3", "Casp1", "Casp4", "Gsdmd", "Gsdme", "Fadd", "Casp3",
+                   "Casp7", "Casp9", "Cflar", "Tradd", "Bax", "Bak1")
+)
+
+# display labels where they differ from the symbol
+disp <- c(SQSTM1 = "P62", BNIP3L = "NIX")
+lab  <- function(s) ifelse(s %in% names(disp), disp[s], s)
+
+# ---- 2. Symbol -> Ensembl ID (using your mapping file) ----
+map <- read.csv("/Volumes/T7/Zhang Lab/Archives/RNASeq/RNASeq/RNASeq/Cite-seq/GSE145491/Ensembl_labels.csv")
+map$gene_id <- sub("\\.\\d+$", "", map$gene_id)
+sym2ens <- setNames(map$gene_id, toupper(map$gene_name))
+sym2ens <- sym2ens[!duplicated(names(sym2ens))]
+
+all_sym <- unique(toupper(unlist(sets)))
+ens <- sym2ens[all_sym]
+names(ens) <- all_sym
+
+cat("Not in mapping file:   ", all_sym[is.na(ens)], "\n")
+cat("Not in pseudobulk obj: ", all_sym[!is.na(ens) & !(ens %in% rownames(pb))], "\n")
+
+ens_ok <- ens[!is.na(ens) & ens %in% rownames(pb)]
+
+# ---- 3. Log-normalized (for ordering) and scaled (for colors) ----
+pb <- ScaleData(pb, features = unname(ens_ok))
+lognorm <- as.matrix(GetAssayData(pb, layer = "data"))[ens_ok, cts]
+scaled  <- as.matrix(GetAssayData(pb, layer = "scale.data"))[ens_ok, cts]
+rownames(lognorm) <- rownames(scaled) <- names(ens_ok)
+
+# ---- 4. Markers for stars ----
+markers <- read.csv("/Volumes/T7/Zhang Lab/Archives/RNASeq/RNASeq/RNASeq/Cite-seq/GSE145491/TBK1 work/lskmarkers.csv")
+markers$sym <- toupper(markers$gene)
+
+# ---- 5. Heatmap function ----
+make_heatmap <- function(set_name, file, cell = unit(8, "mm")) {
+  sy <- intersect(toupper(sets[[set_name]]), rownames(scaled))
+
+  # order by |HSC - mean(other cell types)| on log-normalized values
+  d  <- abs(lognorm[sy, "HSC"] - rowMeans(lognorm[sy, setdiff(cts, "HSC"), drop = FALSE]))
+  sy <- sy[order(d, decreasing = TRUE)]
+
+  m <- scaled[sy, , drop = FALSE]
+  rownames(m) <- lab(sy)
+
+  # stars
+  sig <- markers[markers$sym %in% sy & markers$cluster %in% cts, ]
+  stars <- matrix("", length(sy), length(cts), dimnames = list(sy, cts))
+  txt <- ifelse(sig$p_val_adj < 0.001, "***",
+         ifelse(sig$p_val_adj < 0.01,  "**",
+         ifelse(sig$p_val_adj < 0.05,  "*", "")))
+  txt[is.na(txt)] <- ""
+  stars[cbind(sig$sym, as.character(sig$cluster))] <- txt
+
+  ht <- Heatmap(m,
+                name = "Scaled\nexpression",
+                col = colorRamp2(c(-2, 0, 2), c("navy", "white", "firebrick3")),
+                cluster_rows = FALSE,
+                cluster_columns = FALSE,
+                rect_gp = gpar(col = "black", lwd = 1),
+                border = "black",
+                border_gp = gpar(col = "black", lwd = 3),
+                width  = ncol(m) * cell,
+                height = nrow(m) * cell,
+                layer_fun = function(j, i, x, y, w, h, fill) {
+                  grid.text(pindex(stars, i, j), x, y - unit(1, "mm"),
+                            gp = gpar(fontsize = 16, col = "black"))
+                })
+
+  h_in <- nrow(m) * 8 / 25.4 + 2.5   # body height + room for labels
+  png(file, width = 5, height = h_in, units = "in", res = 600)
+  draw(ht)
+  dev.off()
+  invisible(ht)
+}
+
+# ---- 6. Run ----
+ht_auto <- make_heatmap("Autophagy",  "heatmap_autophagy.png")
+ht_tfeb <- make_heatmap("TFEB",       "heatmap_tfeb.png")
+ht_cd   <- make_heatmap("Cell death", "heatmap_celldeath.png")
+
+draw(ht_auto)   # preview in the plot window
 ```
 
 ```{r gsea}
